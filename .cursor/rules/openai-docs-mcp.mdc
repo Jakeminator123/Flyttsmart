@@ -1,0 +1,17 @@
+---
+description: Use MCP servers for up-to-date docs on OpenAI, shadcn/ui and Vercel
+alwaysApply: true
+---
+
+# MCP Documentation Servers
+
+Always consult MCP servers before relying on training data for these topics:
+
+## openaiDeveloperDocs
+Use for: GPT models, Responses API, function calling, agents, tools, embeddings, streaming, Codex, pricing, rate limits, or any OpenAI API question.
+
+## shadcn
+Use for: shadcn/ui components, props, variants, installation, registry, theming, or any UI component question related to this project.
+
+## Vercel (already active)
+Use for: deployments, domains, serverless functions, environment variables, build config, or any Vercel platform question.

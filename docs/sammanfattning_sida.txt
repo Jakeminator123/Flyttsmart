@@ -1,0 +1,9 @@
+Kort sammanfattning av instruktionerna for Sida:
+- Positionering: flyttanmalan.nu/Flytt.io som AI-agent som tar helhetsansvar for flytten.
+- Problem: flytt ar obligatorisk men upplevelsen ar splittrad, manuell och dyr; anvandare maste gora jobbet sjalv och foretag drunknar i brus.
+- Losning/produktkrav: BankID-inlogg, datainsamling och validering, automatiserad flyttanmalan/adressandring, personlig tidsatt checklista, paminnelser och relevanta erbjudanden i ratt tid.
+- Affarsmodell: lead-driven multi-vertikal, anvandaren betalar med samtycke och timing, intakt per flytt fran flera partners (el, forsakring, larm, flyttstad, magasinering, bredband m.m.).
+- GTM och KPI: SEO/SEM pa "adressandring" och "flyttanmalan", partnerskap (el som primar trigger) och maklare som kanal; folj konvertering, genomforda flyttar och intakt per flytt.
+- Teknisk riktning: AI-agent + orchestration-lager, state machine for "min flytt", RPA/guided flows initialt och malbild med egen UX som postar mot Adressandring samt partner-admin/lead-export.
+- Sida-innehall: tydlig hero/CTA, "sa fungerar det", trygghet (BankID, GDPR), FAQ, jamforelse mot traditionell process samt juridiska texter (villkor, integritet, cookies).
+

@@ -1,0 +1,80 @@
+# OpenAI Platform Docs - correct menu URLs
+# Source: https://platform.openai.com/docs/docs-mcp
+
+# --- Get started ---
+https://platform.openai.com/docs/overview
+https://platform.openai.com/docs/quickstart
+https://platform.openai.com/docs/models
+https://platform.openai.com/docs/pricing
+https://platform.openai.com/docs/libraries
+https://platform.openai.com/docs/docs-mcp
+https://platform.openai.com/docs/guides/latest-model
+
+# --- Core concepts ---
+https://platform.openai.com/docs/guides/text
+https://platform.openai.com/docs/guides/code-generation
+https://platform.openai.com/docs/guides/images-vision
+https://platform.openai.com/docs/guides/audio
+https://platform.openai.com/docs/guides/structured-outputs
+https://platform.openai.com/docs/guides/function-calling
+https://platform.openai.com/docs/guides/migrate-to-responses
+
+# --- Agents ---
+https://platform.openai.com/docs/guides/agents
+https://platform.openai.com/docs/guides/voice-agents
+
+# --- Tools ---
+https://platform.openai.com/docs/guides/tools
+https://platform.openai.com/docs/guides/tools-connectors-mcp
+https://platform.openai.com/docs/guides/tools-web-search
+https://platform.openai.com/docs/guides/tools-code-interpreter
+
+# --- Run and scale ---
+https://platform.openai.com/docs/guides/conversation-state
+https://platform.openai.com/docs/guides/background
+https://platform.openai.com/docs/guides/streaming-responses
+https://platform.openai.com/docs/guides/webhooks
+https://platform.openai.com/docs/guides/pdf-files
+
+# --- Evaluation ---
+https://platform.openai.com/docs/guides/evaluation-getting-started
+https://platform.openai.com/docs/guides/evals
+https://platform.openai.com/docs/guides/prompt-optimizer
+https://platform.openai.com/docs/guides/external-models
+https://platform.openai.com/docs/guides/evaluation-best-practices
+
+# --- Realtime API ---
+https://platform.openai.com/docs/guides/realtime
+
+# --- Model optimization ---
+https://platform.openai.com/docs/guides/model-optimization
+https://platform.openai.com/docs/guides/graders
+
+# --- Specialized models ---
+https://platform.openai.com/docs/guides/image-generation
+https://platform.openai.com/docs/guides/video-generation
+https://platform.openai.com/docs/guides/text-to-speech
+https://platform.openai.com/docs/guides/speech-to-text
+https://platform.openai.com/docs/guides/deep-research
+https://platform.openai.com/docs/guides/embeddings
+https://platform.openai.com/docs/guides/moderation
+
+# --- Coding agents ---
+https://developers.openai.com/codex/cloud
+https://developers.openai.com/codex/cloud/agent-internet
+https://developers.openai.com/codex/cli
+https://developers.openai.com/codex/ide
+https://developers.openai.com/codex/changelog
+
+# --- Going live ---
+https://platform.openai.com/docs/guides/production-best-practices
+https://platform.openai.com/docs/guides/optimizing-llm-accuracy
+
+# --- Resources ---
+https://platform.openai.com/docs/changelog
+https://platform.openai.com/docs/guides/your-data
+https://platform.openai.com/docs/guides/rbac
+https://platform.openai.com/docs/guides/rate-limits
+https://platform.openai.com/docs/deprecations
+https://platform.openai.com/docs/mcp
+https://platform.openai.com/docs/guides/developer-mode

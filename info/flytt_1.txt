@@ -1,0 +1,110 @@
+flyttanmälan.nu
+En AI-agent som äger flytten
+Möjlighet till 33 % ägande för teknisk co-founder
+
+Problemet
+Att flytta är ett av livets mest administrativa ögonblick – men lösningarna är fragmenterade och föråldrade.
+Alla måste göra flyttanmälan (Skatteverket)
+Adressändring är dyrt, manuellt och centrerat kring post (en döende use-case)
+Användaren måste själv:
+fylla i uppgifter flera gånger
+veta vilka företag som ska kontaktas
+hålla koll på timing (el, försäkring, bredband)
+Företag som vill nå flyttare drunknar i brus
+Ingen aktör tar helhetsansvar.
+Det finns checklistor – men ingen som gör jobbet.
+
+Lösningen
+flyttanmälan.nu är en AI-agent som sköter flytten åt användaren.
+Agenten:
+identifierar användaren med BankID
+samlar in och validerar flyttdata
+genomför flyttanmälan/adressändring via rätt kanal
+skapar en personlig, tidsatt checklista
+levererar relevanta erbjudanden i exakt rätt ögonblick
+Användaren betalar inte med pengar – utan med samtycke och timing.
+Som incitament får användaren t.ex. gratis el första månaden på nya adressen.
+
+Varför nu
+Flytt är obligatoriskt – alla måste göra det
+Sökintentionen är extremt tydlig
+“adressändring”: ~29 000 sökningar/mån, låg konkurrens
+“flyttanmälan”: ~3 400 sökningar/mån, ännu lägre konkurrens
+BankID är allmänt accepterat och möjliggör:
+säker identitet
+prefill
+signering & samtycke
+El, försäkring och abonnemang är i praktiken commodities
+→ perfekta för automatiserade, tajmade val
+Det här fönstret kommer inte bli enklare.
+
+Affärsmodellen
+Lead-driven, multi-vertikal.
+Samma flytt kan monetiseras flera gånger
+Betalt per kvalificerad flyttare
+Exempelintäkter per flytt:
+El: 250 kr
+Försäkring: 250 kr
+Larm / flyttstäd / magasinering: 250 kr
+Bredband (strategiskt): 10 kr
+➡️ 750+ kr per flytt är realistiskt utan att belasta användaren
+Skalbart, återkommande, låg churn.
+
+GTM – Go-to-Market
+Steg 1 – SEO & SEM
+Fånga “adressändring” och “flyttanmälan”
+Låg KD, hög intent
+Steg 2 – Partnerskap
+Elbolag som primär trigger
+Försäkring, larm, flyttstäd som sekundära
+Steg 3 – Mäklare
+Mäklare skickar köpare/säljare direkt in i flödet
+Rev share per registrerad flytt
+
+KPI:er (tidigt fokus)
+Conversion: besök → startad flytt
+Andel genomförda flyttar
+Intäkt per flytt
+
+Teknik & implementation (för dig som utvecklare)
+Kärnan är en AI-agent + orchestration-lager.
+BankID-login
+State machine för “min flytt”
+AI-driven checklist- & reminder-motor
+Integration via:
+RPA / guided flows (Skatteverket / Adressändring)
+senare API-partnerskap
+Partner-admin + lead-export
+Rekommenderad start:
+Egen UX → posta mot Adressändring → äg hela upplevelsen.
+
+Partners (redan identifierade)
+Elbolag (primärt)
+Försäkringsbolag
+Larm
+Flyttstäd / flyttfirma
+Magasinering
+Matkasse / retail
+Mäklarkedjor
+Bredband
+Intresse finns – timing är rätt.
+
+Varför 33 % till teknisk co-founder
+Detta är:
+en tekniskt krävande produkt
+med långsiktig plattformsambition
+där teknik är produkten
+Vi söker inte en konsult – utan en medgrundare som:
+äger arkitektur och implementation
+är med och formar produkten från dag 1
+bygger något som kan bli standard för hur flyttar fungerar
+33 % är för att det ska vara “din” produkt också.
+
+Sammanfattning
+flyttanmälan.nu:
+äger ett obligatoriskt moment i människors liv
+har tydlig distribution
+tydlig monetisering
+tydlig teknisk hävstång
+Det här är inte “ännu en marknadsplats”.
+Det är ett system som tar över ett jobb alla hatar.

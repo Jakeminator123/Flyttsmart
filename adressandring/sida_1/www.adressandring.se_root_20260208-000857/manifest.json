@@ -1,0 +1,26 @@
+{
+  "page_url": "https://www.adressandring.se/",
+  "saved_at": "20260208-000857",
+  "assets": {
+    "https://www.adressandring.se/styles.1d08ebc4f8de8b5f.css": {
+      "content_type": "text/css",
+      "bytes": 135503,
+      "local_path": "assets/b3ff3052c0b0cbf4.css"
+    },
+    "https://www.adressandring.se/runtime.b116ed48a2550a99.js": {
+      "content_type": "text/javascript",
+      "bytes": 5711,
+      "local_path": "assets/26ecb9b52fb72159.js"
+    },
+    "https://www.adressandring.se/polyfills.b5893eb0965e9b10.js": {
+      "content_type": "text/javascript",
+      "bytes": 35420,
+      "local_path": "assets/3a1575ae21cb6827.js"
+    },
+    "https://www.adressandring.se/main.04dfe3fcd7426280.js": {
+      "content_type": "text/javascript",
+      "bytes": 1016897,
+      "local_path": "assets/448d13182c53ad1b.js"
+    }
+  }
+}

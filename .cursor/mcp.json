@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "openaiDeveloperDocs": {
+      "url": "https://developers.openai.com/mcp"
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"]
+    }
+  }
+}

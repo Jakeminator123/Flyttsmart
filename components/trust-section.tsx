@@ -3,7 +3,6 @@
 import Image from "next/image"
 import { ShieldCheck, Lock, FileCheck, CreditCard, Info } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import {
   Dialog,
@@ -42,18 +41,19 @@ const paymentMethods = [
 
 export function TrustSection() {
   return (
-    <section className="relative bg-background py-24 lg:py-32">
-      <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-border to-transparent" />
+    <section className="relative bg-background py-28 lg:py-36">
+      <div className="section-divider absolute top-0 left-0 right-0" />
 
       <div className="mx-auto max-w-7xl px-4 lg:px-8">
         <ScrollReveal className="text-center">
-          <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
+          <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
             Tryggt val
           </Badge>
-          <h2 className="mt-4 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Säkerheten du förtjänar
+          <h2 className="mt-5 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            Säkerheten du
+            <span className="text-gradient"> förtjänar</span>
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+          <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
             Används av tusentals flyttare varje månad. Dina uppgifter hanteras tryggt och säkert.
           </p>
         </ScrollReveal>
@@ -61,26 +61,24 @@ export function TrustSection() {
         <div className="mt-16 grid gap-6 sm:grid-cols-3">
           {trustSignals.map((signal, i) => (
             <ScrollReveal key={signal.title} delay={i * 150}>
-              <Card className="group h-full border-border transition-all duration-500 hover:border-primary/20 hover:shadow-lg hover:-translate-y-1.5">
-                <CardContent className="flex flex-col items-center p-8 text-center">
-                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-all duration-500 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-lg group-hover:shadow-primary/25 group-hover:scale-110">
-                    <signal.icon className="h-7 w-7" />
-                  </div>
-                  <h3 className="mb-2 font-heading text-lg font-semibold text-card-foreground">
-                    {signal.title}
-                  </h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    {signal.description}
-                  </p>
-                </CardContent>
-              </Card>
+              <div className="gradient-border group flex h-full flex-col items-center rounded-2xl border border-border/50 bg-card p-9 text-center transition-all duration-500 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-2">
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-all duration-500 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-xl group-hover:shadow-primary/25 group-hover:scale-110">
+                  <signal.icon className="h-8 w-8" />
+                </div>
+                <h3 className="mb-3 font-heading text-lg font-semibold text-card-foreground">
+                  {signal.title}
+                </h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {signal.description}
+                </p>
+              </div>
             </ScrollReveal>
           ))}
         </div>
 
         {/* Payment section with image */}
         <ScrollReveal delay={200} className="mt-16">
-          <div className="relative overflow-hidden rounded-2xl border border-border/50 shadow-xl">
+          <div className="gradient-border relative overflow-hidden rounded-2xl shadow-2xl shadow-primary/10">
             <Image
               src="/images/secure-form.jpg"
               alt="En laptop med ett säkert formulär på skärmen bredvid en kopp kaffe på ett ljust skrivbord"
@@ -90,23 +88,22 @@ export function TrustSection() {
             />
             <div className="absolute inset-0 bg-linear-to-t from-foreground/70 via-foreground/20 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3">
                 {paymentMethods.map((method) => (
-                  <Badge key={method.name} variant="secondary" className="gap-1.5 bg-card/90 px-3 py-1.5 text-card-foreground backdrop-blur-sm">
+                  <Badge key={method.name} variant="secondary" className="glass gap-1.5 px-3 py-1.5 text-card-foreground">
                     <method.icon className="h-4 w-4" />
                     {method.name}
                   </Badge>
                 ))}
-                <Badge variant="secondary" className="gap-1.5 bg-card/90 px-3 py-1.5 text-card-foreground backdrop-blur-sm">
+                <Badge variant="secondary" className="glass gap-1.5 px-3 py-1.5 text-card-foreground">
                   <ShieldCheck className="h-4 w-4" />
                   SSL-krypterad
                 </Badge>
               </div>
 
-              {/* Dialog for payment info */}
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="secondary" size="sm" className="gap-1.5 rounded-full bg-card/90 backdrop-blur-sm">
+                  <Button variant="secondary" size="sm" className="glass gap-1.5 rounded-full text-card-foreground">
                     <Info className="h-3.5 w-3.5" />
                     Läs mer om säkerhet
                   </Button>

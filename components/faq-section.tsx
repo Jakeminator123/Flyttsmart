@@ -7,7 +7,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { ScrollReveal } from "@/components/scroll-reveal"
 
 const faqs = [
@@ -53,19 +52,20 @@ export function FaqSection() {
   return (
     <section
       id="faq"
-      className="relative bg-section-alt py-24 lg:py-32"
+      className="relative bg-section-alt py-28 lg:py-36"
     >
-      <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-border to-transparent" />
+      <div className="section-divider absolute top-0 left-0 right-0" />
 
       <div className="mx-auto max-w-3xl px-4 lg:px-8">
         <ScrollReveal className="text-center">
-          <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
+          <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
             FAQ
           </Badge>
-          <h2 className="mt-4 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Vanliga frågor
+          <h2 className="mt-5 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            Vanliga
+            <span className="text-gradient"> frågor</span>
           </h2>
-          <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+          <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
             Här hittar du svar på de vanligaste frågorna om adressändring.
           </p>
         </ScrollReveal>
@@ -76,7 +76,7 @@ export function FaqSection() {
               <AccordionItem
                 key={i}
                 value={`item-${i}`}
-                className="rounded-xl border border-border bg-card px-6 transition-all duration-200 hover:border-primary/20 data-[state=open]:border-primary/30 data-[state=open]:shadow-md"
+                className="gradient-border rounded-xl border border-border/50 bg-card px-6 transition-all duration-300 hover:shadow-md hover:shadow-primary/5 data-[state=open]:shadow-lg data-[state=open]:shadow-primary/10"
               >
                 <AccordionTrigger className="py-5 text-left font-heading font-semibold text-card-foreground hover:no-underline hover:text-primary transition-colors data-[state=open]:text-primary gap-4">
                   <span className="flex items-center gap-3">
@@ -87,7 +87,7 @@ export function FaqSection() {
                   </span>
                 </AccordionTrigger>
                 <AccordionContent className="pb-5">
-                  <Separator className="mb-4" />
+                  <div className="mb-4 h-px w-full bg-linear-to-r from-primary/15 via-border to-transparent" />
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     {faq.answer}
                   </p>

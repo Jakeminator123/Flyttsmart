@@ -8,7 +8,17 @@ import crypto from "crypto";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, personalNumber, address, email, phone } = body;
+    const {
+      name,
+      personalNumber,
+      address,
+      email,
+      phone,
+      toStreet,
+      toPostal,
+      toCity,
+      moveDate,
+    } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -24,6 +34,10 @@ export async function POST(req: NextRequest) {
       a: address || undefined,
       e: email || undefined,
       t: phone || undefined,
+      ns: toStreet || undefined,
+      np: toPostal || undefined,
+      nc: toCity || undefined,
+      md: moveDate || undefined,
       ts: Math.floor(Date.now() / 1000),
     };
 
@@ -41,23 +55,28 @@ export async function POST(req: NextRequest) {
       errorCorrectionLevel: "M",
     });
 
-    // Store token in database
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(url)
-      .digest("hex");
-
-    const expiresAt = new Date(
+    // Store token in database (graceful – QR still works via HMAC if DB fails)
+    let expiresAt = new Date(
       Date.now() + 30 * 24 * 60 * 60 * 1000
     ).toISOString();
 
-    db.insert(qrTokens)
-      .values({
-        tokenHash,
-        encodedData: JSON.stringify(qrData),
-        expiresAt,
-      })
-      .run();
+    try {
+      const tokenHash = crypto
+        .createHash("sha256")
+        .update(url)
+        .digest("hex");
+
+      db.insert(qrTokens)
+        .values({
+          tokenHash,
+          encodedData: JSON.stringify(qrData),
+          expiresAt,
+        })
+        .run();
+    } catch (dbError) {
+      // DB insert failed – QR still works because decode uses HMAC verification, not DB
+      console.warn("QR token DB insert failed (non-critical):", dbError);
+    }
 
     return NextResponse.json({
       url,

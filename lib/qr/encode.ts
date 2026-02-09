@@ -5,12 +5,20 @@ export interface QrPersonData {
   n: string;
   /** Personal number (may be partial / hashed) */
   p?: string;
-  /** Full address string */
+  /** Current address string */
   a?: string;
   /** Email */
   e?: string;
   /** Phone */
   t?: string;
+  /** New address – street */
+  ns?: string;
+  /** New address – postal code */
+  np?: string;
+  /** New address – city */
+  nc?: string;
+  /** Move date (YYYY-MM-DD) */
+  md?: string;
   /** Timestamp (unix seconds) */
   ts: number;
 }

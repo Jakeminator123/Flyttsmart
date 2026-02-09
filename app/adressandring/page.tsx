@@ -16,6 +16,9 @@ import {
   Loader2,
   Sparkles,
   AlertCircle,
+  Smartphone,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +47,7 @@ import { Logo } from "@/components/logo";
 import { QrScanner } from "@/components/qr-scanner";
 import { ChecklistView, type ChecklistItem } from "@/components/checklist-view";
 import { AiChatBubble } from "@/components/ai-chat-bubble";
+import { SkatteverketGuide } from "@/components/skatteverket-guide";
 
 const STEPS = [
   { id: 1, label: "Identifiering", icon: QrCode },
@@ -101,14 +105,39 @@ export default function AdressandringPage() {
   const [form, setForm] = useState<FormData>(emptyForm);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [checklistLoading, setChecklistLoading] = useState(false);
+  const [checklistError, setChecklistError] = useState<string | null>(null);
+  const [checklistSource, setChecklistSource] = useState<
+    "ai" | "fallback" | null
+  >(null);
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<{
     confidence: number;
     suggestions: string[];
   } | null>(null);
   const [qrPrefilled, setQrPrefilled] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileQrImage, setMobileQrImage] = useState<string | null>(null);
+  const [mobileQrLoading, setMobileQrLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [mobileQrUrl, setMobileQrUrl] = useState<string | null>(null);
+  const [autofillLoading, setAutofillLoading] = useState(false);
 
   const progressValue = (currentStep / STEPS.length) * 100;
+
+  // Detect mobile vs desktop
+  useEffect(() => {
+    const touch = navigator.maxTouchPoints > 0;
+    const narrow = window.matchMedia("(max-width: 768px)").matches;
+    setIsMobile(touch && narrow);
+  }, []);
+
+  // Auto-generate QR when entering step 5
+  useEffect(() => {
+    if (currentStep === 5 && !mobileQrImage && !mobileQrLoading && form.firstName) {
+      generateMobileQr();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]);
 
   // Check for QR prefill data on mount
   useEffect(() => {
@@ -242,8 +271,15 @@ export default function AdressandringPage() {
 
   // Generate checklist via AI
   async function generateChecklist() {
-    if (!form.moveDate) return;
+    if (!form.moveDate) {
+      setChecklistError(
+        "Du måste ange ett inflyttningsdatum i steg 3 innan checklistan kan genereras."
+      );
+      return;
+    }
     setChecklistLoading(true);
+    setChecklistError(null);
+    setChecklistSource(null);
     try {
       const res = await fetch("/api/ai/checklist", {
         method: "POST",
@@ -255,12 +291,109 @@ export default function AdressandringPage() {
         }),
       });
 
+      if (!res.ok) {
+        throw new Error("Servern svarade med ett fel. Försök igen.");
+      }
+
       const data = await res.json();
-      setChecklist(data.items || []);
-    } catch {
+      const items = data.items || [];
+      if (items.length === 0) {
+        throw new Error("Ingen checklista returnerades. Försök igen.");
+      }
+      setChecklist(items);
+      setChecklistSource(data.source || "ai");
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Kunde inte generera checklistan.";
+      setChecklistError(msg);
       setChecklist([]);
     } finally {
       setChecklistLoading(false);
+    }
+  }
+
+  // Generate QR code for mobile handoff
+  async function generateMobileQr() {
+    setMobileQrLoading(true);
+    try {
+      const res = await fetch("/api/qr/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${form.firstName} ${form.lastName}`.trim(),
+          personalNumber: form.personalNumber,
+          address: form.fromStreet
+            ? `${form.fromStreet}, ${form.fromPostal} ${form.fromCity}`
+            : undefined,
+          email: form.email,
+          phone: form.phone,
+          toStreet: form.toStreet,
+          toPostal: form.toPostal,
+          toCity: form.toCity,
+          moveDate: form.moveDate,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.qrImage) {
+        setMobileQrImage(data.qrImage);
+      }
+      if (data.url) {
+        setMobileQrUrl(data.url);
+      }
+    } catch {
+      // QR generation failed silently
+    } finally {
+      setMobileQrLoading(false);
+    }
+  }
+
+  // Copy address to clipboard
+  async function copyNewAddress() {
+    const addr = [form.toStreet, `${form.toPostal} ${form.toCity}`]
+      .filter(Boolean)
+      .join(", ");
+    await navigator.clipboard.writeText(addr);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  // AI autofill – suggest missing fields based on what's already entered
+  async function handleAutofill() {
+    setAutofillLoading(true);
+    try {
+      const res = await fetch("/api/ai/autofill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: form.firstName,
+          lastName: form.lastName,
+          personalNumber: form.personalNumber,
+          fromStreet: form.fromStreet,
+          fromPostal: form.fromPostal,
+          fromCity: form.fromCity,
+          toStreet: form.toStreet,
+          toPostal: form.toPostal,
+          toCity: form.toCity,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.suggestions) {
+        setForm((prev) => {
+          const next = { ...prev };
+          for (const [key, value] of Object.entries(data.suggestions)) {
+            if (value && !prev[key as keyof FormData]) {
+              (next as Record<string, unknown>)[key] = value;
+            }
+          }
+          return next as FormData;
+        });
+      }
+    } catch {
+      // Autofill failed silently
+    } finally {
+      setAutofillLoading(false);
     }
   }
 
@@ -306,6 +439,13 @@ export default function AdressandringPage() {
       handleValidate();
     }
     if (currentStep === 3) {
+      if (!form.moveDate) {
+        setChecklistError(
+          "Ange ett inflyttningsdatum innan du går vidare."
+        );
+        return;
+      }
+      setChecklistError(null);
       generateChecklist();
     }
     if (currentStep < STEPS.length) {
@@ -364,7 +504,85 @@ export default function AdressandringPage() {
               </div>
             </CardContent>
           </Card>
-          <div className="mt-8 flex gap-3 justify-center">
+          {/* Skatteverket guide + QR */}
+          <div className="mt-6 space-y-4 text-left">
+            <SkatteverketGuide
+              data={{
+                name: `${form.firstName} ${form.lastName}`.trim(),
+                personalNumber: form.personalNumber,
+                toStreet: form.toStreet,
+                toPostal: form.toPostal,
+                toCity: form.toCity,
+                moveDate: form.moveDate,
+                householdType: form.householdType,
+              }}
+            />
+
+            {/* QR for mobile handoff */}
+            <Card className="border-primary/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <QrCode className="h-4 w-4 text-primary" />
+                  Skicka till mobilen
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Skanna QR-koden med din mobil för att få guiden och alla
+                  uppgifter direkt i telefonen.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {mobileQrImage ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="rounded-xl border bg-white p-3 shadow-sm">
+                      <img
+                        src={mobileQrImage}
+                        alt="QR-kod för Skatteverket"
+                        className="h-40 w-40"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Rikta kameran mot koden
+                    </p>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={generateMobileQr}
+                    disabled={mobileQrLoading}
+                    variant="outline"
+                    className="w-full gap-2"
+                  >
+                    {mobileQrLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <QrCode className="h-4 w-4" />
+                    )}
+                    {mobileQrLoading ? "Genererar..." : "Visa QR-kod"}
+                  </Button>
+                )}
+
+                {/* Copy new address shortcut */}
+                {form.toStreet && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={copyNewAddress}
+                    className="w-full gap-2"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                    {copied
+                      ? "Kopierad!"
+                      : `Kopiera: ${form.toStreet}, ${form.toPostal} ${form.toCity}`}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-6 flex gap-3 justify-center">
             <Button asChild className="rounded-full px-8" size="lg">
               <Link href={`/dashboard${moveId ? `?id=${moveId}` : ""}`}>
                 Min flytt
@@ -497,16 +715,35 @@ export default function AdressandringPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* QR Scanner */}
-                <QrScanner
-                  onScan={handleQrScan}
-                  className="border-primary/20"
-                />
+                {/* QR Scanner on mobile, info card on desktop */}
+                {isMobile ? (
+                  <QrScanner
+                    onScan={handleQrScan}
+                    className="border-primary/20"
+                  />
+                ) : (
+                  <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      <Smartphone className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        Fortsätt till Skatteverket via mobilen
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                        Fyll i dina uppgifter nedan. I sista steget kan du
+                        generera en QR-kod att skanna med mobilen — dina
+                        uppgifter skickas till telefonen så du kan göra
+                        flyttanmälan hos Skatteverket direkt.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="relative">
                   <Separator />
                   <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs text-muted-foreground">
-                    eller fyll i manuellt
+                    {isMobile ? "eller fyll i manuellt" : "Fyll i dina uppgifter"}
                   </span>
                 </div>
 
@@ -710,6 +947,28 @@ export default function AdressandringPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* AI autofill suggestion */}
+                <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+                  <p className="flex-1 text-xs text-muted-foreground">
+                    Saknar du postnummer eller ort? AI kan försöka komplettera.
+                  </p>
+                  <Button
+                    onClick={handleAutofill}
+                    disabled={autofillLoading}
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 gap-1.5 text-xs"
+                  >
+                    {autofillLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    {autofillLoading ? "Fyller i..." : "AI-komplettera"}
+                  </Button>
+                </div>
               </CardContent>
             </>
           )}
@@ -795,6 +1054,13 @@ export default function AdressandringPage() {
                     Jag har barn som också flyttar
                   </Label>
                 </div>
+                {checklistError && !form.moveDate && (
+                  <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{checklistError}</span>
+                  </div>
+                )}
+
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2 font-medium text-foreground">
                     <Sparkles className="h-4 w-4 text-primary" />
@@ -817,17 +1083,29 @@ export default function AdressandringPage() {
                   <Badge variant="outline" className="text-primary">
                     Steg 4
                   </Badge>
-                  <Badge className="gap-1 bg-primary/10 text-primary">
-                    <Sparkles className="h-3 w-3" />
-                    AI-genererad
-                  </Badge>
+                  {checklistSource === "ai" && (
+                    <Badge className="gap-1 bg-primary/10 text-primary">
+                      <Sparkles className="h-3 w-3" />
+                      AI-genererad
+                    </Badge>
+                  )}
+                  {checklistSource === "fallback" && (
+                    <Badge
+                      variant="secondary"
+                      className="gap-1 text-orange-600"
+                    >
+                      <AlertCircle className="h-3 w-3" />
+                      Standardchecklista
+                    </Badge>
+                  )}
                 </div>
                 <CardTitle className="font-heading text-xl">
                   Din personliga checklista
                 </CardTitle>
                 <CardDescription>
-                  AI har skapat en tidsatt checklista baserad på din flytt den{" "}
-                  {form.moveDate || "–"}. Granska och anpassa efter behov.
+                  {checklistSource === "fallback"
+                    ? "AI-tjänsten var inte tillgänglig. Här är en standardchecklista anpassad efter ditt flyttdatum."
+                    : `AI har skapat en tidsatt checklista baserad på din flytt den ${form.moveDate || "–"}. Granska och anpassa efter behov.`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -837,23 +1115,85 @@ export default function AdressandringPage() {
                     <p className="text-sm text-muted-foreground">
                       AI skapar din checklista...
                     </p>
+                    <p className="text-xs text-muted-foreground">
+                      Detta kan ta några sekunder
+                    </p>
                   </div>
                 ) : checklist.length > 0 ? (
-                  <ChecklistView items={checklist} />
+                  <div className="space-y-4">
+                    {checklistSource === "fallback" && (
+                      <div className="flex items-start gap-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-orange-600" />
+                        <div>
+                          <p className="font-medium text-orange-800">
+                            Standardchecklista visas
+                          </p>
+                          <p className="mt-0.5 text-orange-700">
+                            AI-tjänsten kunde inte nås. Du kan försöka generera
+                            en AI-anpassad checklista igen.
+                          </p>
+                          <Button
+                            onClick={generateChecklist}
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 gap-1.5"
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Försök igen med AI
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    <ChecklistView items={checklist} />
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3 py-12 text-center">
-                    <ListChecks className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      Ingen checklista genererad ännu.
-                    </p>
-                    <Button
-                      onClick={generateChecklist}
-                      variant="outline"
-                      className="gap-2"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      Generera checklista
-                    </Button>
+                    {checklistError ? (
+                      <>
+                        <AlertCircle className="h-8 w-8 text-destructive" />
+                        <p className="text-sm font-medium text-destructive">
+                          {checklistError}
+                        </p>
+                        <Button
+                          onClick={() => {
+                            if (!form.moveDate) {
+                              setCurrentStep(3);
+                            } else {
+                              generateChecklist();
+                            }
+                          }}
+                          variant="outline"
+                          className="gap-2"
+                        >
+                          {!form.moveDate ? (
+                            <>
+                              <ArrowLeft className="h-4 w-4" />
+                              Gå till steg 3
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4" />
+                              Försök igen
+                            </>
+                          )}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <ListChecks className="h-8 w-8 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">
+                          Ingen checklista genererad ännu.
+                        </p>
+                        <Button
+                          onClick={generateChecklist}
+                          variant="outline"
+                          className="gap-2"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          Generera checklista
+                        </Button>
+                      </>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -934,6 +1274,78 @@ export default function AdressandringPage() {
                 </div>
 
                 <Separator />
+
+                {/* Mobile handoff via QR */}
+                {!isMobile && (
+                  <div className="space-y-4 rounded-xl border border-primary/30 bg-primary/5 p-5">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="h-5 w-5 text-primary" />
+                      <p className="text-sm font-semibold text-foreground">
+                        Gör flyttanmälan via mobilen
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Skanna QR-koden med din mobil för att få alla uppgifter
+                      skickade dit. Mobilen visar ett referenskort med din nya
+                      adress och flyttdatum, plus en direktlänk till
+                      Skatteverkets flyttanmälan.
+                    </p>
+
+                    {mobileQrLoading && !mobileQrImage && (
+                      <div className="flex items-center justify-center gap-2 py-6">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <span className="text-sm text-muted-foreground">
+                          Genererar QR-kod...
+                        </span>
+                      </div>
+                    )}
+
+                    {mobileQrImage && (
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="rounded-xl border bg-white p-3 shadow-sm">
+                          <img
+                            src={mobileQrImage}
+                            alt="QR-kod för mobilen"
+                            className="h-48 w-48"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Öppna kameran på din telefon och rikta den mot koden
+                        </p>
+                      </div>
+                    )}
+
+                    {!mobileQrImage && !mobileQrLoading && (
+                      <Button
+                        onClick={generateMobileQr}
+                        variant="outline"
+                        className="w-full gap-2"
+                      >
+                        <QrCode className="h-4 w-4" />
+                        Visa QR-kod för mobilen
+                      </Button>
+                    )}
+
+                    {/* Dev mode: clickable test link */}
+                    {mobileQrUrl &&
+                      typeof window !== "undefined" &&
+                      window.location.hostname === "localhost" && (
+                        <div className="rounded-lg border border-dashed border-yellow-400 bg-yellow-50 p-3 text-xs">
+                          <p className="font-semibold text-yellow-800">
+                            Dev mode – Testa QR-flödet:
+                          </p>
+                          <a
+                            href={mobileQrUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 block truncate text-primary underline underline-offset-2"
+                          >
+                            {mobileQrUrl}
+                          </a>
+                        </div>
+                      )}
+                  </div>
+                )}
 
                 {/* Free service banner */}
                 <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 p-4">

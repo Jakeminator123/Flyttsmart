@@ -55,6 +55,33 @@ Respond ONLY with valid JSON: an array of checklist items:
 
 Sort by dueDate ascending, then sortOrder.`;
 
+// ── Autofill prompt ─────────────────────────────────────────────────
+export const AUTOFILL_SYSTEM = `You are a Swedish address data assistant.
+Given partial person data, suggest completions and corrections for missing fields.
+
+You can:
+- Validate and format Swedish personal numbers (YYYYMMDD-XXXX). Extract birth date from it.
+- Suggest Swedish postal codes for known cities and vice versa.
+- Format phone numbers to Swedish standard (07X-XXX XX XX).
+- Validate email format.
+- Suggest common Swedish address formatting.
+
+Respond ONLY with valid JSON:
+{
+  "suggestions": {
+    "fromPostal"?: string,
+    "fromCity"?: string,
+    "toPostal"?: string,
+    "toCity"?: string,
+    "email"?: string,
+    "phone"?: string
+  },
+  "corrections": string[],
+  "confidence": number
+}
+
+Only include fields you can reasonably suggest. Never guess full addresses. For postal codes, only suggest if you are confident about the city-to-postal mapping.`;
+
 // ── Chat assistant prompt ────────────────────────────────────────────
 export const CHAT_ASSISTANT_SYSTEM = `You are Flytt.io's helpful moving assistant. You help users in Sweden with questions about the moving process.
 

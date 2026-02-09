@@ -4,7 +4,6 @@ import { ClipboardList, Calendar, CreditCard, MailCheck, ArrowRight } from "luci
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { ScrollReveal } from "@/components/scroll-reveal"
 
@@ -51,20 +50,21 @@ export function StepsSection() {
   return (
     <section
       id="hur-det-funkar"
-      className="relative bg-background py-24 lg:py-32"
+      className="relative bg-background py-28 lg:py-36"
     >
-      <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-border to-transparent" />
+      <div className="section-divider absolute top-0 left-0 right-0" />
 
       <div className="mx-auto max-w-7xl px-4 lg:px-8">
         <ScrollReveal className="text-center">
           <div className="mx-auto max-w-2xl">
-            <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
+            <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
               Så funkar det
             </Badge>
-            <h2 className="mt-4 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Fyra enkla steg till din nya adress
+            <h2 className="mt-5 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+              Fyra enkla steg till din
+              <span className="text-gradient"> nya adress</span>
             </h2>
-            <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+            <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
               Hela processen tar bara några minuter. Inget krångel, inga komplicerade steg.
             </p>
           </div>
@@ -73,12 +73,12 @@ export function StepsSection() {
         {/* Desktop: Tabs layout */}
         <ScrollReveal delay={200} className="mt-16 hidden lg:block">
           <Tabs defaultValue="uppgifter" className="gap-0">
-            <TabsList className="mx-auto mb-8 grid h-auto w-full max-w-2xl grid-cols-4 rounded-xl bg-muted p-1.5">
+            <TabsList className="mx-auto mb-10 grid h-auto w-full max-w-2xl grid-cols-4 rounded-2xl bg-muted/80 p-2 backdrop-blur-sm">
               {steps.map((step) => (
                 <TabsTrigger
                   key={step.id}
                   value={step.id}
-                  className="flex items-center gap-2 rounded-lg py-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-md sm:text-sm"
+                  className="flex items-center gap-2 rounded-xl py-3.5 text-xs data-[state=active]:bg-card data-[state=active]:shadow-lg data-[state=active]:shadow-primary/10 sm:text-sm transition-all duration-300"
                 >
                   <step.icon className="h-4 w-4" />
                   <span className="hidden sm:inline">{step.title.split(" ").slice(0, 2).join(" ")}</span>
@@ -88,27 +88,27 @@ export function StepsSection() {
             </TabsList>
             {steps.map((step) => (
               <TabsContent key={step.id} value={step.id}>
-                <div className="flex items-start gap-12 rounded-2xl border border-border bg-card p-8 lg:p-12">
+                <div className="gradient-border flex items-start gap-12 rounded-2xl border border-border/50 bg-card p-10 lg:p-14">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <span className="font-heading text-5xl font-bold text-primary/15">
+                    <div className="flex items-center gap-4">
+                      <span className="font-heading text-6xl font-bold text-primary/10">
                         {step.number}
                       </span>
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
-                        <step.icon className="h-6 w-6" />
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/25 glow">
+                        <step.icon className="h-7 w-7" />
                       </div>
                     </div>
-                    <h3 className="mt-6 font-heading text-2xl font-bold text-card-foreground">
+                    <h3 className="mt-8 font-heading text-2xl font-bold text-card-foreground">
                       {step.title}
                     </h3>
-                    <p className="mt-3 max-w-lg text-base leading-relaxed text-muted-foreground">
+                    <p className="mt-4 max-w-lg text-base leading-relaxed text-muted-foreground">
                       {step.description}
                     </p>
-                    <Separator className="my-6" />
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="mt-8 h-px w-full bg-linear-to-r from-border via-primary/20 to-transparent" />
+                    <div className="mt-8 grid grid-cols-2 gap-4">
                       {step.details.map((detail) => (
-                        <div key={detail} className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                        <div key={detail} className="flex items-center gap-3 text-sm text-muted-foreground">
+                          <div className="h-2 w-2 rounded-full bg-primary/60 shadow-sm shadow-primary/40" />
                           {detail}
                         </div>
                       ))}
@@ -124,13 +124,13 @@ export function StepsSection() {
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:hidden">
           {steps.map((step, i) => (
             <ScrollReveal key={step.number} delay={i * 120}>
-              <div className="group relative flex h-full flex-col rounded-2xl border border-border bg-card p-6 transition-all duration-500 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1.5">
+              <div className="gradient-border group relative flex h-full flex-col rounded-2xl border border-border/50 bg-card p-6 transition-all duration-500 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-2">
                 <div className="mb-4 flex items-center gap-3">
-                  <span className="font-heading text-3xl font-bold text-primary/15 transition-colors duration-500 group-hover:text-primary/35">
+                  <span className="font-heading text-4xl font-bold text-primary/10 transition-colors duration-500 group-hover:text-primary/25">
                     {step.number}
                   </span>
                 </div>
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary transition-all duration-500 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-lg group-hover:shadow-primary/25 group-hover:scale-110">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary transition-all duration-500 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-xl group-hover:shadow-primary/25 group-hover:scale-110">
                   <step.icon className="h-6 w-6" />
                 </div>
                 <h3 className="mb-2 font-heading text-lg font-semibold text-card-foreground">
@@ -145,8 +145,8 @@ export function StepsSection() {
         </div>
 
         {/* CTA under steps */}
-        <ScrollReveal delay={400} className="mt-12 text-center">
-          <Button asChild size="lg" className="rounded-full px-8 gap-2">
+        <ScrollReveal delay={400} className="mt-14 text-center">
+          <Button asChild size="lg" className="shimmer-btn rounded-full px-8 gap-2 shadow-lg shadow-primary/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5">
             <Link href="/adressandring">
               Starta din adressändring
               <ArrowRight className="h-4 w-4" />

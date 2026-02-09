@@ -48,6 +48,10 @@ export async function POST(req: NextRequest) {
         address: data.a || null,
         email: data.e || null,
         phone: data.t || null,
+        toStreet: data.ns || null,
+        toPostal: data.np || null,
+        toCity: data.nc || null,
+        moveDate: data.md || null,
         timestamp: data.ts,
       },
     });

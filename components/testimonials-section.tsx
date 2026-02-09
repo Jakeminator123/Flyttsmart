@@ -1,10 +1,8 @@
 "use client"
 
 import { Star, Quote } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { ScrollReveal } from "@/components/scroll-reveal"
 
 const testimonials = [
@@ -43,73 +41,72 @@ const stats = [
 
 export function TestimonialsSection() {
   return (
-    <section id="omdomnen" className="relative bg-section-alt py-24 lg:py-32">
-      <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-border to-transparent" />
+    <section id="omdomnen" className="relative bg-section-alt py-28 lg:py-36">
+      <div className="section-divider absolute top-0 left-0 right-0" />
 
       <div className="mx-auto max-w-7xl px-4 lg:px-8">
         <ScrollReveal className="text-center">
-          <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
+          <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
             Omdömen
           </Badge>
-          <h2 className="mt-4 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Vad våra kunder säger
+          <h2 className="mt-5 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            Vad våra kunder
+            <span className="text-gradient"> säger</span>
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+          <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
             Tusentals svenskar har redan gjort sin adressändring med Flyttsmart.
           </p>
         </ScrollReveal>
 
         {/* Stats bar */}
         <ScrollReveal delay={100}>
-          <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {stats.map((stat) => (
-              <div key={stat.label} className="flex flex-col items-center rounded-xl border border-border bg-card p-5 text-center">
-                <span className="font-heading text-2xl font-bold text-primary lg:text-3xl">
+          <div className="mt-14 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {stats.map((stat, i) => (
+              <div key={stat.label} className="gradient-border group flex flex-col items-center rounded-2xl border border-border/50 bg-card p-6 text-center transition-all duration-500 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1">
+                <span className="stat-glow font-heading text-3xl font-bold text-primary lg:text-4xl" style={{ animationDelay: `${i * 500}ms` }}>
                   {stat.value}
                 </span>
-                <span className="mt-1 text-sm text-muted-foreground">{stat.label}</span>
+                <span className="mt-2 text-sm text-muted-foreground">{stat.label}</span>
               </div>
             ))}
           </div>
         </ScrollReveal>
 
-        <Separator className="my-12" />
+        <div className="my-14 section-divider" />
 
         {/* Testimonial cards */}
         <div className="grid gap-6 md:grid-cols-3">
           {testimonials.map((t, i) => (
             <ScrollReveal key={t.name} delay={i * 120}>
-              <Card className="group h-full border-border bg-card transition-all duration-500 hover:border-primary/20 hover:shadow-lg hover:-translate-y-1.5">
-                <CardContent className="flex h-full flex-col p-6">
-                  <Quote className="mb-4 h-8 w-8 text-primary/15 transition-colors duration-500 group-hover:text-primary/30" />
+              <div className="gradient-border group flex h-full flex-col rounded-2xl border border-border/50 bg-card p-7 transition-all duration-500 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-2">
+                <Quote className="mb-5 h-10 w-10 text-primary/10 transition-colors duration-500 group-hover:text-primary/25" />
 
-                  <p className="flex-1 text-sm leading-relaxed text-muted-foreground">
-                    {`"${t.text}"`}
-                  </p>
+                <p className="flex-1 text-sm leading-relaxed text-muted-foreground italic">
+                  &ldquo;{t.text}&rdquo;
+                </p>
 
-                  <Separator className="my-4" />
+                <div className="mt-6 h-px w-full bg-linear-to-r from-border via-primary/15 to-transparent" />
 
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 border-2 border-primary/10">
-                      <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
-                        {t.initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-card-foreground">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">{t.location}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-0.5">
-                        {Array.from({ length: t.rating }).map((_, j) => (
-                          <Star key={j} className="h-3 w-3 fill-accent text-accent" />
-                        ))}
-                      </div>
-                      <span className="text-xs text-muted-foreground">{t.date}</span>
-                    </div>
+                <div className="mt-5 flex items-center gap-3">
+                  <Avatar className="h-11 w-11 border-2 border-primary/15">
+                    <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
+                      {t.initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-card-foreground">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">{t.location}</p>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: t.rating }).map((_, j) => (
+                        <Star key={j} className="h-3.5 w-3.5 fill-accent text-accent" />
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">{t.date}</span>
+                  </div>
+                </div>
+              </div>
             </ScrollReveal>
           ))}
         </div>

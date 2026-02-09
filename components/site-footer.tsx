@@ -11,9 +11,12 @@ export function SiteFooter() {
   return (
     <footer
       id="kontakt"
-      className="relative border-t border-border bg-card py-16"
+      className="relative border-t border-border/50 bg-card py-20"
     >
-      <div className="mx-auto max-w-7xl px-4 lg:px-8">
+      {/* Subtle background glow */}
+      <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 h-64 w-96 rounded-full bg-primary/3 blur-3xl" />
+
+      <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
         <ScrollReveal>
           <div className="flex flex-col gap-12 lg:flex-row lg:justify-between">
             {/* Brand */}
@@ -21,15 +24,15 @@ export function SiteFooter() {
               <Link href="/" aria-label="Flyttsmart - Till startsidan">
                 <Logo size="md" />
               </Link>
-              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
                 Flyttsmart gör din adressändring snabb och enkel. Vi ser till
                 att din post kommer rätt när du flyttar.
               </p>
-              <div className="mt-6 flex flex-col gap-2.5">
+              <div className="mt-6 flex flex-col gap-3">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <a href="mailto:info@flyttsmart.se" className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-primary">
+                      <a href="mailto:info@flyttsmart.se" className="flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-primary">
                         <Mail className="h-4 w-4" />
                         info@flyttsmart.se
                       </a>
@@ -40,7 +43,7 @@ export function SiteFooter() {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <a href="tel:+46101234567" className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-primary">
+                      <a href="tel:+46101234567" className="flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-primary">
                         <Phone className="h-4 w-4" />
                         010-123 45 67
                       </a>
@@ -48,7 +51,7 @@ export function SiteFooter() {
                     <TooltipContent>Ring oss vardagar 8-17</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
                   <MapPin className="h-4 w-4" />
                   Stockholm, Sverige
                 </div>
@@ -58,10 +61,10 @@ export function SiteFooter() {
             {/* Link columns */}
             <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
               <div>
-                <h3 className="mb-3 font-heading text-sm font-semibold uppercase tracking-wider text-foreground">
+                <h3 className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-foreground">
                   Tjänster
                 </h3>
-                <ul className="flex flex-col gap-2.5">
+                <ul className="flex flex-col gap-3">
                   <li>
                     <Link
                       href="/adressandring"
@@ -90,10 +93,10 @@ export function SiteFooter() {
               </div>
 
               <div>
-                <h3 className="mb-3 font-heading text-sm font-semibold uppercase tracking-wider text-foreground">
+                <h3 className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-foreground">
                   Juridiskt
                 </h3>
-                <ul className="flex flex-col gap-2.5">
+                <ul className="flex flex-col gap-3">
                   <li>
                     <a
                       href="#"
@@ -122,10 +125,10 @@ export function SiteFooter() {
               </div>
 
               <div>
-                <h3 className="mb-3 font-heading text-sm font-semibold uppercase tracking-wider text-foreground">
+                <h3 className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-foreground">
                   Kontakt
                 </h3>
-                <ul className="flex flex-col gap-2.5">
+                <ul className="flex flex-col gap-3">
                   <li>
                     <a
                       href="#"
@@ -148,7 +151,7 @@ export function SiteFooter() {
           </div>
         </ScrollReveal>
 
-        <Separator className="my-10" />
+        <Separator className="my-12" />
 
         {/* Bottom bar */}
         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">

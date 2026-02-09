@@ -1,3 +1,5 @@
+"use client"
+
 import { cn } from "@/lib/utils"
 
 interface LogoProps {
@@ -8,66 +10,78 @@ interface LogoProps {
 
 export function Logo({ className, size = "md", variant = "full" }: LogoProps) {
   const iconSizes = {
-    sm: "h-7 w-7",
-    md: "h-9 w-9",
-    lg: "h-12 w-12",
+    sm: "h-8 w-8",
+    md: "h-10 w-10",
+    lg: "h-13 w-13",
   }
 
   const textSizes = {
     sm: "text-base",
-    md: "text-lg",
+    md: "text-xl",
     lg: "text-2xl",
   }
 
   return (
-    <span className={cn("inline-flex items-center gap-2.5", className)}>
+    <span className={cn("group inline-flex items-center gap-2.5", className)}>
       <span
         className={cn(
-          "relative flex items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20",
-          iconSizes[size]
+          "relative flex items-center justify-center rounded-xl bg-linear-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-primary/35 group-hover:-translate-y-0.5",
+          iconSizes[size],
         )}
       >
-        {/* House + arrow SVG icon */}
         <svg
-          viewBox="0 0 24 24"
+          viewBox="0 0 32 32"
           fill="none"
-          className="h-[60%] w-[60%]"
+          className="h-[62%] w-[62%]"
           aria-hidden="true"
         >
-          {/* House roof */}
-          <path
-            d="M3 11L12 4L21 11"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
           {/* House body */}
           <path
-            d="M5 10V19C5 19.5523 5.44772 20 6 20H10V15C10 14.4477 10.4477 14 11 14H13C13.5523 14 14 14.4477 14 15V20H18C18.5523 20 19 19.5523 19 19V10"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          {/* Forward arrow */}
-          <path
-            d="M15 8L18.5 4.5M18.5 4.5L15 1M18.5 4.5H12"
+            d="M6 14v11a2 2 0 002 2h5v-6a1 1 0 011-1h4a1 1 0 011 1v6h5a2 2 0 002-2V14"
             stroke="currentColor"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
+            className="transition-all duration-300"
           />
+          {/* House roof */}
+          <path
+            d="M3 15L16 5l13 10"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {/* Moving arrow – slides right on hover */}
+          <g className="transition-transform duration-500 ease-out group-hover:translate-x-1">
+            <path
+              d="M20 8h6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            <path
+              d="M23 5l3 3-3 3"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </g>
         </svg>
+
+        {/* Subtle shine overlay */}
+        <span className="absolute inset-0 rounded-xl bg-linear-to-tr from-white/0 via-white/20 to-white/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       </span>
+
       {variant === "full" && (
         <span
           className={cn(
-            "font-heading font-bold tracking-tight text-foreground",
-            textSizes[size]
+            "font-heading font-bold tracking-tight text-foreground transition-colors duration-300",
+            textSizes[size],
           )}
         >
-          Flytt<span className="text-primary">smart</span>
+          Flytt<span className="text-gradient">smart</span>
         </span>
       )}
     </span>

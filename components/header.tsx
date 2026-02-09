@@ -21,7 +21,6 @@ export function Header() {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    // Trigger entrance animations after mount
     const timer = setTimeout(() => setMounted(true), 100)
     const handleScroll = () => setScrolled(window.scrollY > 20)
     window.addEventListener("scroll", handleScroll, { passive: true })
@@ -43,11 +42,11 @@ export function Header() {
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-700 ease-out",
         scrolled
-          ? "bg-card/80 backdrop-blur-xl shadow-lg shadow-primary/5 border-b border-border/50"
+          ? "glass shadow-lg shadow-primary/5"
           : "bg-transparent"
       )}
     >
-      {/* Animated gradient line beneath header on scroll */}
+      {/* Animated gradient line on scroll */}
       <div
         className={cn(
           "absolute bottom-0 left-0 right-0 h-px transition-opacity duration-700",
@@ -55,11 +54,11 @@ export function Header() {
         )}
         aria-hidden="true"
       >
-        <div className="h-full w-full bg-linear-to-r from-transparent via-primary/40 to-transparent" />
+        <div className="section-divider h-full w-full" />
       </div>
 
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 lg:px-8">
-        {/* Logo with slide-in from left */}
+        {/* Logo */}
         <Link
           href="/"
           aria-label="Flyttsmart - Till startsidan"
@@ -73,7 +72,7 @@ export function Header() {
           <Logo size="sm" />
         </Link>
 
-        {/* Nav links with staggered fade-in + animated underline hover */}
+        {/* Nav links */}
         <nav className="hidden items-center gap-1 md:flex" aria-label="Huvudnavigering">
           {navLinks.map((link, i) => (
             <a
@@ -90,7 +89,6 @@ export function Header() {
               }}
             >
               {link.label}
-              {/* Animated underline on hover */}
               <span
                 className="absolute bottom-0.5 left-3.5 right-3.5 h-0.5 origin-left scale-x-0 rounded-full bg-primary transition-transform duration-300 ease-out group-hover:scale-x-100"
                 aria-hidden="true"
@@ -99,7 +97,7 @@ export function Header() {
           ))}
         </nav>
 
-        {/* CTA button with delayed entrance from right */}
+        {/* CTA button */}
         <div
           className={cn(
             "hidden md:block transition-all duration-700 ease-out",
@@ -109,7 +107,7 @@ export function Header() {
           )}
           style={{ transitionDelay: mounted ? "550ms" : "0ms" }}
         >
-          <Button asChild size="sm" className="group rounded-full px-5 gap-1.5 transition-all duration-300 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5">
+          <Button asChild size="sm" className="group rounded-full px-5 gap-1.5 shadow-lg shadow-primary/15 transition-all duration-300 hover:shadow-xl hover:shadow-primary/25 hover:-translate-y-0.5">
             <Link href="/adressandring">
               Gör adressändring
               <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
@@ -117,10 +115,10 @@ export function Header() {
           </Button>
         </div>
 
-        {/* Mobile menu trigger */}
+        {/* Mobile menu */}
         <button
           className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-lg text-foreground transition-all duration-500 ease-out hover:bg-accent/60 md:hidden",
+            "flex h-10 w-10 items-center justify-center rounded-lg text-foreground transition-all duration-500 ease-out hover:bg-primary/10 md:hidden",
             mounted
               ? "opacity-100 translate-x-0"
               : "opacity-0 translate-x-4"
@@ -135,7 +133,7 @@ export function Header() {
         </button>
       </div>
 
-      {/* Mobile Sheet menu */}
+      {/* Mobile Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side="right" className="w-80">
           <SheetHeader>
@@ -152,7 +150,7 @@ export function Header() {
               <a
                 key={link.href}
                 href={link.href}
-                className="rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+                className="rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground"
                 onClick={() => setSheetOpen(false)}
               >
                 {link.label}
@@ -161,7 +159,7 @@ export function Header() {
           </nav>
           <Separator />
           <div className="px-2 py-4">
-            <Button asChild className="w-full rounded-full gap-1.5">
+            <Button asChild className="w-full rounded-full gap-1.5 shadow-lg shadow-primary/20">
               <Link href="/adressandring" onClick={() => setSheetOpen(false)}>
                 Gör adressändring
                 <ArrowRight className="h-3.5 w-3.5" />

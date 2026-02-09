@@ -2,7 +2,7 @@ import React from "react"
 import type { Metadata, Viewport } from 'next'
 import { Inter, Space_Grotesk } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
-import { FloatingBackground } from '@/components/floating-background'
+import { DIdAgentWidget } from '@/components/did-agent-widget'
 import './globals.css'
 
 const _inter = Inter({ subsets: ['latin'] })
@@ -46,8 +46,8 @@ export default function RootLayout({
   return (
     <html lang="sv">
       <body className="font-sans antialiased">
-        <FloatingBackground />
         {children}
+        <DIdAgentWidget />
         <Analytics />
       </body>
     </html>

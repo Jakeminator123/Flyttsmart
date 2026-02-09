@@ -5,7 +5,7 @@ import { CHECKLIST_SYSTEM } from "@/lib/ai/prompts";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { moveDate, scenario, hasChildren } = body;
+    const { moveDate, scenario, hasChildren, toCity } = body;
 
     if (!moveDate) {
       return NextResponse.json(
@@ -20,6 +20,9 @@ export async function POST(req: NextRequest) {
 - Move-in date: ${moveDate}
 - Scenario: ${scenario || "apartment, single person"}
 - Has children: ${hasChildren ? "yes" : "no"}
+- Destination city: ${toCity || "unknown"}
+
+${toCity ? `Include 3-5 area_tips items with helpful, local tips about ${toCity}. Mention real places if you can.` : "Skip area_tips category."}
 
 Return the checklist as a JSON array.`;
 
@@ -56,7 +59,7 @@ Return the checklist as a JSON array.`;
     // Fallback checklist if OpenAI is not available
     const body = await req.clone().json().catch(() => ({}));
     return NextResponse.json({
-      items: getFallbackChecklist(body.moveDate),
+      items: getFallbackChecklist(body.moveDate, body.toCity),
       source: "fallback",
     });
   }
@@ -66,7 +69,7 @@ Return the checklist as a JSON array.`;
  * Comprehensive static fallback checklist when AI is unavailable.
  * Uses moveDate to calculate realistic due dates.
  */
-function getFallbackChecklist(moveDate?: string) {
+function getFallbackChecklist(moveDate?: string, toCity?: string) {
   const move = moveDate ? new Date(moveDate) : new Date();
   const daysBefore = (n: number) => {
     const d = new Date(move);
@@ -272,6 +275,39 @@ function getFallbackChecklist(moveDate?: string) {
       dueDate: daysAfter(7),
       category: "administration",
       sortOrder: 23,
+    },
+    // Area tips (generic when city unknown, city-specific otherwise)
+    {
+      title: `Utforska ditt nya område${toCity ? ` i ${toCity}` : ""}`,
+      description:
+        "Ta en promenad i grannskapet. Hitta närmaste matbutik, apotek och kollektivtrafik.",
+      dueDate: daysAfter(1),
+      category: "area_tips",
+      sortOrder: 24,
+    },
+    {
+      title: "Hitta en bra restaurang eller café nära dig",
+      description:
+        "Kolla Google Maps eller Yelp efter populära ställen i närheten. Ett bra sätt att lära känna området!",
+      dueDate: daysAfter(2),
+      category: "area_tips",
+      sortOrder: 25,
+    },
+    {
+      title: "Lokalisera närmaste återvinningsstation",
+      description:
+        "Efter flytten har du ofta mycket kartong och förpackningar. Hitta din närmaste FTI-station.",
+      dueDate: daysAfter(1),
+      category: "area_tips",
+      sortOrder: 26,
+    },
+    {
+      title: "Registrera dig hos närmaste vårdcentral",
+      description:
+        "Byt till en vårdcentral nära din nya bostad. Gör det via 1177.se – det tar bara ett par minuter.",
+      dueDate: daysAfter(7),
+      category: "area_tips",
+      sortOrder: 27,
     },
   ];
 }

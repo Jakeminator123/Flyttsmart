@@ -10,6 +10,7 @@ import {
   Baby,
   Sparkles,
   ArrowRight,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +60,11 @@ const categoryConfig: Record<
     label: "Efter flytt",
     icon: ArrowRight,
     color: "text-purple-600 bg-purple-50",
+  },
+  area_tips: {
+    label: "Områdestips",
+    icon: MapPin,
+    color: "text-teal-600 bg-teal-50",
   },
 };
 

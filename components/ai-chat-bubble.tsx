@@ -167,7 +167,7 @@ export function AiChatBubble() {
       {!open && (
         <button
           onClick={handleOpen}
-          className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-primary/30 active:scale-95"
+          className="fixed bottom-5 left-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-primary/30 active:scale-95"
           aria-label="Öppna AI-assistent"
         >
           <MessageCircle className="h-6 w-6" />
@@ -184,7 +184,7 @@ export function AiChatBubble() {
       {open && minimized && (
         <button
           onClick={handleRestore}
-          className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-full border border-border/60 bg-card px-4 py-2.5 shadow-lg transition-all duration-300 hover:shadow-xl"
+          className="fixed bottom-5 left-5 z-50 flex items-center gap-2.5 rounded-full border border-border/60 bg-card px-4 py-2.5 shadow-lg transition-all duration-300 hover:shadow-xl"
         >
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10">
             <Bot className="h-4 w-4 text-primary" />
@@ -212,7 +212,7 @@ export function AiChatBubble() {
       {open && !minimized && (
         <div
           className={cn(
-            "fixed bottom-5 right-5 z-50 flex w-95 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl",
+            "fixed bottom-5 left-5 z-50 flex w-95 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl",
             "animate-in fade-in slide-in-from-bottom-4 zoom-in-95 duration-300",
             "max-h-[min(580px,calc(100vh-3rem))]"
           )}

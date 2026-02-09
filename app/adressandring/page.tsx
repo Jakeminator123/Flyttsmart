@@ -288,6 +288,7 @@ export default function AdressandringPage() {
           moveDate: form.moveDate,
           scenario: form.householdType || "apartment, single person",
           hasChildren: form.hasChildren,
+          toCity: form.toCity || undefined,
         }),
       });
 
@@ -1158,7 +1159,7 @@ export default function AdressandringPage() {
                 <CardDescription>
                   {checklistSource === "fallback"
                     ? "AI-tjänsten var inte tillgänglig. Här är en standardchecklista anpassad efter ditt flyttdatum."
-                    : `AI har skapat en tidsatt checklista baserad på din flytt den ${form.moveDate || "–"}. Granska och anpassa efter behov.`}
+                    : `AI har skapat en tidsatt checklista baserad på din flytt den ${form.moveDate || "–"}${form.toCity ? ` till ${form.toCity}` : ""}. Inkluderar områdestips!`}
                 </CardDescription>
               </CardHeader>
               <CardContent>

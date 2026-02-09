@@ -1,8 +1,8 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight, ChevronDown, Lock, Shield, Headphones, Star, CheckCircle } from "lucide-react"
+import { ArrowRight, ChevronDown, Lock, Shield, Headphones, Star, CheckCircle, Play } from "lucide-react"
+import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
@@ -10,28 +10,26 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollReveal } from "@/components/scroll-reveal"
 
 export function HeroSection() {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+
+  const handlePlayToggle = () => {
+    if (!videoRef.current) return
+    if (videoRef.current.paused) {
+      videoRef.current.play()
+      setIsPlaying(true)
+    } else {
+      videoRef.current.pause()
+      setIsPlaying(false)
+    }
+  }
+
   return (
     <section
       id="hero"
       className="relative min-h-screen overflow-hidden bg-linear-to-b from-hero-gradient-from to-hero-gradient-to"
     >
-      {/* Subtle dot pattern */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.03]">
-        <div
-          className="h-full w-full"
-          style={{
-            backgroundImage: "radial-gradient(circle, currentColor 1px, transparent 1px)",
-            backgroundSize: "32px 32px",
-          }}
-        />
-      </div>
-
-      {/* Floating shapes */}
-      <div className="pointer-events-none absolute top-24 left-8 h-64 w-64 rounded-full bg-primary/5 animate-float blur-3xl" />
-      <div className="pointer-events-none absolute top-48 right-12 h-80 w-80 rounded-full bg-accent/30 animate-float-delayed blur-3xl" />
-      <div className="pointer-events-none absolute bottom-32 left-1/3 h-48 w-48 rounded-full bg-primary/5 animate-float blur-3xl" />
-
-      <div className="relative mx-auto flex max-w-7xl flex-col items-center gap-12 px-4 pt-32 pb-16 lg:flex-row lg:gap-16 lg:px-8 lg:pt-40 lg:pb-24">
+      <div className="relative mx-auto flex max-w-7xl flex-col items-center gap-12 px-4 pt-32 pb-16 lg:flex-row lg:items-center lg:gap-12 lg:px-8 lg:pt-40 lg:pb-24 xl:gap-16">
         {/* Text content */}
         <div className="flex flex-1 flex-col items-center text-center lg:items-start lg:text-left">
           <ScrollReveal>
@@ -135,28 +133,77 @@ export function HeroSection() {
           </ScrollReveal>
         </div>
 
-        {/* Hero image */}
-        <ScrollReveal variant="scale" delay={200} className="flex-1">
+        {/* Hero video */}
+        <ScrollReveal variant="scale" delay={200} className="flex-1 w-full lg:max-w-[560px]">
           <div className="relative">
-            <div className="absolute -inset-4 rounded-3xl bg-primary/5 blur-2xl" />
-            <div className="relative overflow-hidden rounded-2xl border border-border/50 shadow-2xl shadow-primary/10">
-              <Image
-                src="/images/hero-moving.jpg"
-                alt="Ett par som just har flyttat in i en ny ljus lägenhet med flyttkartonger"
-                width={640}
-                height={480}
-                className="h-auto w-full object-cover"
-                priority
-              />
-              {/* Floating card overlay */}
-              <div className="absolute bottom-4 left-4 right-4 rounded-xl border border-border/50 bg-card/90 p-4 backdrop-blur-md sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-xs">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <CheckCircle className="h-5 w-5 text-primary" />
+            {/* Soft glow behind video */}
+            <div className="absolute -inset-6 rounded-4xl bg-primary/5 blur-3xl" />
+
+            <div
+              className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border/50 bg-muted shadow-2xl shadow-primary/10"
+              onClick={handlePlayToggle}
+            >
+              {/* Fixed aspect ratio wrapper */}
+              <div className="relative aspect-video w-full">
+                <video
+                  ref={videoRef}
+                  src="/videos/reklam.mp4"
+                  playsInline
+                  preload="metadata"
+                  onEnded={() => setIsPlaying(false)}
+                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
+                    isPlaying ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+
+                {/* Poster image (shown when not playing) */}
+                <img
+                  src="/images/hero-moving.jpg"
+                  alt="Par i sitt nya hem"
+                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
+                    isPlaying ? "opacity-0" : "opacity-100"
+                  }`}
+                />
+
+                {/* Subtle gradient overlay for text readability */}
+                <div
+                  className={`pointer-events-none absolute inset-0 bg-linear-to-t from-black/40 via-black/10 to-transparent transition-opacity duration-300 ${
+                    isPlaying ? "opacity-0" : "opacity-100"
+                  }`}
+                />
+
+                {/* Play / Pause button overlay */}
+                <div
+                  className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+                    isPlaying ? "opacity-0 group-hover:opacity-100" : "opacity-100"
+                  }`}
+                >
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-primary shadow-xl backdrop-blur-sm transition-transform duration-300 group-hover:scale-110">
+                    {isPlaying ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="4" width="4" height="16" rx="1" />
+                        <rect x="14" y="4" width="4" height="16" rx="1" />
+                      </svg>
+                    ) : (
+                      <Play className="h-7 w-7 ml-1" fill="currentColor" />
+                    )}
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-card-foreground">Trygg adressändring</p>
-                    <p className="text-xs text-muted-foreground">Klar på under 5 minuter</p>
+                </div>
+
+                {/* Floating info card in bottom-right corner */}
+                <div
+                  className={`absolute bottom-4 left-4 right-4 rounded-xl border border-white/20 bg-white/90 p-3 backdrop-blur-md transition-all duration-500 sm:left-auto sm:right-4 sm:bottom-4 sm:max-w-[220px] ${
+                    isPlaying ? "translate-y-4 opacity-0" : "translate-y-0 opacity-100"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      <CheckCircle className="h-4.5 w-4.5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground leading-tight">Trygg adressändring</p>
+                      <p className="text-xs text-muted-foreground">Klar på under 5 min</p>
+                    </div>
                   </div>
                 </div>
               </div>

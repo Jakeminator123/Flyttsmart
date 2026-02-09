@@ -70,12 +70,15 @@ export function decodeAndVerifyQrData(
     .update(encoded)
     .digest("base64url");
 
-  if (
-    !crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSig)
-    )
-  ) {
+  const sigBuf = Buffer.from(signature);
+  const expectedBuf = Buffer.from(expectedSig);
+
+  // Guard against length mismatch (timingSafeEqual throws if lengths differ)
+  if (sigBuf.length !== expectedBuf.length) {
+    return null;
+  }
+
+  if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) {
     return null;
   }
 

@@ -210,6 +210,48 @@
 }
 
 /* ────────────────────────────────────────
+   Section animated gradient orbs
+   ──────────────────────────────────────── */
+.section-orb-1 {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, oklch(0.58 0.22 264 / 0.22) 0%, transparent 70%);
+  filter: blur(60px);
+  animation: mesh-move-1 30s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.section-orb-2 {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, oklch(0.70 0.18 200 / 0.16) 0%, transparent 70%);
+  filter: blur(60px);
+  animation: mesh-move-2 35s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.section-orb-accent {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, oklch(0.80 0.155 65 / 0.14) 0%, transparent 70%);
+  filter: blur(50px);
+  animation: mesh-move-3 28s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.dark .section-orb-1 {
+  background: radial-gradient(circle, oklch(0.55 0.24 264 / 0.18) 0%, transparent 70%);
+}
+
+.dark .section-orb-2 {
+  background: radial-gradient(circle, oklch(0.55 0.20 200 / 0.14) 0%, transparent 70%);
+}
+
+.dark .section-orb-accent {
+  background: radial-gradient(circle, oklch(0.80 0.155 65 / 0.12) 0%, transparent 70%);
+}
+
+/* ────────────────────────────────────────
    Gradient text
    ──────────────────────────────────────── */
 .text-gradient {
@@ -436,7 +478,7 @@
    ──────────────────────────────────────── */
 .section-divider {
   height: 1px;
-  background: linear-gradient(to right, transparent, var(--border), oklch(0.50 0.24 264 / 0.3), var(--border), transparent);
+  background: linear-gradient(to right, transparent 5%, oklch(0.50 0.24 264 / 0.12) 20%, oklch(0.50 0.24 264 / 0.35) 50%, oklch(0.50 0.24 264 / 0.12) 80%, transparent 95%);
 }
 
 /* ────────────────────────────────────────
@@ -449,6 +491,9 @@
     transition: none;
   }
   .animate-float, .animate-float-delayed, .animate-float-slow, .animate-pulse-ring {
+    animation: none;
+  }
+  .section-orb-1, .section-orb-2, .section-orb-accent {
     animation: none;
   }
   .hero-mesh::before, .hero-mesh::after, .hero-mesh-accent {

@@ -11,10 +11,13 @@ export function SiteFooter() {
   return (
     <footer
       id="kontakt"
-      className="relative border-t border-border/50 bg-card py-20"
+      className="relative overflow-hidden border-t border-border/50 bg-card py-20"
     >
-      {/* Subtle background glow */}
-      <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 h-64 w-96 rounded-full bg-primary/3 blur-3xl" />
+      {/* Animated background orbs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="section-orb-1 -bottom-1/4 left-1/4 h-100 w-100" />
+        <div className="section-orb-2 -top-1/4 -right-1/4 h-75 w-75" />
+      </div>
 
       <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
         <ScrollReveal>

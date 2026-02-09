@@ -56,8 +56,12 @@ export function BenefitsSection() {
     >
       <div className="section-divider absolute top-0 left-0 right-0" />
 
-      {/* Subtle background glow */}
-      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-primary/5 blur-3xl" />
+      {/* Animated background orbs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="section-orb-accent -top-1/4 -left-1/4 h-125 w-125" />
+        <div className="section-orb-1 -bottom-1/4 -right-1/4 h-125 w-125" />
+        <div className="absolute inset-0 dot-grid opacity-[0.06]" />
+      </div>
 
       <div className="mx-auto max-w-7xl px-4 lg:px-8">
         <div className="flex flex-col gap-16 lg:flex-row lg:items-center lg:gap-20">

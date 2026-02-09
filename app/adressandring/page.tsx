@@ -460,8 +460,14 @@ export default function AdressandringPage() {
   // ── Success state ────────────────────────────────────────────────────
   if (submitted) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-linear-to-b from-hero-gradient-from to-background px-4">
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 mx-auto max-w-md text-center">
+      <div className="relative flex min-h-screen flex-col items-center justify-center bg-linear-to-b from-hero-gradient-from to-background px-4 overflow-hidden">
+        {/* Animated background orbs */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+          <div className="section-orb-1 -top-1/4 -right-1/4 h-125 w-125" />
+          <div className="section-orb-accent -bottom-1/4 -left-1/3 h-150 w-150" />
+          <div className="absolute inset-0 dot-grid opacity-[0.08]" />
+        </div>
+        <div className="relative animate-in fade-in slide-in-from-bottom-4 duration-700 mx-auto max-w-md text-center">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
             <CheckCircle2 className="h-10 w-10 text-primary" />
           </div>
@@ -604,9 +610,17 @@ export default function AdressandringPage() {
 
   // ── Main form ────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-linear-to-b from-hero-gradient-from to-background">
+    <div className="relative min-h-screen bg-linear-to-b from-hero-gradient-from to-background overflow-hidden">
+      {/* Animated background orbs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+        <div className="section-orb-1 -top-1/4 -right-1/3 h-150 w-150" />
+        <div className="section-orb-2 bottom-1/4 -left-1/4 h-125 w-125" />
+        <div className="section-orb-accent top-1/2 right-1/4 h-100 w-100" />
+        <div className="absolute inset-0 dot-grid opacity-[0.06]" />
+      </div>
+
       {/* Top bar */}
-      <header className="border-b border-border/50 bg-card/60 backdrop-blur-xl">
+      <header className="relative border-b border-border/50 bg-card/60 backdrop-blur-xl">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <Link
             href="/"
@@ -625,7 +639,7 @@ export default function AdressandringPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-8 lg:py-12">
+      <main className="relative mx-auto max-w-3xl px-4 py-8 lg:py-12">
         {/* Step indicators */}
         <div className="mb-8">
           <div className="mb-4 flex items-center justify-between">
@@ -739,6 +753,45 @@ export default function AdressandringPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Dev mode: prefill with test data */}
+                {typeof window !== "undefined" &&
+                  window.location.hostname === "localhost" && (
+                    <div className="rounded-lg border border-dashed border-yellow-400 bg-yellow-50 p-3">
+                      <p className="text-xs font-semibold text-yellow-800 mb-2">
+                        Dev mode – Testa QR-förifyllning:
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-1.5 text-xs border-yellow-400 text-yellow-800 hover:bg-yellow-100"
+                        onClick={() => {
+                          setForm({
+                            firstName: "Anna",
+                            lastName: "Andersson",
+                            personalNumber: "19900101-1234",
+                            email: "anna@exempel.se",
+                            phone: "070-123 45 67",
+                            fromStreet: "Storgatan 1, lgh 1001",
+                            fromPostal: "111 22",
+                            fromCity: "Stockholm",
+                            toStreet: "Kungsgatan 5, lgh 302",
+                            toPostal: "411 19",
+                            toCity: "Göteborg",
+                            moveDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+                            householdType: "myself",
+                            reason: "work",
+                            hasChildren: false,
+                          });
+                          setQrPrefilled(true);
+                        }}
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Fyll med testdata (simulera QR-scan)
+                      </Button>
+                    </div>
+                  )}
 
                 <div className="relative">
                   <Separator />

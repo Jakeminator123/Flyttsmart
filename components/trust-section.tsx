@@ -41,8 +41,15 @@ const paymentMethods = [
 
 export function TrustSection() {
   return (
-    <section className="relative bg-background py-28 lg:py-36">
+    <section className="relative overflow-hidden bg-background py-28 lg:py-36">
       <div className="section-divider absolute top-0 left-0 right-0" />
+
+      {/* Animated background orbs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="section-orb-2 -top-1/3 -left-1/4 h-150 w-150" />
+        <div className="section-orb-1 -bottom-1/3 -right-1/3 h-125 w-125" />
+        <div className="absolute inset-0 dot-grid opacity-[0.05]" />
+      </div>
 
       <div className="mx-auto max-w-7xl px-4 lg:px-8">
         <ScrollReveal className="text-center">

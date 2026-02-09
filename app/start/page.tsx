@@ -117,8 +117,16 @@ function StartContent() {
     : null;
 
   return (
-    <div className="flex min-h-screen flex-col items-center bg-linear-to-b from-hero-gradient-from to-background px-4 py-8">
-      <div className="w-full max-w-md space-y-4">
+    <div className="relative flex min-h-screen flex-col items-center bg-linear-to-b from-hero-gradient-from to-background px-4 py-8 overflow-hidden">
+      {/* Animated background orbs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="section-orb-1 -top-1/4 -right-1/4 h-125 w-125" />
+        <div className="section-orb-2 -bottom-1/4 -left-1/3 h-150 w-150" />
+        <div className="section-orb-accent top-1/3 left-1/4 h-100 w-100" />
+        <div className="absolute inset-0 dot-grid opacity-[0.08]" />
+      </div>
+
+      <div className="relative w-full max-w-md space-y-4">
         {/* Status: Loading */}
         {status === "loading" && (
           <Card className="shadow-xl">
@@ -372,7 +380,7 @@ export default function StartPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-hero-gradient-from to-background px-4">
+        <div className="relative flex min-h-screen items-center justify-center bg-linear-to-b from-hero-gradient-from to-background px-4 overflow-hidden">
           <Card className="w-full max-w-sm shadow-xl">
             <CardContent className="flex flex-col items-center gap-4 py-10">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />

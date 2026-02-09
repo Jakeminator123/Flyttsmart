@@ -1,10 +1,17 @@
 "use client"
 
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { ArrowRight, MessageCircle, Shield, Clock, Lock, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollReveal } from "@/components/scroll-reveal"
+
+const FloatingLines = dynamic(() => import("@/components/floating-lines"), {
+  ssr: false,
+})
+
+const CTA_GRADIENT = ["#1B3BA2", "#4A80E0", "#D4A843"]
 
 const highlights = [
   { icon: Clock, text: "Klar på några minuter" },
@@ -21,9 +28,20 @@ export function CtaSection() {
     >
       <div className="section-divider absolute top-0 left-0 right-0" />
 
-      {/* Background mesh */}
+      {/* Background mesh + FloatingLines */}
       <div className="hero-mesh opacity-50" />
       <div className="hero-mesh-accent opacity-30" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.12]">
+        <FloatingLines
+          linesGradient={CTA_GRADIENT}
+          enabledWaves={["bottom", "middle"]}
+          lineCount={[3, 4]}
+          lineDistance={[10, 6]}
+          animationSpeed={0.4}
+          interactive={false}
+          parallax={false}
+        />
+      </div>
       <div className="pointer-events-none absolute inset-0 dot-grid opacity-30" />
 
       <div className="relative mx-auto max-w-4xl px-4 text-center lg:px-8">

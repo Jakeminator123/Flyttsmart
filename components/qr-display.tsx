@@ -82,7 +82,7 @@ export function QrDisplay({
                 alt="Personlig QR-kod"
                 width={280}
                 height={280}
-                className="h-auto w-full max-w-[280px]"
+                className="h-auto w-full max-w-70"
                 unoptimized
               />
             </div>

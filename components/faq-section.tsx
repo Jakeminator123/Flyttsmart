@@ -52,9 +52,15 @@ export function FaqSection() {
   return (
     <section
       id="faq"
-      className="relative bg-section-alt py-28 lg:py-36"
+      className="relative overflow-hidden bg-section-alt py-28 lg:py-36"
     >
       <div className="section-divider absolute top-0 left-0 right-0" />
+
+      {/* Animated background orbs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="section-orb-accent -top-1/4 -right-1/4 h-125 w-125" />
+        <div className="section-orb-2 -bottom-1/4 -left-1/3 h-125 w-125" />
+      </div>
 
       <div className="mx-auto max-w-3xl px-4 lg:px-8">
         <ScrollReveal className="text-center">

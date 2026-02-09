@@ -66,13 +66,12 @@ export async function POST(req: NextRequest) {
         .update(url)
         .digest("hex");
 
-      db.insert(qrTokens)
+      await db.insert(qrTokens)
         .values({
           tokenHash,
           encodedData: JSON.stringify(qrData),
           expiresAt,
-        })
-        .run();
+        });
     } catch (dbError) {
       // DB insert failed – QR still works because decode uses HMAC verification, not DB
       console.warn("QR token DB insert failed (non-critical):", dbError);

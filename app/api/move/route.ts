@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create or find user
-    const userResult = db
+    const [userResult] = await db
       .insert(users)
       .values({
         name,
@@ -40,11 +40,10 @@ export async function POST(req: NextRequest) {
         email: email || null,
         phone: phone || null,
       })
-      .returning()
-      .get();
+      .returning();
 
     // Create the move
-    const moveResult = db
+    const [moveResult] = await db
       .insert(moves)
       .values({
         userId: userResult.id,
@@ -59,13 +58,12 @@ export async function POST(req: NextRequest) {
         reason: reason || null,
         status: "submitted",
       })
-      .returning()
-      .get();
+      .returning();
 
     // Save checklist items if provided
     if (checklist && Array.isArray(checklist) && checklist.length > 0) {
       for (const item of checklist) {
-        db.insert(checklistItems)
+        await db.insert(checklistItems)
           .values({
             moveId: moveResult.id,
             title: item.title,
@@ -73,8 +71,7 @@ export async function POST(req: NextRequest) {
             dueDate: item.dueDate || null,
             category: item.category || null,
             sortOrder: item.sortOrder || 0,
-          })
-          .run();
+          });
       }
     }
 
@@ -106,21 +103,26 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const move = db.query.moves.findFirst({
-      where: eq(moves.id, parseInt(id)),
-    });
+    const [move] = await db
+      .select()
+      .from(moves)
+      .where(eq(moves.id, parseInt(id)))
+      .limit(1);
 
     if (!move) {
       return NextResponse.json({ error: "Move not found" }, { status: 404 });
     }
 
-    const user = db.query.users.findFirst({
-      where: eq(users.id, move.userId),
-    });
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, move.userId))
+      .limit(1);
 
-    const items = db.query.checklistItems.findMany({
-      where: eq(checklistItems.moveId, move.id),
-    });
+    const items = await db
+      .select()
+      .from(checklistItems)
+      .where(eq(checklistItems.moveId, move.id));
 
     return NextResponse.json({ move, user, checklist: items });
   } catch (error) {

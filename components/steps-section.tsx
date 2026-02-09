@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { ClipboardList, Calendar, CreditCard, MailCheck, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -118,6 +119,18 @@ export function StepsSection() {
                           {detail}
                         </div>
                       ))}
+                    </div>
+                  </div>
+                  <div className="hidden shrink-0 xl:block">
+                    <div className="relative">
+                      <div className="absolute -inset-4 rounded-3xl bg-primary/5 blur-2xl" />
+                      <Image
+                        src="/images/glad_tjej.webp"
+                        alt="En glad tjej visar en QR-kod på sin telefon"
+                        width={220}
+                        height={320}
+                        className="relative h-72 w-auto rounded-2xl object-cover shadow-lg"
+                      />
                     </div>
                   </div>
                 </div>

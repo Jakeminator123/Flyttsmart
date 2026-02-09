@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import dynamic from "next/dynamic"
 import { ArrowRight, MessageCircle, Shield, Clock, Lock, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -45,27 +46,48 @@ export function CtaSection() {
       <div className="pointer-events-none absolute inset-0 dot-grid opacity-30" />
 
       <div className="relative mx-auto max-w-4xl px-4 text-center lg:px-8">
+        {/* "Before" contrast – stressed mover */}
         <ScrollReveal>
+          <div className="mx-auto mb-10 flex max-w-md items-center gap-5 rounded-2xl border border-border/40 bg-card/60 p-4 text-left shadow-lg backdrop-blur-sm">
+            <Image
+              src="/images/ledsen_man.webp"
+              alt="En stressad man omgiven av pappersarbete"
+              width={80}
+              height={80}
+              className="h-20 w-20 shrink-0 rounded-xl object-cover"
+            />
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                Stressad över flytten?
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                Pappersarbete, adressändringar och deadlines. Vi tar hand om det åt dig.
+              </p>
+            </div>
+          </div>
+        </ScrollReveal>
+
+        <ScrollReveal delay={100}>
           <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary backdrop-blur-sm">
             Kom igång
           </Badge>
         </ScrollReveal>
 
-        <ScrollReveal delay={100}>
+        <ScrollReveal delay={200}>
           <h2 className="mt-5 font-heading text-4xl font-bold tracking-tight text-foreground text-balance sm:text-5xl lg:text-6xl">
             Redo att flytta
             <span className="text-gradient"> smart?</span>
           </h2>
         </ScrollReveal>
 
-        <ScrollReveal delay={200}>
+        <ScrollReveal delay={300}>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
             Gör din adressändring online idag med Flyttsmart. Det tar bara några
             minuter och du får bekräftelse direkt på mejl.
           </p>
         </ScrollReveal>
 
-        <ScrollReveal delay={300}>
+        <ScrollReveal delay={400}>
           <div className="glass mx-auto mt-12 max-w-lg rounded-2xl p-8 shadow-xl">
             <div className="grid w-full grid-cols-2 gap-4">
               {highlights.map((h) => (

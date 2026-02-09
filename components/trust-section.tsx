@@ -93,6 +93,9 @@ export function TrustSection() {
               height={480}
               className="h-64 w-full object-cover sm:h-80 lg:h-96"
             />
+            {/* Animated blue shimmer overlay */}
+            <div className="pointer-events-none absolute inset-0 bg-linear-to-r from-primary/15 via-transparent to-primary/10 animate-pulse" />
+            <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-primary/10 via-transparent to-primary/5 mix-blend-overlay" />
             <div className="absolute inset-0 bg-linear-to-t from-foreground/70 via-foreground/20 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6 flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">

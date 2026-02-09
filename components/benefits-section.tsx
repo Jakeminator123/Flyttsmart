@@ -86,8 +86,8 @@ export function BenefitsSection() {
                   />
 
                   <Image
-                    src="/images/family-moving.jpg"
-                    alt="En familj som bär flyttkartonger in till sitt nya hem"
+                    src="/images/glad_familj.webp"
+                    alt="En glad familj omgiven av flyttkartonger i sitt nya hem"
                     width={600}
                     height={450}
                     className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${

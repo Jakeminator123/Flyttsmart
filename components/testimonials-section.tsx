@@ -19,7 +19,7 @@ const testimonials = [
     initials: "MK",
     location: "Göteborg",
     rating: 5,
-    text: "Använde Flyttsmart när vi flyttade hela familjen. Kunde lägga till fru och barn enkelt. Ingen post gick förlorad.",
+    text: "Använde Flytt.io när vi flyttade hela familjen. Kunde lägga till fru och barn enkelt. Ingen post gick förlorad.",
     date: "Dec 2025",
   },
   {
@@ -27,7 +27,7 @@ const testimonials = [
     initials: "SJ",
     location: "Malmö",
     rating: 5,
-    text: "Mycket tryggare känsla att göra adressändringen via Flyttsmart jämfört med andra tjänster. Tydliga villkor och inga dolda avgifter.",
+    text: "Mycket tryggare känsla att göra flyttanmälan via Flytt.io jämfört med andra tjänster. Tydliga villkor och helt gratis.",
     date: "Feb 2026",
   },
 ]
@@ -60,7 +60,7 @@ export function TestimonialsSection() {
             <span className="text-gradient"> säger</span>
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-            Tusentals svenskar har redan gjort sin adressändring med Flyttsmart.
+            Tusentals svenskar har redan gjort sin flyttanmälan med Flytt.io.
           </p>
         </ScrollReveal>
 

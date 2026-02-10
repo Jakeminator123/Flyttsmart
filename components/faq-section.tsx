@@ -11,39 +11,27 @@ import { ScrollReveal } from "@/components/scroll-reveal"
 
 const faqs = [
   {
-    question: "Vad är adressändring och när ska jag göra den?",
+    question: "Är Flytt.io samma sak som Skatteverket?",
     answer:
-      "Adressändring innebär att du meddelar att du har fått en ny bostadsadress. Du bör göra en adressändring i samband med att du flyttar så att din post eftersänds till din nya adress. Vi rekommenderar att du gör det så snart du vet din nya adress, helst ett par veckor innan flytten.",
+      "Nej. Flytt.io är en privat tjänst som hjälper dig att göra flyttanmälan till Skatteverket – enklare och med extra förmåner.",
     tag: "Grundläggande",
   },
   {
-    question: "Kan jag ändra startdatum i efterhand?",
+    question: "Kostar det verkligen inget?",
     answer:
-      "Ja, du kan ändra startdatumet för din adressändring om flytten senareläggs eller tidigareläggs. Kontakta vår kundservice så hjälper vi dig att uppdatera datumet. Tänk på att ändringen kan ta några dagar att träda i kraft.",
-    tag: "Ändringar",
-  },
-  {
-    question: "Gäller det hela familjen?",
-    answer:
-      "Du kan välja att inkludera familjemedlemmar i din adressändring. I beställningsflödet kan du enkelt lägga till medflyttare som bor på samma adress. Varje person som fyllt 18 år behöver dock ge sitt samtycke.",
-    tag: "Familj",
-  },
-  {
-    question: "Hur lång tid tar det?",
-    answer:
-      "Själva beställningen tar bara några minuter att genomföra online. Eftersändningen av din post startar normalt inom 3-5 arbetsdagar efter det startdatum du angett.",
-    tag: "Tid",
-  },
-  {
-    question: "Vad kostar det?",
-    answer:
-      "Priset visas tydligt innan du genomför betalningen. Det finns inga dolda avgifter. Ungdomar under 26 år och studenter kan få rabatterat pris.",
+      "Nej. Tjänsten är helt gratis för dig som användare.",
     tag: "Pris",
   },
   {
-    question: "Hur hanteras mina uppgifter? (GDPR)",
+    question: "Måste jag byta el eller bredband?",
     answer:
-      "Vi tar din integritet på allvar. Dina personuppgifter hanteras i enlighet med GDPR och svenska dataskyddslagstiftningen. Vi delar aldrig dina uppgifter med tredje part utan ditt samtycke. Läs mer i vår integritetspolicy.",
+      "Nej. Erbjudanden är helt frivilliga. Du väljer själv.",
+    tag: "Erbjudanden",
+  },
+  {
+    question: "Är det säkert?",
+    answer:
+      "Ja. Vi använder BankID och följer GDPR. Din data hanteras tryggt.",
     tag: "Säkerhet",
   },
 ]
@@ -72,7 +60,7 @@ export function FaqSection() {
             <span className="text-gradient"> frågor</span>
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-            Här hittar du svar på de vanligaste frågorna om adressändring.
+            Här hittar du svar på de vanligaste frågorna om Flytt.io.
           </p>
         </ScrollReveal>
 

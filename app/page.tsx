@@ -1,7 +1,9 @@
 import { Header } from "@/components/header"
 import { HeroSection } from "@/components/hero-section"
+import { ValuePropositionSection } from "@/components/value-proposition-section"
 import { StepsSection } from "@/components/steps-section"
 import { BenefitsSection } from "@/components/benefits-section"
+import { ComparisonSection } from "@/components/comparison-section"
 import { TestimonialsSection } from "@/components/testimonials-section"
 import { TrustSection } from "@/components/trust-section"
 import { FaqSection } from "@/components/faq-section"
@@ -15,8 +17,10 @@ export default function HomePage() {
       <Header />
       <main className="flex-1">
         <HeroSection />
+        <ValuePropositionSection />
         <StepsSection />
         <BenefitsSection />
+        <ComparisonSection />
         <TestimonialsSection />
         <TrustSection />
         <FaqSection />

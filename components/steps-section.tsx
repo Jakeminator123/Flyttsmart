@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { ClipboardList, Calendar, CreditCard, MailCheck, ArrowRight } from "lucide-react"
+import { Fingerprint, FileCheck, Gift, CheckCircle, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -10,40 +10,40 @@ import { ScrollReveal } from "@/components/scroll-reveal"
 
 const steps = [
   {
-    id: "uppgifter",
-    icon: ClipboardList,
+    id: "bankid",
+    icon: Fingerprint,
     number: "01",
-    title: "Fyll i dina uppgifter",
+    title: "Logga in med BankID",
     description:
-      "Ange person- och flyttuppgifter i ett tydligt formulär med realtidsvalidering. Systemet hjälper dig att fylla i allt korrekt redan från start.",
-    details: ["Personnummer", "Nuvarande adress", "Ny adress", "Kontaktuppgifter"],
+      "Identifiera dig säkert – vi hämtar bara den information som krävs för flytten.",
+    details: ["Mobilt BankID", "Säker identifiering", "Automatisk datahämtning", "GDPR-godkänt"],
   },
   {
-    id: "datum",
-    icon: Calendar,
+    id: "flyttanmalan",
+    icon: FileCheck,
     number: "02",
-    title: "Välj startdatum",
+    title: "Vi gör flyttanmälan åt dig",
     description:
-      "Välj när eftersändningen ska börja och lägg till eventuella familjemedlemmar som flyttar med dig.",
-    details: ["Flexibelt startdatum", "Lägg till medflyttare", "Eftersändningsperiod", "Familjepaket"],
+      "Flytt.io skickar din flyttanmälan till Skatteverket automatiskt, korrekt och i tid.",
+    details: ["Automatisk hantering", "Direkt till Skatteverket", "Korrekt och i tid", "Inget pappersarbete"],
   },
   {
-    id: "betala",
-    icon: CreditCard,
+    id: "fordelar",
+    icon: Gift,
     number: "03",
-    title: "Bekräfta och betala",
+    title: "Få fördelar på nya adressen",
     description:
-      "Granska dina uppgifter och betala säkert. Transparenta priser utan dolda avgifter visas tydligt före betalning.",
-    details: ["Visa & Mastercard", "Swish", "Inga dolda avgifter", "SSL-krypterat"],
+      "Du får tillgång till gratis el första månaden och kan enkelt tacka ja (eller nej) till erbjudanden på bredband, försäkring och andra nödvändiga tjänster.",
+    details: ["Gratis el första månaden", "Bredband & försäkring", "Frivilliga erbjudanden", "Anpassat efter dig"],
   },
   {
     id: "klart",
-    icon: MailCheck,
+    icon: CheckCircle,
     number: "04",
-    title: "Bekräftelse på mejl",
+    title: "Klart",
     description:
-      "Du får en bekräftelse direkt på mejl. Din adressändring är klar och eftersändningen startar på valt datum.",
-    details: ["Direkt bekräftelse", "Spårningslänk", "Ändringsmöjlighet", "Kvitto på mejl"],
+      "Allt samlat på ett ställe. Inga blanketter. Ingen stress.",
+    details: ["Personlig checklista", "Påminnelser", "Samlad överblick", "Helt gratis"],
   },
 ]
 
@@ -68,11 +68,11 @@ export function StepsSection() {
               Så funkar det
             </Badge>
             <h2 className="mt-5 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Fyra enkla steg till din
-              <span className="text-gradient"> nya adress</span>
+              Så fungerar
+              <span className="text-gradient"> Flytt.io</span>
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-              Hela processen tar bara några minuter. Inget krångel, inga komplicerade steg.
+              Hela processen tar bara 2 minuter. Inget krångel, inga blanketter.
             </p>
           </div>
         </ScrollReveal>
@@ -167,7 +167,7 @@ export function StepsSection() {
         <ScrollReveal delay={400} className="mt-14 text-center">
           <Button asChild size="lg" className="shimmer-btn rounded-full px-8 gap-2 shadow-lg shadow-primary/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5">
             <Link href="/adressandring">
-              Starta din adressändring
+              Starta din flyttanmälan
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

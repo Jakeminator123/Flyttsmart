@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { ShieldCheck, Lock, FileCheck, CreditCard, Info } from "lucide-react"
+import { ShieldCheck, Lock, FileCheck, Fingerprint, Info } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -17,26 +17,20 @@ import { ScrollReveal } from "@/components/scroll-reveal"
 
 const trustSignals = [
   {
-    icon: ShieldCheck,
-    title: "Säker checkout",
-    description: "All betalning sker via krypterade anslutningar med banksäkerhet.",
+    icon: Fingerprint,
+    title: "Säker inloggning med BankID",
+    description: "Identifiera dig tryggt med Mobilt BankID – samma säkerhet som din bank.",
   },
   {
     icon: Lock,
     title: "Krypterad data",
-    description: "Dina personuppgifter skyddas med modern kryptering hela vägen.",
+    description: "Dina personuppgifter skyddas med modern kryptering och hanteras enligt GDPR.",
   },
   {
     icon: FileCheck,
     title: "Tydliga villkor",
-    description: "Inga dolda avgifter. Transparent pris före betalning.",
+    description: "100% gratis. Inga dolda kostnader. Alla erbjudanden är frivilliga.",
   },
-]
-
-const paymentMethods = [
-  { name: "Visa", icon: CreditCard },
-  { name: "Mastercard", icon: CreditCard },
-  { name: "Swish", icon: CreditCard },
 ]
 
 export function TrustSection() {
@@ -99,14 +93,16 @@ export function TrustSection() {
             <div className="absolute inset-0 bg-linear-to-t from-foreground/70 via-foreground/20 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6 flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">
-                {paymentMethods.map((method) => (
-                  <Badge key={method.name} variant="secondary" className="glass gap-1.5 px-3 py-1.5 text-card-foreground">
-                    <method.icon className="h-4 w-4" />
-                    {method.name}
-                  </Badge>
-                ))}
+                <Badge variant="secondary" className="glass gap-1.5 px-3 py-1.5 text-card-foreground">
+                  <Fingerprint className="h-4 w-4" />
+                  BankID
+                </Badge>
                 <Badge variant="secondary" className="glass gap-1.5 px-3 py-1.5 text-card-foreground">
                   <ShieldCheck className="h-4 w-4" />
+                  GDPR
+                </Badge>
+                <Badge variant="secondary" className="glass gap-1.5 px-3 py-1.5 text-card-foreground">
+                  <Lock className="h-4 w-4" />
                   SSL-krypterad
                 </Badge>
               </div>
@@ -128,11 +124,11 @@ export function TrustSection() {
                   <Separator />
                   <div className="space-y-4">
                     <div className="flex gap-3">
-                      <Lock className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                      <Fingerprint className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                       <div>
-                        <p className="text-sm font-semibold text-foreground">256-bit SSL-kryptering</p>
+                        <p className="text-sm font-semibold text-foreground">Säker BankID-inloggning</p>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          All kommunikation mellan din webbläsare och våra servrar är krypterad med samma teknik som banker använder.
+                          Vi använder Mobilt BankID för säker identifiering – samma teknik som din bank.
                         </p>
                       </div>
                     </div>
@@ -150,9 +146,9 @@ export function TrustSection() {
                     <div className="flex gap-3">
                       <FileCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                       <div>
-                        <p className="text-sm font-semibold text-foreground">Transparent prissättning</p>
+                        <p className="text-sm font-semibold text-foreground">100% gratis</p>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          Alla kostnader visas tydligt innan du genomför betalningen. Inga dolda avgifter, inga överraskningar.
+                          Flytt.io kostar inget för dig. Inga dolda avgifter, inga överraskningar.
                         </p>
                       </div>
                     </div>

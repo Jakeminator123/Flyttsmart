@@ -124,7 +124,7 @@ export function DIdAgentWidget() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold leading-none text-foreground">
-                    Flyttsmart Agent
+                    Flytt.io Agent
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     AI-videoassistent av D-ID
@@ -158,7 +158,7 @@ export function DIdAgentWidget() {
               className="h-[calc(100%-3rem)] w-full border-0"
               allow="camera;microphone;display-capture;autoplay"
               sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
-              title="Flyttsmart AI-agent"
+              title="Flytt.io AI-agent"
             />
           </div>
         </>

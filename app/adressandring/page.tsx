@@ -48,6 +48,7 @@ import { QrScanner } from "@/components/qr-scanner";
 import { ChecklistView, type ChecklistItem } from "@/components/checklist-view";
 import { AiChatBubble } from "@/components/ai-chat-bubble";
 import { SkatteverketGuide } from "@/components/skatteverket-guide";
+import { BookmarkletButton } from "@/components/bookmarklet-button";
 
 const STEPS = [
   { id: 1, label: "Identifiering", icon: QrCode },
@@ -522,6 +523,20 @@ export default function AdressandringPage() {
                 toCity: form.toCity,
                 moveDate: form.moveDate,
                 householdType: form.householdType,
+              }}
+            />
+
+            {/* Bookmarklet for Skatteverket auto-fill */}
+            <BookmarkletButton
+              data={{
+                name: `${form.firstName} ${form.lastName}`.trim(),
+                personalNumber: form.personalNumber,
+                toStreet: form.toStreet,
+                toPostal: form.toPostal,
+                toCity: form.toCity,
+                moveDate: form.moveDate,
+                email: form.email,
+                phone: form.phone,
               }}
             />
 

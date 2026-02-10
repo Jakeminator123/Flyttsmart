@@ -15,10 +15,10 @@ const FloatingLines = dynamic(() => import("@/components/floating-lines"), {
 const CTA_GRADIENT = ["#1B3BA2", "#4A80E0", "#D4A843"]
 
 const highlights = [
-  { icon: Clock, text: "Klar på några minuter" },
-  { icon: Shield, text: "Säker betalning" },
-  { icon: Lock, text: "Krypterad anslutning" },
-  { icon: CheckCircle, text: "Bekräftelse direkt på mejl" },
+  { icon: Clock, text: "Klar på 2 minuter" },
+  { icon: Shield, text: "100% gratis" },
+  { icon: Lock, text: "BankID-inloggning" },
+  { icon: CheckCircle, text: "GDPR-godkänd" },
 ]
 
 export function CtaSection() {
@@ -76,14 +76,13 @@ export function CtaSection() {
         <ScrollReveal delay={200}>
           <h2 className="mt-5 font-heading text-4xl font-bold tracking-tight text-foreground text-balance sm:text-5xl lg:text-6xl">
             Redo att flytta
-            <span className="text-gradient"> smart?</span>
+            <span className="text-gradient"> utan krångel?</span>
           </h2>
         </ScrollReveal>
 
         <ScrollReveal delay={300}>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-            Gör din adressändring online idag med Flyttsmart. Det tar bara några
-            minuter och du får bekräftelse direkt på mejl.
+            Gör din flyttanmälan på 2 minuter – och få fördelar på köpet.
           </p>
         </ScrollReveal>
 
@@ -107,7 +106,7 @@ export function CtaSection() {
                   className="shimmer-btn relative w-full rounded-full text-base font-semibold shadow-xl shadow-primary/25 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/35 hover:-translate-y-1"
                 >
                   <Link href="/adressandring">
-                    Gör adressändring
+                    Starta flyttanmälan med BankID
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>

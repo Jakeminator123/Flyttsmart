@@ -16,6 +16,7 @@ import {
   Mail,
   Phone,
   Shield,
+  ClipboardList,
 } from "lucide-react";
 import {
   Card,
@@ -29,9 +30,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { SkatteverketGuide } from "@/components/skatteverket-guide";
+import { BookmarkletButton } from "@/components/bookmarklet-button";
 
 const SKV_URL =
-  "https://www.skatteverket.se/privat/folkbokforing/flyttanmalan.html";
+  "https://www7.skatteverket.se/portal/login?route=flyttanmalan";
 
 interface DecodedData {
   name: string | null;
@@ -83,7 +85,6 @@ function StartContent() {
         setDecodedData(data);
         setStatus("decoded");
 
-        // Also store in sessionStorage for the form (backwards compatibility)
         sessionStorage.setItem("qr_prefill", JSON.stringify(data));
       } catch (err: unknown) {
         setStatus("error");
@@ -104,9 +105,24 @@ function StartContent() {
     setTimeout(() => setCopiedField(null), 2000);
   }
 
-  const newAddress = decodedData?.toStreet
-    ? `${decodedData.toStreet}, ${decodedData.toPostal || ""} ${decodedData.toCity || ""}`.trim()
-    : null;
+  async function copyAllData() {
+    if (!decodedData) return;
+    const lines = [
+      decodedData.name && `Namn: ${decodedData.name}`,
+      decodedData.personalNumber && `Personnummer: ${decodedData.personalNumber}`,
+      decodedData.toStreet && `Ny gatuadress: ${decodedData.toStreet}`,
+      decodedData.toPostal && `Postnummer: ${decodedData.toPostal}`,
+      decodedData.toCity && `Ort: ${decodedData.toCity}`,
+      decodedData.moveDate && `Flyttdatum: ${decodedData.moveDate}`,
+      decodedData.email && `E-post: ${decodedData.email}`,
+      decodedData.phone && `Telefon: ${decodedData.phone}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    await navigator.clipboard.writeText(lines);
+    setCopiedField("all");
+  }
 
   const formattedDate = decodedData?.moveDate
     ? new Date(decodedData.moveDate).toLocaleDateString("sv-SE", {
@@ -116,9 +132,24 @@ function StartContent() {
       })
     : null;
 
+  // Compact data rows for the reference card
+  const dataRows: { icon: typeof MapPin; label: string; value: string; key: string }[] = [];
+  if (decodedData) {
+    if (decodedData.toStreet)
+      dataRows.push({ icon: MapPin, label: "Ny adress", value: `${decodedData.toStreet}, ${decodedData.toPostal || ""} ${decodedData.toCity || ""}`.trim(), key: "address" });
+    if (decodedData.moveDate)
+      dataRows.push({ icon: CalendarDays, label: "Flyttdatum", value: formattedDate || decodedData.moveDate, key: "date" });
+    if (decodedData.name)
+      dataRows.push({ icon: User, label: "Namn", value: decodedData.name, key: "name" });
+    if (decodedData.email)
+      dataRows.push({ icon: Mail, label: "E-post", value: decodedData.email, key: "email" });
+    if (decodedData.phone)
+      dataRows.push({ icon: Phone, label: "Telefon", value: decodedData.phone, key: "phone" });
+  }
+
   return (
     <div className="relative flex min-h-screen flex-col items-center bg-linear-to-b from-hero-gradient-from to-background px-4 py-8 overflow-hidden">
-      {/* Animated background orbs */}
+      {/* Background orbs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div className="section-orb-1 -top-1/4 -right-1/4 h-125 w-125" />
         <div className="section-orb-2 -bottom-1/4 -left-1/3 h-150 w-150" />
@@ -127,7 +158,7 @@ function StartContent() {
       </div>
 
       <div className="relative w-full max-w-md space-y-4">
-        {/* Status: Loading */}
+        {/* Loading */}
         {status === "loading" && (
           <Card className="shadow-xl">
             <CardContent className="flex flex-col items-center gap-4 py-12">
@@ -142,7 +173,7 @@ function StartContent() {
           </Card>
         )}
 
-        {/* Status: Error */}
+        {/* Error */}
         {status === "error" && (
           <Card className="shadow-xl">
             <CardContent className="flex flex-col items-center gap-4 py-12">
@@ -170,128 +201,128 @@ function StartContent() {
           </Card>
         )}
 
-        {/* Status: Decoded – Reference card */}
+        {/* Decoded – Compact reference card */}
         {status === "decoded" && decodedData && (
           <>
-            {/* Success indicator */}
+            {/* Success header */}
             <Card className="shadow-xl">
-              <CardContent className="flex flex-col items-center gap-3 py-6">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                  <CheckCircle2 className="h-7 w-7 text-primary" />
+              <CardContent className="flex flex-col items-center gap-2 py-5">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                  <CheckCircle2 className="h-6 w-6 text-primary" />
                 </div>
-                <p className="text-lg font-semibold text-foreground">
+                <p className="text-base font-semibold text-foreground">
                   Dina uppgifter är redo!
-                </p>
-                <p className="text-center text-sm text-muted-foreground">
-                  All data från QR-koden har avkodats. Välj hur du vill
-                  fortsätta nedan.
                 </p>
               </CardContent>
             </Card>
 
-            {/* Quick action: Reference card or full guide */}
             {!showGuide ? (
               <>
-                {/* Key info: New address + move date */}
+                {/* Compact data card */}
                 <Card className="border-primary/30 shadow-lg">
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">
-                        Snabbreferens
-                      </CardTitle>
+                      <CardTitle className="text-sm">Dina uppgifter</CardTitle>
                       <Badge className="bg-primary/10 text-primary text-xs">
                         QR-data
                       </Badge>
                     </div>
                     <CardDescription className="text-xs">
-                      Tryck på ett fält för att kopiera till urklipp.
+                      Tryck på en rad för att kopiera.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    {/* New address */}
-                    {newAddress && (
+                  <CardContent className="space-y-1.5">
+                    {dataRows.map((row) => (
                       <button
+                        key={row.key}
                         type="button"
-                        onClick={() => copyToClipboard(newAddress, "address")}
-                        className="flex w-full items-center gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4 text-left transition-colors active:bg-primary/10"
+                        onClick={() => {
+                          const raw =
+                            row.key === "date" && decodedData.moveDate
+                              ? decodedData.moveDate
+                              : row.key === "address" && decodedData.toStreet
+                                ? `${decodedData.toStreet}, ${decodedData.toPostal || ""} ${decodedData.toCity || ""}`.trim()
+                                : row.value;
+                          copyToClipboard(raw, row.key);
+                        }}
+                        className="flex w-full items-center gap-3 rounded-lg border border-primary/20 bg-card p-2.5 text-left transition-colors active:bg-primary/10"
                       >
-                        <MapPin className="h-5 w-5 shrink-0 text-primary" />
+                        <row.icon className="h-4 w-4 shrink-0 text-primary" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-medium uppercase tracking-wider text-primary">
-                            Ny adress
+                          <p className="text-[10px] font-medium uppercase tracking-wider text-primary">
+                            {row.label}
                           </p>
-                          <p className="text-sm font-bold text-foreground">
-                            {decodedData.toStreet}
-                          </p>
-                          <p className="text-sm text-foreground">
-                            {decodedData.toPostal} {decodedData.toCity}
+                          <p className="text-sm font-semibold text-foreground truncate">
+                            {row.value}
                           </p>
                         </div>
-                        {copiedField === "address" ? (
-                          <Check className="h-4 w-4 text-green-600" />
+                        {copiedField === row.key ? (
+                          <Check className="h-4 w-4 shrink-0 text-green-600" />
                         ) : (
-                          <Copy className="h-4 w-4 text-muted-foreground" />
+                          <Copy className="h-4 w-4 shrink-0 text-muted-foreground" />
                         )}
                       </button>
-                    )}
+                    ))}
 
-                    {/* Move date */}
-                    {formattedDate && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          copyToClipboard(decodedData.moveDate!, "date")
-                        }
-                        className="flex w-full items-center gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4 text-left transition-colors active:bg-primary/10"
+                    <Separator className="my-2" />
+
+                    {/* Action buttons */}
+                    <Button
+                      onClick={copyAllData}
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                    >
+                      {copiedField === "all" ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <ClipboardList className="h-3.5 w-3.5" />
+                      )}
+                      {copiedField === "all"
+                        ? "Kopierade alla uppgifter!"
+                        : "Kopiera alla uppgifter"}
+                    </Button>
+
+                    <Button
+                      asChild
+                      className="w-full gap-2"
+                      size="lg"
+                    >
+                      <a
+                        href={SKV_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
                       >
-                        <CalendarDays className="h-5 w-5 shrink-0 text-primary" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-medium uppercase tracking-wider text-primary">
-                            Flyttdatum
-                          </p>
-                          <p className="text-sm font-bold text-foreground">
-                            {formattedDate}
-                          </p>
-                        </div>
-                        {copiedField === "date" ? (
-                          <Check className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <Copy className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </button>
-                    )}
+                        Öppna Skatteverket
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </Button>
 
-                    <Separator />
-
-                    {/* Two CTA buttons */}
-                    <div className="space-y-2">
-                      <Button
-                        onClick={() => setShowGuide(true)}
-                        className="w-full gap-2"
-                        size="lg"
-                      >
-                        Steg-för-steg Skatteverket-guide
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-
-                      <Button
-                        asChild
-                        variant="outline"
-                        className="w-full gap-2"
-                        size="sm"
-                      >
-                        <a
-                          href={SKV_URL}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Öppna Skatteverket direkt
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
-                    </div>
+                    <Button
+                      onClick={() => setShowGuide(true)}
+                      variant="ghost"
+                      size="sm"
+                      className="w-full gap-2 text-xs"
+                    >
+                      Steg-för-steg guide
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
                   </CardContent>
                 </Card>
+
+                {/* Bookmarklet section */}
+                <BookmarkletButton
+                  data={{
+                    name: decodedData.name,
+                    personalNumber: decodedData.personalNumber,
+                    toStreet: decodedData.toStreet,
+                    toPostal: decodedData.toPostal,
+                    toCity: decodedData.toCity,
+                    moveDate: decodedData.moveDate,
+                    email: decodedData.email,
+                    phone: decodedData.phone,
+                  }}
+                />
               </>
             ) : (
               /* Full Skatteverket guide */
@@ -307,47 +338,6 @@ function StartContent() {
               />
             )}
 
-            {/* Personal info (secondary, collapsed) */}
-            <details className="rounded-xl border bg-card shadow-sm">
-              <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-foreground">
-                <User className="h-4 w-4 text-primary" />
-                Dina personuppgifter
-                <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground transition-transform [[open]>&]:rotate-90" />
-              </summary>
-              <div className="space-y-2 border-t px-4 py-3">
-                {decodedData.name && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <User className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="text-foreground">{decodedData.name}</span>
-                  </div>
-                )}
-                {decodedData.email && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="text-foreground">
-                      {decodedData.email}
-                    </span>
-                  </div>
-                )}
-                {decodedData.phone && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="text-foreground">
-                      {decodedData.phone}
-                    </span>
-                  </div>
-                )}
-                {decodedData.address && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="text-muted-foreground">
-                      Nuvarande: {decodedData.address}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </details>
-
             {/* Security footer */}
             <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
               <div className="flex items-center gap-1.5">
@@ -360,7 +350,7 @@ function StartContent() {
               </div>
             </div>
 
-            {/* Also link to our form */}
+            {/* Link to form */}
             <div className="text-center">
               <Button asChild variant="ghost" size="sm" className="gap-1.5">
                 <Link href="/adressandring">

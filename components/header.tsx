@@ -61,7 +61,7 @@ export function Header() {
         {/* Logo */}
         <Link
           href="/"
-          aria-label="Flyttsmart - Till startsidan"
+          aria-label="Flytt.io - Till startsidan"
           className={cn(
             "transition-all duration-700 ease-out",
             mounted
@@ -109,7 +109,7 @@ export function Header() {
         >
           <Button asChild size="sm" className="group rounded-full px-5 gap-1.5 shadow-lg shadow-primary/15 transition-all duration-300 hover:shadow-xl hover:shadow-primary/25 hover:-translate-y-0.5">
             <Link href="/adressandring">
-              Gör adressändring
+              Starta din flytt
               <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
             </Link>
           </Button>
@@ -141,7 +141,7 @@ export function Header() {
               <Logo size="sm" />
             </SheetTitle>
             <SheetDescription className="sr-only">
-              Navigeringsmeny för Flyttsmart
+              Navigeringsmeny för Flytt.io
             </SheetDescription>
           </SheetHeader>
           <Separator />
@@ -161,7 +161,7 @@ export function Header() {
           <div className="px-2 py-4">
             <Button asChild className="w-full rounded-full gap-1.5 shadow-lg shadow-primary/20">
               <Link href="/adressandring" onClick={() => setSheetOpen(false)}>
-                Gör adressändring
+                Starta din flytt
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </Button>

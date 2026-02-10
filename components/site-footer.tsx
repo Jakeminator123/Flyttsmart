@@ -24,20 +24,20 @@ export function SiteFooter() {
           <div className="flex flex-col gap-12 lg:flex-row lg:justify-between">
             {/* Brand */}
             <div className="max-w-sm">
-              <Link href="/" aria-label="Flyttsmart - Till startsidan">
+              <Link href="/" aria-label="Flytt.io - Till startsidan">
                 <Logo size="md" />
               </Link>
               <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
-                Flyttsmart gör din adressändring snabb och enkel. Vi ser till
-                att din post kommer rätt när du flyttar.
+                Flytt.io gör din flyttanmälan enkel och gratis. Vi hjälper dig
+                med allt från Skatteverket till el och bredband på nya adressen.
               </p>
               <div className="mt-6 flex flex-col gap-3">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <a href="mailto:info@flyttsmart.se" className="flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-primary">
+                      <a href="mailto:info@flytt.io" className="flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-primary">
                         <Mail className="h-4 w-4" />
-                        info@flyttsmart.se
+                        info@flytt.io
                       </a>
                     </TooltipTrigger>
                     <TooltipContent>Skicka oss ett mejl</TooltipContent>
@@ -101,51 +101,59 @@ export function SiteFooter() {
                 </h3>
                 <ul className="flex flex-col gap-3">
                   <li>
-                    <a
-                      href="#"
+                    <Link
+                      href="/villkor"
                       className="text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       Allmänna villkor
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a
-                      href="#"
+                    <Link
+                      href="/anvandarvillkor"
+                      className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                    >
+                      Användarvillkor
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/integritetspolicy"
                       className="text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       Integritetspolicy
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a
-                      href="#"
+                    <Link
+                      href="/cookiepolicy"
                       className="text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       Cookies
-                    </a>
+                    </Link>
                   </li>
                 </ul>
               </div>
 
               <div>
                 <h3 className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-foreground">
-                  Kontakt
+                  Om oss
                 </h3>
                 <ul className="flex flex-col gap-3">
                   <li>
-                    <a
-                      href="#"
+                    <Link
+                      href="/om"
                       className="text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
-                      Kontakta oss
-                    </a>
+                      Om Flytt.io
+                    </Link>
                   </li>
                   <li>
                     <a
-                      href="#"
+                      href="mailto:info@flytt.io"
                       className="text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
-                      Kundservice
+                      Kontakta oss
                     </a>
                   </li>
                 </ul>
@@ -159,20 +167,20 @@ export function SiteFooter() {
         {/* Bottom bar */}
         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">
           <p className="text-xs text-muted-foreground">
-            &copy; 2026 Flyttsmart. Alla rättigheter förbehållna.
+            &copy; 2026 Flytt.io. Alla rättigheter förbehållna.
           </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <a href="#" className="transition-colors hover:text-primary">
+            <Link href="/villkor" className="transition-colors hover:text-primary">
               Villkor
-            </a>
+            </Link>
             <Separator orientation="vertical" className="h-3" />
-            <a href="#" className="transition-colors hover:text-primary">
+            <Link href="/integritetspolicy" className="transition-colors hover:text-primary">
               Integritet
-            </a>
+            </Link>
             <Separator orientation="vertical" className="h-3" />
-            <a href="#" className="transition-colors hover:text-primary">
+            <Link href="/cookiepolicy" className="transition-colors hover:text-primary">
               Cookies
-            </a>
+            </Link>
           </div>
         </div>
       </div>

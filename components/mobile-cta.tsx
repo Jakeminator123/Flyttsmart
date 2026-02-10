@@ -30,7 +30,7 @@ export function MobileCta() {
         size="lg"
       >
         <Link href="/adressandring">
-          Gör adressändring
+          Starta din flytt
           <ArrowRight className="ml-2 h-4 w-4" />
         </Link>
       </Button>

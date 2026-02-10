@@ -3,8 +3,10 @@ import { getOpenAIClient } from "@/lib/ai/openai";
 import { CHECKLIST_SYSTEM } from "@/lib/ai/prompts";
 
 export async function POST(req: NextRequest) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let body: any = {};
   try {
-    const body = await req.json();
+    body = await req.json();
     const { moveDate, scenario, hasChildren, toCity } = body;
 
     if (!moveDate) {
@@ -45,10 +47,20 @@ Return the checklist as a JSON array.`;
     }
 
     const parsed = JSON.parse(content);
-    // The AI might wrap in { "checklist": [...] } or return bare array
-    const items = Array.isArray(parsed)
-      ? parsed
-      : parsed.checklist || parsed.items || [];
+    // The AI might wrap in { "checklist": [...] }, { "items": [...] }, { "data": [...] }, etc.
+    // With response_format: json_object, it MUST be an object, so find the first array value.
+    let items: Record<string, unknown>[];
+    if (Array.isArray(parsed)) {
+      items = parsed;
+    } else {
+      items =
+        parsed.checklist ||
+        parsed.items ||
+        (Object.values(parsed).find((v) => Array.isArray(v)) as
+          | Record<string, unknown>[]
+          | undefined) ||
+        [];
+    }
 
     return NextResponse.json({ items, source: "ai" });
   } catch (error: unknown) {
@@ -57,7 +69,6 @@ Return the checklist as a JSON array.`;
     console.error("AI checklist error:", errMsg);
 
     // Fallback checklist if OpenAI is not available
-    const body = await req.clone().json().catch(() => ({}));
     return NextResponse.json({
       items: getFallbackChecklist(body.moveDate, body.toCity),
       source: "fallback",
@@ -65,249 +76,81 @@ Return the checklist as a JSON array.`;
   }
 }
 
-/**
- * Comprehensive static fallback checklist when AI is unavailable.
- * Uses moveDate to calculate realistic due dates.
- */
+// ── Compact fallback data: [title, description, dayOffset, category, sortOrder] ──
+// dayOffset: negative = before move, 0 = moving day, positive = after move
+type FallbackItem = [string, string, number, string, number];
+
+const FALLBACK_DATA: FallbackItem[] = [
+  ["Ta in offerter från flyttfirmor", "Jämför minst 3 företag. Boka i god tid.", -90, "practical", 1],
+  ["Ta in offerter från städfirmor", "Begär offerter för flyttstädning.", -90, "practical", 2],
+  ["Säg upp/teckna fjärrvärmeavtal", "Kontakta leverantör vid byte.", -90, "administration", 3],
+  ["Säg upp/teckna vatten och avlopp", "Se över avtal – gäller främst villa.", -90, "administration", 4],
+  ["Säg upp/teckna nytt bredband", "Leveranstid 2–4 veckor.", -35, "administration", 5],
+  ["Ansök om ledighet på flyttdagen", "Prata med arbetsgivare i god tid.", -30, "practical", 6],
+  ["Boka städfirma", "Ca 2 000–5 000 kr. Boka tidigt.", -30, "practical", 7],
+  ["Boka vänner som flytthjälp", "Fråga vänner och familj.", -30, "practical", 8],
+  ["Säg upp/ansök om ny parkering", "Ansök eller skriv dig på kö.", -30, "administration", 9],
+  ["Beställ/avbeställ sophämtning", "Kontakta kommunen vid villaboende.", -28, "administration", 10],
+  ["Boka flyttbil", "Om inte flyttfirma – boka hyrbil/släp.", -28, "practical", 11],
+  ["Boka flyttfirma", "Välj bästa offert. Bekräfta datum.", -28, "practical", 12],
+  ["Börja rensa", "Gå igenom varje rum. Sälj/skänk/återvinn.", -28, "practical", 13],
+  ["Flytta elavtal (kan automatiseras via Flytt.io)", "Se till att el finns på nya adressen.", -28, "administration", 14],
+  ["Organisera packningen", "Planera rum-för-rum. Märk lådor.", -28, "practical", 15],
+  ["Skaffa flyttkartonger", "Köp/låna lådor, bubbelplast, tejp.", -28, "practical", 16],
+  ["Säg upp/teckna ny hemförsäkring", "Ändra adress och bostadstyp.", -28, "administration", 17],
+  ["Se över belysning – välj LED", "Kolla belysning i nya bostaden.", -28, "practical", 18],
+  ["Börja grovpacka", "Packa rum du inte använder dagligen.", -14, "practical", 19],
+  ["Flyttanmälan Skatteverket (kan automatiseras via Flytt.io)", "Anmäl senast en vecka efter flytten.", -14, "administration", 20],
+  ["Sälj, skänk eller återvinn", "Blocket, Sellpy, secondhand.", -14, "practical", 21],
+  ["Packa", "Lämna bara det nödvändigaste framme.", -7, "practical", 22],
+  ["Planera lastning", "Tunga saker längst in, säkra med spännband.", -4, "practical", 23],
+  ["Organisera flyttlass", "Bestäm ordning för möbler/lådor.", -4, "practical", 24],
+  ["Slutpacka", "Dubbelkolla alla skåp och förråd.", -3, "practical", 25],
+  ["Informera flytthjälp", "Berätta start, uppgifter och planering.", -1, "practical", 26],
+  ["Fika och mat till flytteamet", "Frukt, nötter, vatten – håll humöret uppe!", -1, "practical", 27],
+  ["Toalettpapper och tvål", "Ha tillgängligt direkt vid ankomst.", -1, "practical", 28],
+  ["Sista genomgång", "Kontrollera alla rum, balkonger, förråd. Lämna nycklar.", 0, "practical", 29],
+  ["Kontrollera städningen", "Gå igenom gamla bostaden.", 1, "post_move", 30],
+  ["Energieffektivt boende", "Sänk temp 1 grad, LED, stäng av standby.", 1, "post_move", 31],
+  ["Städa badrum", "Toalettstol, handfat, kakel, golvbrunn, spegel.", 1, "cleaning", 32],
+  ["Städa kök", "Spis, fläkt, ugn, diskbänk, kylskåp, skåp.", 1, "cleaning", 33],
+  ["Städa övriga rum", "Golv, garderober, dörrar, fönster, element.", 1, "cleaning", 34],
+  ["Packa upp rum för rum", "Börja med kök och sovrum.", 3, "post_move", 35],
+  ["Uppdatera adress", "Bank, Försäkringskassa, tandläkare, gym m.m.", 7, "administration", 36],
+];
+
+const AREA_TIPS: FallbackItem[] = [
+  ["Utforska grannskapet", "Hitta matbutik, apotek och kollektivtrafik.", 1, "area_tips", 37],
+  ["Hitta restaurang eller café", "Kolla Google Maps efter populära ställen.", 2, "area_tips", 38],
+  ["Närmaste återvinningsstation", "Hitta FTI-station – du har mycket kartong.", 1, "area_tips", 39],
+  ["Registrera dig hos vårdcentral", "Byt via 1177.se – tar bara minuter.", 7, "area_tips", 40],
+];
+
 function getFallbackChecklist(moveDate?: string, toCity?: string) {
   const move = moveDate ? new Date(moveDate) : new Date();
-  const daysBefore = (n: number) => {
+  const offset = (days: number) => {
     const d = new Date(move);
-    d.setDate(d.getDate() - n);
+    d.setDate(d.getDate() + days);
     return d.toISOString().split("T")[0];
   };
-  const daysAfter = (n: number) => {
-    const d = new Date(move);
-    d.setDate(d.getDate() + n);
-    return d.toISOString().split("T")[0];
-  };
-  const moveDay = move.toISOString().split("T")[0];
 
-  return [
-    // > 1 month before
-    {
-      title: "Boka flyttfirma eller flyttbil",
-      description:
-        "Jämför priser från minst 3 företag och boka i god tid – populära datum går snabbt.",
-      dueDate: daysBefore(35),
-      category: "practical",
-      sortOrder: 1,
-    },
-    {
-      title: "Säga upp/överlåt nuvarande hyresavtal",
-      description:
-        "Kontakta hyresvärd. Uppsägningstid är oftast 3 månader för förstahandskontrakt.",
-      dueDate: daysBefore(35),
-      category: "administration",
-      sortOrder: 2,
-    },
-    {
-      title: "Inventera och rensa – sälj/skänk/släng",
-      description:
-        "Gå igenom varje rum. Sälj på Blocket/Marketplace, skänk till secondhand, boka grovavfall.",
-      dueDate: daysBefore(30),
-      category: "practical",
-      sortOrder: 3,
-    },
-    // 1 month before
-    {
-      title: "Teckna eller flytta elavtal",
-      description:
-        "Kontakta elleverantör. Se till att el finns på nya adressen från inflyttningsdagen.",
-      dueDate: daysBefore(28),
-      category: "administration",
-      sortOrder: 4,
-    },
-    {
-      title: "Beställ bredband till nya adressen",
-      description:
-        "Leveranstid kan vara 2–4 veckor beroende på leverantör och fastighet.",
-      dueDate: daysBefore(28),
-      category: "administration",
-      sortOrder: 5,
-    },
-    {
-      title: "Uppdatera hemförsäkring",
-      description:
-        "Ändra adress, bostadstyp och yta. Ny bostad kan kräva annat skydd.",
-      dueDate: daysBefore(25),
-      category: "administration",
-      sortOrder: 6,
-    },
-    {
-      title: "Ordna parkeringstillstånd/garage",
-      description:
-        "Om nya bostaden har parkeringsplats – ansök eller skriv dig på kö.",
-      dueDate: daysBefore(25),
-      category: "administration",
-      sortOrder: 7,
-    },
-    // 2 weeks before
-    {
-      title: "Skaffa flyttlådor och packmaterial",
-      description:
-        "Köp eller låna lådor, bubbelplast, tejp och märkpennor.",
-      dueDate: daysBefore(14),
-      category: "practical",
-      sortOrder: 8,
-    },
-    {
-      title: "Börja packa rum du inte använder dagligen",
-      description:
-        "Märk varje låda med rum och innehåll. Börja med förråd, garderober, bokhyllor.",
-      dueDate: daysBefore(14),
-      category: "practical",
-      sortOrder: 9,
-    },
-    {
-      title: "Boka flyttstädning av gamla bostaden",
-      description:
-        "Professionell flyttstädning kostar ca 2 000–5 000 kr. Boka tidigt.",
-      dueDate: daysBefore(14),
-      category: "cleaning",
-      sortOrder: 10,
-    },
-    // 1 week before
-    {
-      title: "Gör flyttanmälan till Skatteverket",
-      description:
-        "Kan göras digitalt via skatteverket.se eller via Flytt.io. Anmäl senast flyttdagen.",
-      dueDate: daysBefore(7),
-      category: "administration",
-      sortOrder: 11,
-    },
-    {
-      title: "Anmäl eftersändning av post (Postnord)",
-      description:
-        "Kostar ca 299 kr och gäller i 12 månader. Gör det på postnord.se.",
-      dueDate: daysBefore(7),
-      category: "administration",
-      sortOrder: 12,
-    },
-    {
-      title: "Meddela arbetsgivare, skola, vårdcentral",
-      description:
-        "Uppdatera adress hos viktiga kontakter – jobb, vård, försäkringskassan.",
-      dueDate: daysBefore(7),
-      category: "administration",
-      sortOrder: 13,
-    },
-    {
-      title: "Packa det mesta – lämna bara det nödvändigaste framme",
-      description:
-        "Ha en separat väska med kläder, hygienartiklar och laddare för sista dagarna.",
-      dueDate: daysBefore(7),
-      category: "practical",
-      sortOrder: 14,
-    },
-    // 3-4 days before
-    {
-      title: "Tömma och rengöra kyl och frys",
-      description:
-        "Ät upp det du kan, frys ner resten eller ge bort. Stäng av frys 24h innan flytt.",
-      dueDate: daysBefore(4),
-      category: "cleaning",
-      sortOrder: 15,
-    },
-    {
-      title: "Montera ner möbler och lampor",
-      description:
-        "Ta isär sängar, skrivbord och hyllor. Samla skruvar i märkta påsar.",
-      dueDate: daysBefore(3),
-      category: "practical",
-      sortOrder: 16,
-    },
-    // 1 day before
-    {
-      title: "Sista packningen + städning av gamla bostaden",
-      description:
-        "Dubbelkolla alla skåp, förråd och källare. Torka av ytor.",
-      dueDate: daysBefore(1),
-      category: "cleaning",
-      sortOrder: 17,
-    },
-    {
-      title: "Förbered \"öppna först\"-låda",
-      description:
-        "Kaffe, koppar, toalettpapper, verktyg, laddare, handdukar, sängkläder.",
-      dueDate: daysBefore(1),
-      category: "practical",
-      sortOrder: 18,
-    },
-    // Moving day
-    {
-      title: "Flyttdag – gör en sista genomgång",
-      description:
-        "Kontrollera alla rum, balkonger och förråd. Lämna nycklar till hyresvärd.",
-      dueDate: moveDay,
-      category: "practical",
-      sortOrder: 19,
-    },
-    // After move
-    {
-      title: "Kontrollera att el, vatten och bredband fungerar",
-      description:
-        "Testa alla uttag, kranar och internetuppkoppling i nya bostaden.",
-      dueDate: daysAfter(1),
-      category: "post_move",
-      sortOrder: 20,
-    },
-    {
-      title: "Packa upp och organisera rum för rum",
-      description:
-        "Börja med kök och sovrum. Bryt ner lådor efterhand.",
-      dueDate: daysAfter(3),
-      category: "post_move",
-      sortOrder: 21,
-    },
-    {
-      title: "Besiktiga gamla bostaden med hyresvärd",
-      description:
-        "Boka tid för nyckelöverlämning och slutbesiktning.",
-      dueDate: daysAfter(5),
-      category: "post_move",
-      sortOrder: 22,
-    },
-    {
-      title: "Uppdatera adress hos banker, abonnemang och myndigheter",
-      description:
-        "Bank, Försäkringskassa, tandläkare, gym, streamingtjänster m.m.",
-      dueDate: daysAfter(7),
-      category: "administration",
-      sortOrder: 23,
-    },
-    // Area tips (generic when city unknown, city-specific otherwise)
-    {
-      title: `Utforska ditt nya område${toCity ? ` i ${toCity}` : ""}`,
-      description:
-        "Ta en promenad i grannskapet. Hitta närmaste matbutik, apotek och kollektivtrafik.",
-      dueDate: daysAfter(1),
-      category: "area_tips",
-      sortOrder: 24,
-    },
-    {
-      title: "Hitta en bra restaurang eller café nära dig",
-      description:
-        "Kolla Google Maps eller Yelp efter populära ställen i närheten. Ett bra sätt att lära känna området!",
-      dueDate: daysAfter(2),
-      category: "area_tips",
-      sortOrder: 25,
-    },
-    {
-      title: "Lokalisera närmaste återvinningsstation",
-      description:
-        "Efter flytten har du ofta mycket kartong och förpackningar. Hitta din närmaste FTI-station.",
-      dueDate: daysAfter(1),
-      category: "area_tips",
-      sortOrder: 26,
-    },
-    {
-      title: "Registrera dig hos närmaste vårdcentral",
-      description:
-        "Byt till en vårdcentral nära din nya bostad. Gör det via 1177.se – det tar bara ett par minuter.",
-      dueDate: daysAfter(7),
-      category: "area_tips",
-      sortOrder: 27,
-    },
-  ];
+  const items = FALLBACK_DATA.map(([title, description, days, category, sortOrder]) => ({
+    title,
+    description,
+    dueDate: offset(days),
+    category,
+    sortOrder,
+  }));
+
+  for (const [title, description, days, category, sortOrder] of AREA_TIPS) {
+    items.push({
+      title: toCity ? `${title} i ${toCity}` : title,
+      description,
+      dueDate: offset(days),
+      category,
+      sortOrder,
+    });
+  }
+
+  return items;
 }

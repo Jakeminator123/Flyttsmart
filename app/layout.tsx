@@ -9,9 +9,9 @@ const _inter = Inter({ subsets: ['latin'] })
 const _spaceGrotesk = Space_Grotesk({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Flyttsmart - Adressändring online, snabbt och tryggt',
+  title: 'Flytt.io – Flyttanmälan som den borde fungera',
   description:
-    'Flyttsmart gör din adressändring enkel, trygg och snabb. Klar på några minuter med säker betalning och krypterad anslutning. Undvik missad post när du flyttar.',
+    'Flytt.io gör din flyttanmälan enkel och gratis. Vi hjälper dig med Skatteverket automatiskt – och ger dig fördelar på nya adressen med el, bredband och försäkring.',
   generator: 'v0.app',
   icons: {
     icon: [

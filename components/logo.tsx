@@ -81,7 +81,7 @@ export function Logo({ className, size = "md", variant = "full" }: LogoProps) {
             textSizes[size],
           )}
         >
-          Flytt<span className="text-gradient">smart</span>
+          Flytt<span className="text-gradient">.io</span>
         </span>
       )}
     </span>

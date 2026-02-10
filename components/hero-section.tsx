@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { ArrowRight, ChevronDown, Lock, Shield, Headphones, Star } from "lucide-react"
+import { ArrowRight, ChevronDown, CheckCircle, Shield, Fingerprint, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
@@ -52,23 +52,24 @@ export function HeroSection() {
                 <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
               </span>
-              Snabb och säker adressändring
+              Helt gratis flyttanmälan
             </Badge>
           </ScrollReveal>
 
           <ScrollReveal delay={100}>
             <h1 className="mt-8 font-heading text-5xl font-bold leading-[1.1] tracking-tight text-foreground text-balance sm:text-6xl lg:text-7xl xl:text-8xl">
-              Flytta smart
+              Flytta utan krångel.
               <span className="mt-2 block text-gradient">
-                med Flyttsmart
+                Klar på 2 minuter.
               </span>
             </h1>
           </ScrollReveal>
 
           <ScrollReveal delay={200}>
             <p className="mt-8 max-w-xl text-lg leading-relaxed text-muted-foreground text-pretty lg:text-xl">
-              Gör din adressändring online på bara några minuter. Trygg betalning,
-              krypterad anslutning och support alla dagar i veckan.
+              Vi gör din flyttanmälan till Skatteverket automatiskt – och hjälper
+              dig komma igång på nya adressen med el, bredband och försäkring.
+              Helt gratis.
             </p>
           </ScrollReveal>
 
@@ -82,7 +83,7 @@ export function HeroSection() {
                   className="shimmer-btn relative rounded-full px-8 text-base font-semibold shadow-xl shadow-primary/25 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/35 hover:-translate-y-1"
                 >
                   <Link href="/adressandring">
-                    Gör adressändring
+                    Starta din flytt med BankID
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -105,9 +106,9 @@ export function HeroSection() {
             <TooltipProvider>
               <div className="mt-10 flex flex-wrap items-center gap-4 text-sm text-muted-foreground lg:gap-6">
                 {[
-                  { icon: Shield, label: "Säker betalning", tip: "All data krypteras med 256-bit SSL" },
-                  { icon: Lock, label: "Krypterad anslutning", tip: "HTTPS och bankgradig kryptering" },
-                  { icon: Headphones, label: "Support alla dagar", tip: "Kontakta oss via chatt eller mejl" },
+                  { icon: CheckCircle, label: "Gratis", tip: "Tjänsten kostar inget för dig" },
+                  { icon: Fingerprint, label: "Säker BankID-inloggning", tip: "Identifiera dig tryggt med Mobilt BankID" },
+                  { icon: Shield, label: "GDPR-godkänd", tip: "Din data hanteras enligt dataskyddsförordningen" },
                 ].map((item) => (
                   <Tooltip key={item.label}>
                     <TooltipTrigger asChild>

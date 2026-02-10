@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import Image from "next/image"
-import { Zap, Shield, Smartphone, Headphones, Play } from "lucide-react"
+import { Zap, Shield, Heart, Lock, Play } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { ScrollReveal } from "@/components/scroll-reveal"
@@ -10,27 +10,27 @@ import { ScrollReveal } from "@/components/scroll-reveal"
 const benefits = [
   {
     icon: Zap,
-    title: "Snabbt",
-    description: "Tydligt formulär med validering i realtid. Klart på under 5 minuter utan krångel.",
-    tip: "Genomsnittlig tid: 2 min 43 sek",
+    title: "Flyttanmälan – fast smartare",
+    description: "Myndighetsdelen ska vara enkel. Det gör vi automatiskt.",
+    tip: "Automatisk flyttanmälan till Skatteverket",
+  },
+  {
+    icon: Heart,
+    title: "Du väljer själv",
+    description: "Alla erbjudanden är frivilliga. Vi visar bara sådant som faktiskt passar din nya adress.",
+    tip: "Inga krav, inga köptvång",
   },
   {
     icon: Shield,
-    title: "Tryggt",
-    description: "Transparent pris och villkor innan betalning. Krypterad data hela vägen.",
-    tip: "256-bit SSL-kryptering",
+    title: "100 % gratis",
+    description: "Tjänsten kostar inget för dig. Punkt.",
+    tip: "Helt gratis – inga dolda avgifter",
   },
   {
-    icon: Smartphone,
-    title: "Enkelt",
-    description: "Mobilanpassat, inga krångliga steg. Fungerar lika bra på mobil som dator.",
-    tip: "Responsiv design för alla enheter",
-  },
-  {
-    icon: Headphones,
-    title: "Support",
-    description: "Hjälp om du fastnar via chatt eller FAQ. Vi finns här för dig alla dagar.",
-    tip: "Svarstid under 2 timmar",
+    icon: Lock,
+    title: "Säkerhet i fokus",
+    description: "BankID, kryptering och full transparens kring din data.",
+    tip: "BankID + GDPR-skydd",
   },
 ]
 
@@ -129,8 +129,8 @@ export function BenefitsSection() {
                     <Zap className="h-4 w-4 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-card-foreground">Under 5 min</p>
-                    <p className="text-xs text-muted-foreground">Genomsnittlig tid</p>
+                    <p className="text-sm font-semibold text-card-foreground">100% gratis</p>
+                    <p className="text-xs text-muted-foreground">Inga dolda avgifter</p>
                   </div>
                 </div>
               </div>
@@ -144,11 +144,11 @@ export function BenefitsSection() {
                 Fördelar
               </Badge>
               <h2 className="mt-5 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                Därför väljer tusentals
-                <span className="text-gradient"> Flyttsmart</span>
+                Varför
+                <span className="text-gradient"> Flytt.io?</span>
               </h2>
               <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-                Vi gör adressändring så enkelt som möjligt, med fokus på trygghet och transparens.
+                Flyttanmälan – fast bra. Flytten på autopilot.
               </p>
             </ScrollReveal>
 

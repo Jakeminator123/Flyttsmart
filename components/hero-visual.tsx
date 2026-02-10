@@ -74,7 +74,7 @@ export function HeroVisual() {
           </div>
           <div className="flex-1 text-center">
             <span className="text-xs font-medium text-muted-foreground">
-              Flyttsmart
+              Flytt.io
             </span>
           </div>
           <Badge variant="secondary" className="text-[10px] px-2 py-0.5">

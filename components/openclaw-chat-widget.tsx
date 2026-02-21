@@ -33,6 +33,7 @@ interface OpenClawChatWidgetProps {
 // ─── Session ID helper ─────────────────────────────────
 
 function getSessionId(): string {
+  if (typeof window === "undefined") return "";
   const KEY = "openclaw_session_id";
   try {
     const existing = sessionStorage.getItem(KEY);

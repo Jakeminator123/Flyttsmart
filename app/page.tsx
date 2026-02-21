@@ -1,5 +1,5 @@
-import { Header } from "@/components/header"
-import { HeroSection } from "@/components/hero-section"
+import { Header } from "@/components/header";
+import { HeroSection } from "@/components/hero-section";
 import { ValuePropositionSection } from "@/components/value-proposition-section"
 import { StepsSection } from "@/components/steps-section"
 import { BenefitsSection } from "@/components/benefits-section"

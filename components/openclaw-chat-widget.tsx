@@ -59,7 +59,7 @@ export function OpenClawChatWidget({
     {
       role: "assistant",
       content:
-        "Hej! Jag ar din OpenClaw-assistent. Jag har koll pa formularet du fyller i och kan hjalpa dig med fragor om flytt, adressandring eller nagot annat.",
+        "Hej! Jag är AIda, din flyttagent. Jag följer formuläret i realtid och kan hjälpa dig med allt kring flytten och adressändringen.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -183,7 +183,7 @@ export function OpenClawChatWidget({
         {
           role: "assistant",
           content:
-            "Anslutningen till OpenClaw misslyckades. Forsok igen om en stund.",
+            "Anslutningen till AIda misslyckades. Försök igen om en stund.",
         },
       ]);
     } finally {
@@ -218,7 +218,7 @@ export function OpenClawChatWidget({
         <button
           onClick={handleOpen}
           className="fixed bottom-5 left-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-primary/30 active:scale-95"
-          aria-label="Oppna OpenClaw-assistent"
+          aria-label="Öppna AIda"
         >
           <MessageCircle className="h-6 w-6" />
           {hasUnread && (
@@ -243,7 +243,7 @@ export function OpenClawChatWidget({
             <Bot className="h-4 w-4 text-primary" />
           </div>
           <span className="text-sm font-medium text-foreground">
-            OpenClaw
+            AIda
           </span>
           <span className="flex h-5 items-center rounded-full bg-accent/20 px-1.5 text-[10px] font-medium text-accent-foreground">
             TEST
@@ -282,7 +282,7 @@ export function OpenClawChatWidget({
               <div>
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold leading-none text-foreground">
-                    OpenClaw
+                    AIda
                   </p>
                   <span className="flex h-5 items-center gap-1 rounded-full bg-accent/20 px-2 text-[10px] font-semibold text-accent-foreground">
                     <FlaskConical className="h-3 w-3" />
@@ -290,7 +290,7 @@ export function OpenClawChatWidget({
                   </span>
                 </div>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  AI-agent med formularkontekt
+                  Flyttagent med formulärkoll
                 </p>
               </div>
             </div>
@@ -316,7 +316,7 @@ export function OpenClawChatWidget({
           <div className="flex items-center gap-2 border-b border-border/40 bg-muted/30 px-4 py-1.5">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[11px] text-muted-foreground">
-              Formularkontekt: <span className="font-medium text-foreground">{formType}</span>
+              Formulärkontext: <span className="font-medium text-foreground">{formType}</span>
               {currentStep != null && (
                 <> &middot; Steg {currentStep}</>
               )}
@@ -381,7 +381,7 @@ export function OpenClawChatWidget({
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Fraga OpenClaw..."
+                placeholder="Fråga AIda..."
                 className="h-10 flex-1 rounded-xl border border-border/60 bg-muted/40 px-3.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 transition-colors focus:border-primary/40 focus:bg-background disabled:opacity-50"
                 disabled={loading}
               />

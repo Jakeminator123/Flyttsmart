@@ -71,7 +71,8 @@ export function OpenClawChatWidget({
   // Initialise shared session ID
   useEffect(() => {
     sessionIdRef.current = getSessionId();
-  }, []);
+    console.log("[v0] OpenClawChatWidget mounted, formType:", formType);
+  }, [formType]);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -267,7 +268,7 @@ export function OpenClawChatWidget({
       {open && !minimized && (
         <div
           className={cn(
-            "fixed bottom-5 left-5 z-50 flex w-95 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl",
+            "fixed bottom-5 left-5 z-50 flex w-[380px] flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl",
             "animate-in fade-in slide-in-from-bottom-4 zoom-in-95 duration-300",
             "max-h-[min(580px,calc(100vh-3rem))]"
           )}
@@ -276,7 +277,7 @@ export function OpenClawChatWidget({
           <div className="flex items-center justify-between border-b bg-linear-to-r from-primary/5 to-primary/10 px-4 py-3">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15">
-                <Bot className="h-4.5 w-4.5 text-primary" />
+                <Bot className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <div className="flex items-center gap-2">

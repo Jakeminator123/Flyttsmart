@@ -66,12 +66,13 @@ function getSessionId(): string {
 }
 
 // ─── Webhook secret (injected at build time) ───────────
-// This is safe to expose client-side — the server re-verifies the signature.
-// The HMAC ensures only our client code can call the webhook route.
+// Only NEXT_PUBLIC_ prefixed vars are available client-side.
+// If not set, HMAC signing is skipped and the server-side
+// verification also skips (testing mode).
 const WEBHOOK_SECRET =
-  process.env.NEXT_PUBLIC_OPENCLAW_WEBHOOK_SECRET ??
-  process.env.OPENCLAW_WEBHOOK_SECRET ??
-  "";
+  typeof process !== "undefined"
+    ? (process.env.NEXT_PUBLIC_OPENCLAW_WEBHOOK_SECRET ?? "")
+    : "";
 
 // ─── Hook ──────────────────────────────────────────────
 

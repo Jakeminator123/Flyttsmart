@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     if (!AGENT_URL) {
       return NextResponse.json({
         content:
-          "OpenClaw-agenten ar inte konfigurerad annu. Ange OPENCLAW_AGENT_URL i dina miljvariabler.",
+          "Hej! Jag ar AIda, men jag ar inte helt konfigurerad annu. Be administratoren satta OPENCLAW_AGENT_URL i miljovariablerna.",
         role: "assistant",
       });
     }
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           content:
-            "OpenClaw-agenten kunde inte svara just nu. Forsok igen om en stund.",
+            "AIda kunde inte svara just nu. Forsok igen om en stund.",
         },
         { status: 502 }
       );
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         content:
-          "Ett fel uppstod i anslutningen till OpenClaw. Forsok igen.",
+          "Ett fel uppstod i anslutningen till AIda. Forsok igen.",
       },
       { status: 500 }
     );

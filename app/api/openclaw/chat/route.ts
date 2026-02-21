@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const AGENT_URL = process.env.OPENCLAW_AGENT_URL ?? "";
 const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN ?? "";
 const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
+const DEFAULT_REDIRECT_PATH = "/adressandring";
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,6 +31,14 @@ export async function POST(req: NextRequest) {
       ? AGENT_URL
       : `${AGENT_URL.replace(/\/$/, "")}/chat`;
 
+    const accessEndpoint = `${req.nextUrl.origin}/api/openclaw/access`;
+    const bypassCookieUrl =
+      BYPASS_SECRET && AGENT_TOKEN
+        ? `${accessEndpoint}?token=${encodeURIComponent(
+            AGENT_TOKEN
+          )}&redirect=${encodeURIComponent(DEFAULT_REDIRECT_PATH)}`
+        : null;
+
     const agentResponse = await fetch(chatUrl, {
       method: "POST",
       headers: {
@@ -47,6 +56,9 @@ export async function POST(req: NextRequest) {
               baseUrl: req.nextUrl.origin,
               bypassHeader: "x-vercel-protection-bypass",
               bypassToken: BYPASS_SECRET,
+              accessEndpoint,
+              defaultRedirectPath: DEFAULT_REDIRECT_PATH,
+              bypassCookieUrl,
             }
           : undefined,
       }),

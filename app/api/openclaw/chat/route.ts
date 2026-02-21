@@ -1,0 +1,81 @@
+import { NextRequest, NextResponse } from "next/server";
+
+const AGENT_URL = process.env.OPENCLAW_AGENT_URL!;
+const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN!;
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { sessionId, messages, formContext } = body;
+
+    if (!sessionId || !messages || !Array.isArray(messages)) {
+      return NextResponse.json(
+        { error: "sessionId and messages array are required" },
+        { status: 400 }
+      );
+    }
+
+    // Build the chat endpoint — append /chat if the base URL doesn't include it
+    const chatUrl = AGENT_URL.endsWith("/chat")
+      ? AGENT_URL
+      : `${AGENT_URL.replace(/\/$/, "")}/chat`;
+
+    const agentResponse = await fetch(chatUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${AGENT_TOKEN}`,
+        Accept: "text/event-stream, application/json",
+      },
+      body: JSON.stringify({
+        sessionId,
+        messages: messages.slice(-15), // Keep recent context
+        formContext: formContext ?? null,
+      }),
+    });
+
+    if (!agentResponse.ok) {
+      const errText = await agentResponse.text().catch(() => "Unknown");
+      console.error(`[OpenClaw] Chat error ${agentResponse.status}: ${errText}`);
+      return NextResponse.json(
+        {
+          content:
+            "OpenClaw-agenten kunde inte svara just nu. Forsok igen om en stund.",
+        },
+        { status: 502 }
+      );
+    }
+
+    const contentType = agentResponse.headers.get("content-type") || "";
+
+    // If the agent streams SSE, pipe it through
+    if (
+      contentType.includes("text/event-stream") &&
+      agentResponse.body
+    ) {
+      return new Response(agentResponse.body, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // Otherwise return as JSON
+    const data = await agentResponse.json().catch(() => ({
+      content: "Inget svar fran agenten.",
+    }));
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("[OpenClaw] Chat proxy error:", error);
+    return NextResponse.json(
+      {
+        content:
+          "Ett fel uppstod i anslutningen till OpenClaw. Forsok igen.",
+      },
+      { status: 500 }
+    );
+  }
+}

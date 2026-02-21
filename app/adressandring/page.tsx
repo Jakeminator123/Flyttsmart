@@ -46,7 +46,8 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 import { QrScanner } from "@/components/qr-scanner";
 import { ChecklistView, type ChecklistItem } from "@/components/checklist-view";
-import { AiChatBubble } from "@/components/ai-chat-bubble";
+import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
+import { useOpenClawMirror } from "@/hooks/use-openclaw-mirror";
 import { SkatteverketGuide } from "@/components/skatteverket-guide";
 import { BookmarkletButton } from "@/components/bookmarklet-button";
 
@@ -123,6 +124,10 @@ export default function AdressandringPage() {
   const [mobileQrUrl, setMobileQrUrl] = useState<string | null>(null);
   const [autofillLoading, setAutofillLoading] = useState(false);
 
+  // OpenClaw real-time form mirroring
+  const { mirrorField, mirrorStepChange, mirrorSubmit, mirrorEvent } =
+    useOpenClawMirror({ formType: "adressandring" });
+
   const progressValue = (currentStep / STEPS.length) * 100;
 
   // Detect mobile vs desktop
@@ -188,9 +193,13 @@ export default function AdressandringPage() {
 
   const updateForm = useCallback(
     (field: keyof FormData, value: string | boolean) => {
-      setForm((prev) => ({ ...prev, [field]: value }));
+      setForm((prev) => {
+        const next = { ...prev, [field]: value };
+        mirrorField(field, value, next as unknown as Record<string, string | boolean | number>);
+        return next;
+      });
     },
-    []
+    [mirrorField]
   );
 
   // Handle QR scan result
@@ -235,6 +244,17 @@ export default function AdressandringPage() {
         fromCity: city || prev.fromCity,
       }));
       setQrPrefilled(true);
+      // Mirror QR scan data to OpenClaw
+      mirrorEvent("qr_scan", {
+        firstName: nameParts[0] || "",
+        lastName: nameParts.slice(1).join(" ") || "",
+        personalNumber: data.personalNumber || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        fromStreet: street,
+        fromPostal: postal,
+        fromCity: city,
+      });
     } catch {
       // QR decoding failed, user can fill in manually
     }
@@ -401,6 +421,7 @@ export default function AdressandringPage() {
 
   // Submit the move
   async function handleSubmit() {
+    mirrorSubmit(form as unknown as Record<string, string | boolean | number>);
     setSubmitting(true);
     try {
       const res = await fetch("/api/move", {
@@ -451,12 +472,18 @@ export default function AdressandringPage() {
       generateChecklist();
     }
     if (currentStep < STEPS.length) {
+      const nextStep = currentStep + 1;
+      mirrorStepChange(nextStep, form as unknown as Record<string, string | boolean | number>);
       setCurrentStep((s) => s + 1);
     }
   }
 
   function handlePrev() {
-    if (currentStep > 1) setCurrentStep((s) => s - 1);
+    if (currentStep > 1) {
+      const prevStep = currentStep - 1;
+      mirrorStepChange(prevStep, form as unknown as Record<string, string | boolean | number>);
+      setCurrentStep((s) => s - 1);
+    }
   }
 
   // ── Success state ────────────────────────────────────────────────────
@@ -1508,8 +1535,12 @@ export default function AdressandringPage() {
         </Card>
       </main>
 
-      {/* AI Chat Bubble */}
-      <AiChatBubble />
+      {/* OpenClaw Chat Widget (replaces AiChatBubble for testing) */}
+      <OpenClawChatWidget
+        formType="adressandring"
+        formData={form as unknown as Record<string, string | boolean | number>}
+        currentStep={currentStep}
+      />
     </div>
   );
 }

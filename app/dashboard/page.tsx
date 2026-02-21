@@ -31,7 +31,8 @@ import { MoveTimeline, type MoveStatus } from "@/components/move-timeline";
 import { ChecklistView, type ChecklistItem } from "@/components/checklist-view";
 import { QrDisplay } from "@/components/qr-display";
 import { SkvGuide } from "@/components/skv-guide";
-import { AiChatBubble } from "@/components/ai-chat-bubble";
+import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
+import { useOpenClawMirror } from "@/hooks/use-openclaw-mirror";
 
 interface MoveData {
   move: {
@@ -65,6 +66,9 @@ function DashboardContent() {
   const [data, setData] = useState<MoveData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // OpenClaw real-time mirroring for dashboard events
+  const { mirrorEvent } = useOpenClawMirror({ formType: "dashboard" });
 
   useEffect(() => {
     if (!moveId) {
@@ -365,8 +369,17 @@ function DashboardContent() {
         </Tabs>
       </main>
 
-      {/* AI Chat */}
-      <AiChatBubble />
+      {/* OpenClaw Chat Widget */}
+      <OpenClawChatWidget
+        formType="dashboard"
+        formData={data ? {
+          userName: data.user.name,
+          moveStatus: data.move.status,
+          fromCity: data.move.fromCity || "",
+          toCity: data.move.toCity || "",
+          moveDate: data.move.moveDate || "",
+        } : {}}
+      />
     </div>
   );
 }

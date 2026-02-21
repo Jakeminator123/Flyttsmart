@@ -72,8 +72,7 @@ export function OpenClawChatWidget({
   // Initialise shared session ID
   useEffect(() => {
     sessionIdRef.current = getSessionId();
-    console.log("[v0] OpenClawChatWidget mounted, formType:", formType);
-  }, [formType]);
+  }, []);
 
   // Auto-scroll to latest message
   useEffect(() => {

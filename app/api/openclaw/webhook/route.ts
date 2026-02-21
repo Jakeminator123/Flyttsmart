@@ -5,6 +5,7 @@ const WEBHOOK_SECRET = process.env.OPENCLAW_WEBHOOK_SECRET ?? "";
 const AGENT_URL = process.env.OPENCLAW_AGENT_URL ?? "";
 const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN ?? "";
 const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
+const DEFAULT_REDIRECT_PATH = "/adressandring";
 
 /**
  * Verify the HMAC-SHA256 signature sent from the client.
@@ -64,6 +65,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, mode: "log_only" });
     }
 
+    const accessEndpoint = `${req.nextUrl.origin}/api/openclaw/access`;
+    const bypassCookieUrl =
+      BYPASS_SECRET && AGENT_TOKEN
+        ? `${accessEndpoint}?token=${encodeURIComponent(
+            AGENT_TOKEN
+          )}&redirect=${encodeURIComponent(DEFAULT_REDIRECT_PATH)}`
+        : null;
+
     // Forward to OpenClaw agent (fire-and-forget style, but we await for logging)
     const agentResponse = await fetch(AGENT_URL, {
       method: "POST",
@@ -84,7 +93,9 @@ export async function POST(req: NextRequest) {
               baseUrl: req.nextUrl.origin,
               bypassHeader: "x-vercel-protection-bypass",
               bypassToken: BYPASS_SECRET,
-              bypassCookieUrl: `${req.nextUrl.origin}?x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=${BYPASS_SECRET}`,
+              accessEndpoint,
+              defaultRedirectPath: DEFAULT_REDIRECT_PATH,
+              bypassCookieUrl,
             }
           : undefined,
       }),

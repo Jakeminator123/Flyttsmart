@@ -316,7 +316,7 @@ export function OpenClawChatWidget({
           <div className="flex items-center gap-2 border-b border-border/40 bg-muted/30 px-4 py-1.5">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[11px] text-muted-foreground">
-              Formularkontekt: <span className="font-medium text-foreground">{formType}</span>
+              Formulärkontext: <span className="font-medium text-foreground">{formType}</span>
               {currentStep != null && (
                 <> &middot; Steg {currentStep}</>
               )}

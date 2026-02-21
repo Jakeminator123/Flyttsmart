@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const AGENT_URL = process.env.OPENCLAW_AGENT_URL ?? "";
 const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN ?? "";
+const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,6 +41,14 @@ export async function POST(req: NextRequest) {
         sessionId,
         messages: messages.slice(-15), // Keep recent context
         formContext: formContext ?? null,
+        // Provide bypass token so OpenClaw can access protected pages
+        siteAccess: BYPASS_SECRET
+          ? {
+              baseUrl: req.nextUrl.origin,
+              bypassHeader: "x-vercel-protection-bypass",
+              bypassToken: BYPASS_SECRET,
+            }
+          : undefined,
       }),
     });
 

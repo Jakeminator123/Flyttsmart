@@ -4,6 +4,7 @@ import crypto from "crypto";
 const WEBHOOK_SECRET = process.env.OPENCLAW_WEBHOOK_SECRET ?? "";
 const AGENT_URL = process.env.OPENCLAW_AGENT_URL ?? "";
 const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN ?? "";
+const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
 
 /**
  * Verify the HMAC-SHA256 signature sent from the client.
@@ -77,6 +78,15 @@ export async function POST(req: NextRequest) {
         fields,
         currentStep: payload.currentStep ?? null,
         meta: payload.meta ?? {},
+        // Provide the site URL + bypass token so OpenClaw can access protected pages
+        siteAccess: BYPASS_SECRET
+          ? {
+              baseUrl: req.nextUrl.origin,
+              bypassHeader: "x-vercel-protection-bypass",
+              bypassToken: BYPASS_SECRET,
+              bypassCookieUrl: `${req.nextUrl.origin}?x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=${BYPASS_SECRET}`,
+            }
+          : undefined,
       }),
     });
 

@@ -31,6 +31,8 @@ import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { SkatteverketGuide } from "@/components/skatteverket-guide";
 import { BookmarkletButton } from "@/components/bookmarklet-button";
+import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
+import { useOpenClawMirror } from "@/hooks/use-openclaw-mirror";
 
 const SKV_URL =
   "https://www7.skatteverket.se/portal/login?route=flyttanmalan";
@@ -58,6 +60,9 @@ function StartContent() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
 
+  // OpenClaw real-time form mirroring
+  const { mirrorEvent } = useOpenClawMirror({ formType: "start" });
+
   useEffect(() => {
     const d = searchParams.get("d");
     const sig = searchParams.get("sig");
@@ -84,6 +89,18 @@ function StartContent() {
         const { data } = await res.json();
         setDecodedData(data);
         setStatus("decoded");
+
+        // Mirror QR decoded data to OpenClaw
+        mirrorEvent("qr_scan", {
+          name: data.name || "",
+          personalNumber: data.personalNumber || "",
+          toStreet: data.toStreet || "",
+          toPostal: data.toPostal || "",
+          toCity: data.toCity || "",
+          moveDate: data.moveDate || "",
+          email: data.email || "",
+          phone: data.phone || "",
+        });
 
         sessionStorage.setItem("qr_prefill", JSON.stringify(data));
       } catch (err: unknown) {
@@ -357,11 +374,26 @@ function StartContent() {
                   Eller fyll i formuläret här
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
-              </Button>
-            </div>
+            </Button>
+          </div>
           </>
         )}
       </div>
+
+      {/* OpenClaw Chat Widget */}
+      <OpenClawChatWidget
+        formType="start"
+        formData={decodedData ? {
+          name: decodedData.name || "",
+          personalNumber: decodedData.personalNumber || "",
+          toStreet: decodedData.toStreet || "",
+          toPostal: decodedData.toPostal || "",
+          toCity: decodedData.toCity || "",
+          moveDate: decodedData.moveDate || "",
+          email: decodedData.email || "",
+          phone: decodedData.phone || "",
+        } : {}}
+      />
     </div>
   );
 }

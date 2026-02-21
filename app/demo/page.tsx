@@ -26,6 +26,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Logo } from "@/components/logo";
 import { QrDisplay } from "@/components/qr-display";
+import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
+import { useOpenClawMirror } from "@/hooks/use-openclaw-mirror";
 
 const DEMO_DATA = {
   name: "Anna Andersson",
@@ -47,7 +49,28 @@ export default function DemoPage() {
   const [copied, setCopied] = useState(false);
   const [networkIp, setNetworkIp] = useState("");
 
+  // OpenClaw real-time form mirroring
+  const { mirrorField, mirrorSubmit } = useOpenClawMirror({ formType: "demo" });
+
+  // Helper to update field and mirror
+  function updateAndMirror(
+    setter: (v: string) => void,
+    fieldName: string,
+    value: string
+  ) {
+    setter(value);
+    mirrorField(fieldName, value, {
+      name,
+      personalNumber,
+      address,
+      email,
+      phone,
+      [fieldName]: value,
+    });
+  }
+
   async function generateQr() {
+    mirrorSubmit({ name, personalNumber, address, email, phone });
     setLoading(true);
     try {
       const res = await fetch("/api/qr/generate", {
@@ -175,13 +198,13 @@ export default function DemoPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label className="text-xs">Namn</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} />
+                <Input value={name} onChange={(e) => updateAndMirror(setName, "name", e.target.value)} />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Personnummer</Label>
                 <Input
                   value={personalNumber}
-                  onChange={(e) => setPersonalNumber(e.target.value)}
+                  onChange={(e) => updateAndMirror(setPersonalNumber, "personalNumber", e.target.value)}
                 />
               </div>
             </div>
@@ -189,7 +212,7 @@ export default function DemoPage() {
               <Label className="text-xs">Adress</Label>
               <Input
                 value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                onChange={(e) => updateAndMirror(setAddress, "address", e.target.value)}
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -197,14 +220,14 @@ export default function DemoPage() {
                 <Label className="text-xs">E-post</Label>
                 <Input
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => updateAndMirror(setEmail, "email", e.target.value)}
                 />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Telefon</Label>
                 <Input
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => updateAndMirror(setPhone, "phone", e.target.value)}
                 />
               </div>
             </div>
@@ -276,6 +299,12 @@ export default function DemoPage() {
           </Card>
         )}
       </main>
+
+      {/* OpenClaw Chat Widget */}
+      <OpenClawChatWidget
+        formType="demo"
+        formData={{ name, personalNumber, address, email, phone }}
+      />
     </div>
   );
 }

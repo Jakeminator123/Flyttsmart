@@ -44,12 +44,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="sv">
+    <html lang="sv" suppressHydrationWarning>
       <body className="font-sans antialiased">
         {children}
         <DIdAgentWidget />
         <Analytics />
       </body>
     </html>
-  )
+  );
 }

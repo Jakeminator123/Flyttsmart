@@ -59,7 +59,7 @@ export function OpenClawChatWidget({
     {
       role: "assistant",
       content:
-        "Hej! Jag är AIda, din flyttagent. Jag följer formuläret i realtid och kan hjälpa dig med allt kring flytten och adressändringen.",
+        "Hej! Jag ar AIda, din personliga flyttassistent. Jag foljer med i formularet du fyller i och kan hjalpa dig med fragor om flytt, adressandring eller vad du an undrar over.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -183,7 +183,7 @@ export function OpenClawChatWidget({
         {
           role: "assistant",
           content:
-            "Anslutningen till AIda misslyckades. Försök igen om en stund.",
+            "Anslutningen till AIda misslyckades. Forsok igen om en stund.",
         },
       ]);
     } finally {
@@ -218,7 +218,7 @@ export function OpenClawChatWidget({
         <button
           onClick={handleOpen}
           className="fixed bottom-5 left-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-primary/30 active:scale-95"
-          aria-label="Öppna AIda"
+          aria-label="Oppna AIda-assistent"
         >
           <MessageCircle className="h-6 w-6" />
           {hasUnread && (
@@ -290,7 +290,7 @@ export function OpenClawChatWidget({
                   </span>
                 </div>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Flyttagent med formulärkoll
+                  Din personliga flyttassistent
                 </p>
               </div>
             </div>
@@ -381,7 +381,7 @@ export function OpenClawChatWidget({
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Fråga AIda..."
+                placeholder="Fraga AIda..."
                 className="h-10 flex-1 rounded-xl border border-border/60 bg-muted/40 px-3.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 transition-colors focus:border-primary/40 focus:bg-background disabled:opacity-50"
                 disabled={loading}
               />

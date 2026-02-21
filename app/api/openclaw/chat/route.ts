@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     if (!AGENT_URL) {
       return NextResponse.json({
         content:
-          "AIda-agenten är inte konfigurerad ännu. Ange OPENCLAW_AGENT_URL i dina miljövariabler.",
+          "Hej! Jag ar AIda, men jag ar inte helt konfigurerad annu. Be administratoren satta OPENCLAW_AGENT_URL i miljovariablerna.",
         role: "assistant",
       });
     }
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           content:
-            "AIda kunde inte svara just nu. Försök igen om en stund.",
+            "AIda kunde inte svara just nu. Forsok igen om en stund.",
         },
         { status: 502 }
       );
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         content:
-          "Ett fel uppstod i anslutningen till AIda. Försök igen.",
+          "Ett fel uppstod i anslutningen till AIda. Forsok igen.",
       },
       { status: 500 }
     );

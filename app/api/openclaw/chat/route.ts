@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const AGENT_URL = process.env.OPENCLAW_AGENT_URL!;
-const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN!;
+const AGENT_URL = process.env.OPENCLAW_AGENT_URL ?? "";
+const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN ?? "";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +13,15 @@ export async function POST(req: NextRequest) {
         { error: "sessionId and messages array are required" },
         { status: 400 }
       );
+    }
+
+    // If no agent URL is configured, return a helpful fallback
+    if (!AGENT_URL) {
+      return NextResponse.json({
+        content:
+          "OpenClaw-agenten ar inte konfigurerad annu. Ange OPENCLAW_AGENT_URL i dina miljvariabler.",
+        role: "assistant",
+      });
     }
 
     // Build the chat endpoint — append /chat if the base URL doesn't include it

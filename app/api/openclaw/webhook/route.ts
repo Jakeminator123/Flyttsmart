@@ -1,24 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
-const WEBHOOK_SECRET = process.env.OPENCLAW_WEBHOOK_SECRET!;
-const AGENT_URL = process.env.OPENCLAW_AGENT_URL!;
-const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN!;
+const WEBHOOK_SECRET = process.env.OPENCLAW_WEBHOOK_SECRET ?? "";
+const AGENT_URL = process.env.OPENCLAW_AGENT_URL ?? "";
+const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN ?? "";
 
 /**
  * Verify the HMAC-SHA256 signature sent from the client.
- * The signature header is `x-openclaw-signature`.
+ * If no secret is configured, verification is skipped (dev/testing mode).
  */
 function verifySignature(body: string, signature: string | null): boolean {
-  if (!signature || !WEBHOOK_SECRET) return false;
-  const expected = crypto
-    .createHmac("sha256", WEBHOOK_SECRET)
-    .update(body)
-    .digest("hex");
-  return crypto.timingSafeEqual(
-    Buffer.from(signature, "hex"),
-    Buffer.from(expected, "hex")
-  );
+  // Skip verification when no secret is configured (testing mode)
+  if (!WEBHOOK_SECRET) return true;
+  if (!signature) return false;
+
+  try {
+    const expected = crypto
+      .createHmac("sha256", WEBHOOK_SECRET)
+      .update(body)
+      .digest("hex");
+    return crypto.timingSafeEqual(
+      Buffer.from(signature, "hex"),
+      Buffer.from(expected, "hex")
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -43,6 +50,17 @@ export async function POST(req: NextRequest) {
         { error: "Missing required fields: sessionId, event, formType, fields" },
         { status: 400 }
       );
+    }
+
+    // If no agent URL is configured, log and return OK (testing mode)
+    if (!AGENT_URL) {
+      console.log("[OpenClaw] No AGENT_URL configured — payload logged:", {
+        sessionId,
+        event,
+        formType,
+        fieldCount: Object.keys(fields).length,
+      });
+      return NextResponse.json({ ok: true, mode: "log_only" });
     }
 
     // Forward to OpenClaw agent (fire-and-forget style, but we await for logging)

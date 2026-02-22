@@ -5,6 +5,7 @@ OPENCLAW_DIR="/root/.openclaw"
 CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
 AGENT_DIR="$OPENCLAW_DIR/agents/aida-flyttagent/agent"
 WORKSPACE_DIR="$OPENCLAW_DIR/workspace-aida"
+LISTEN_PORT="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
 
 # Ensure directories exist (important on first run with empty persistent volume)
 mkdir -p "$AGENT_DIR"
@@ -26,6 +27,9 @@ fi
 # Token/port are passed via CLI flags/env (not persisted in config file).
 cat > "$CONFIG_FILE" <<EOF
 {
+  "gateway": {
+    "mode": "local"
+  },
   "agents": {
     "list": [
       {
@@ -45,12 +49,10 @@ cat > "$CONFIG_FILE" <<EOF
 }
 EOF
 
-LISTEN_PORT="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
-
 echo "[entrypoint] Config written — starting OpenClaw gateway on port ${LISTEN_PORT}"
 
 if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
-  exec openclaw gateway --port "${LISTEN_PORT}" --token "${OPENCLAW_GATEWAY_TOKEN}"
+  exec openclaw gateway --port "${LISTEN_PORT}" --token "${OPENCLAW_GATEWAY_TOKEN}" --allow-unconfigured
 fi
 
-exec openclaw gateway --port "${LISTEN_PORT}"
+exec openclaw gateway --port "${LISTEN_PORT}" --allow-unconfigured

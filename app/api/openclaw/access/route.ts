@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  buildOpenClawSiteAccess,
+  getOpenClawTokens,
+} from "@/lib/openclaw/server-config";
 
-const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
-const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN ?? "";
+const { bypassSecret: BYPASS_SECRET, accessToken: ACCESS_TOKEN } =
+  getOpenClawTokens();
 
 /**
  * GET /api/openclaw/access?token=<AGENT_TOKEN>&redirect=/adressandring
@@ -15,7 +19,7 @@ export async function GET(req: NextRequest) {
   const redirect = req.nextUrl.searchParams.get("redirect") ?? "/";
 
   // Verify the caller is authorized
-  if (!token || !AGENT_TOKEN || token !== AGENT_TOKEN) {
+  if (!token || !ACCESS_TOKEN || token !== ACCESS_TOKEN) {
     return NextResponse.json(
       { error: "Unauthorized" },
       { status: 401 }
@@ -45,20 +49,28 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    if (!body.token || body.token !== AGENT_TOKEN) {
+    if (!body.token || body.token !== ACCESS_TOKEN) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
+    const siteAccess = buildOpenClawSiteAccess(req);
+
+    if (!siteAccess) {
+      return NextResponse.json({
+        baseUrl: req.nextUrl.origin,
+        bypassHeader: "x-vercel-protection-bypass",
+        bypassToken: null,
+        usage: "No deployment protection is active -- direct access works.",
+      });
+    }
+
     return NextResponse.json({
-      baseUrl: req.nextUrl.origin,
-      bypassHeader: "x-vercel-protection-bypass",
-      bypassToken: BYPASS_SECRET || null,
-      usage: BYPASS_SECRET
-        ? "Add header 'x-vercel-protection-bypass: <bypassToken>' to all requests, or visit GET /api/openclaw/access?token=<your_token>&redirect=/adressandring to set the cookie."
-        : "No deployment protection is active -- direct access works.",
+      ...siteAccess,
+      usage:
+        "Add header 'x-vercel-protection-bypass: <bypassToken>' to all requests, or visit bypassCookieUrl once to set cookie access.",
     });
   } catch {
     return NextResponse.json(

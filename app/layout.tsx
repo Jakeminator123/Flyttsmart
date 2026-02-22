@@ -2,7 +2,6 @@ import React from "react"
 import type { Metadata, Viewport } from 'next'
 import { Inter, Space_Grotesk } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
-import { DIdAgentWidget } from '@/components/did-agent-widget'
 import './globals.css'
 
 const _inter = Inter({ subsets: ['latin'] })
@@ -47,7 +46,6 @@ export default function RootLayout({
     <html lang="sv" suppressHydrationWarning>
       <body className="font-sans antialiased">
         {children}
-        <DIdAgentWidget />
         <Analytics />
       </body>
     </html>

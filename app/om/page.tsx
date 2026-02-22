@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollReveal } from "@/components/scroll-reveal"
 import { Header } from "@/components/header"
 import { SiteFooter } from "@/components/site-footer"
+import { OpenClawChatWidget } from "@/components/openclaw-chat-widget"
 
 export const metadata: Metadata = {
   title: "Om Flytt.io – Flyttanmälan som den borde fungera",
@@ -133,6 +134,7 @@ export default function OmPage() {
         </section>
       </main>
       <SiteFooter />
+      <OpenClawChatWidget formType="om" />
     </div>
   )
 }

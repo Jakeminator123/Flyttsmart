@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import {
+  buildOpenClawSiteAccess,
+  getOpenClawAgentId,
+  getOpenClawGatewayBaseUrl,
+  getOpenClawTokens,
+} from "@/lib/openclaw/server-config";
 
-const WEBHOOK_SECRET = process.env.OPENCLAW_WEBHOOK_SECRET ?? "";
-const AGENT_URL = process.env.OPENCLAW_AGENT_URL ?? "";
-const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN ?? "";
-const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
-const DEFAULT_REDIRECT_PATH = "/adressandring";
+const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
+const AGENT_ID = getOpenClawAgentId();
+const {
+  webhookSecret: WEBHOOK_SECRET,
+  hooksToken: HOOKS_TOKEN,
+} = getOpenClawTokens();
 
 /**
  * Verify the HMAC-SHA256 signature sent from the client.
@@ -28,6 +35,39 @@ function verifySignature(body: string, signature: string | null): boolean {
   } catch {
     return false;
   }
+}
+
+function buildHookMessage(
+  payload: {
+    sessionId: string;
+    event: string;
+    formType: string;
+    fields: Record<string, unknown>;
+    currentStep?: number;
+    meta?: Record<string, unknown>;
+  },
+  siteAccess: Record<string, unknown> | null
+) {
+  const eventPayload = {
+    sessionId: payload.sessionId,
+    event: payload.event,
+    formType: payload.formType,
+    currentStep: payload.currentStep ?? null,
+    fields: payload.fields,
+    meta: payload.meta ?? {},
+  };
+
+  return [
+    "Flyttsmart form event received.",
+    "Use this data as context for your next interactions:",
+    JSON.stringify(eventPayload, null, 2),
+    siteAccess
+      ? [
+          "For protected deployments, use this siteAccess helper:",
+          JSON.stringify(siteAccess, null, 2),
+        ].join("\n")
+      : "No deployment protection helper is required in this environment.",
+  ].join("\n\n");
 }
 
 export async function POST(req: NextRequest) {
@@ -54,52 +94,50 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If no agent URL is configured, log and return OK (testing mode)
-    if (!AGENT_URL) {
-      console.log("[OpenClaw] No AGENT_URL configured — payload logged:", {
-        sessionId,
-        event,
-        formType,
-        fieldCount: Object.keys(fields).length,
-      });
+    // If no gateway URL is configured, log and return OK (testing mode)
+    if (!GATEWAY_BASE_URL) {
+      console.log(
+        "[OpenClaw] No gateway URL configured (OPENCLAW_GATEWAY_URL / OPENCLAW_AGENT_URL) — payload logged:",
+        {
+          sessionId,
+          event,
+          formType,
+          fieldCount: Object.keys(fields).length,
+        }
+      );
       return NextResponse.json({ ok: true, mode: "log_only" });
     }
 
-    // Build a human-readable message for the hook
-    const fieldSummary = Object.entries(fields)
-      .map(([k, v]) => `${k}: ${v}`)
-      .join(", ");
-    const stepInfo = payload.currentStep
-      ? ` (steg: ${payload.currentStep})`
-      : "";
-    const hookMessage = `Formularuppdatering: ${event} pa ${formType}${stepInfo}. Falt: ${fieldSummary}`;
-
-    // Include site access info in the message so the agent can reach protected pages
-    let siteAccessInfo = "";
-    if (BYPASS_SECRET) {
-      const accessEndpoint = `${req.nextUrl.origin}/api/openclaw/access`;
-      siteAccessInfo =
-        ` | Site access: baseUrl=${req.nextUrl.origin}, ` +
-        `bypassHeader=x-vercel-protection-bypass, bypassToken=${BYPASS_SECRET}, ` +
-        `cookieUrl=${accessEndpoint}?token=${encodeURIComponent(AGENT_TOKEN)}&redirect=${encodeURIComponent(DEFAULT_REDIRECT_PATH)}`;
+    if (!HOOKS_TOKEN) {
+      console.warn("[OpenClaw] Missing HOOKS_TOKEN — skipping hook delivery");
+      return NextResponse.json({ ok: true, mode: "missing_hooks_token" });
     }
 
-    // POST to OpenClaw hooks/agent endpoint
-    // Strip any /sessions/... suffix from the URL in case user pasted the full session URL
-    const baseUrl = AGENT_URL.replace(/\/+$/, "").replace(
-      /\/sessions\/.*$/,
-      ""
+    const siteAccess = buildOpenClawSiteAccess(req);
+    const hookMessage = buildHookMessage(
+      {
+        sessionId,
+        event,
+        formType,
+        fields,
+        currentStep: payload.currentStep,
+        meta: payload.meta,
+      },
+      siteAccess
     );
-    const hooksUrl = `${baseUrl}/hooks/agent`;
+
+    // POST to OpenClaw hooks/agent endpoint
+    const hooksUrl = `${GATEWAY_BASE_URL}/hooks/agent`;
     const agentResponse = await fetch(hooksUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-openclaw-token": AGENT_TOKEN,
+        "x-openclaw-token": HOOKS_TOKEN,
       },
       body: JSON.stringify({
-        message: hookMessage + siteAccessInfo,
+        message: hookMessage,
         name: "FormMirror",
+        agentId: AGENT_ID,
         sessionKey: `hook:flyttsmart:${sessionId}`,
         wakeMode: "now",
         deliver: false,

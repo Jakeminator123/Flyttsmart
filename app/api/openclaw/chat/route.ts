@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  buildOpenClawSiteAccess,
+  getOpenClawAgentId,
+  getOpenClawChatModel,
+  getOpenClawGatewayBaseUrl,
+  getOpenClawTokens,
+} from "@/lib/openclaw/server-config";
 
-// OPENCLAW_AGENT_URL must be the gateway base URL, e.g. https://assistant.openclaw.ai
-// NOT the session URL (no /sessions/... suffix)
-const AGENT_URL = process.env.OPENCLAW_AGENT_URL ?? "";
-const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN ?? "";
+const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
+const AGENT_ID = getOpenClawAgentId();
+const CHAT_MODEL = getOpenClawChatModel(AGENT_ID);
+const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
 
 /**
  * Build a system message that includes form context
  * so the agent knows what the user is doing on the page.
  */
-function buildSystemMessage(formContext?: Record<string, unknown> | null) {
+function buildSystemMessage(
+  formContext?: Record<string, unknown> | null,
+  siteAccess?: Record<string, unknown> | null
+) {
   let base =
     "Du ar AIda, en hjalpsam svensk flyttassistent for Flyttsmart. " +
     "Svara alltid pa svenska. Hjalp anvandaren med adressandring, flytt och relaterade fragor.";
@@ -18,6 +28,12 @@ function buildSystemMessage(formContext?: Record<string, unknown> | null) {
     base +=
       "\n\nAnvandaren har foljande formularkontext just nu:\n" +
       JSON.stringify(formContext, null, 2);
+  }
+
+  if (siteAccess) {
+    base +=
+      "\n\nOm du behover besoka sajten bakom Vercel-skydd, anvand siteAccess:\n" +
+      JSON.stringify(siteAccess, null, 2);
   }
 
   return base;
@@ -36,25 +52,30 @@ export async function POST(req: NextRequest) {
     }
 
     // If no agent URL is configured, return a helpful fallback
-    if (!AGENT_URL) {
+    if (!GATEWAY_BASE_URL) {
       return NextResponse.json({
         content:
           "Hej! Jag ar AIda, men jag ar inte helt konfigurerad annu. " +
-          "Be administratoren satta OPENCLAW_AGENT_URL i miljovariablerna.",
+          "Be administratoren satta OPENCLAW_GATEWAY_URL eller OPENCLAW_AGENT_URL i miljovariablerna.",
         role: "assistant",
       });
     }
 
-    // Use OpenAI Chat Completions endpoint (simpler SSE format)
-    const baseUrl = AGENT_URL.replace(/\/+$/, "").replace(
-      /\/sessions\/.*$/,
-      ""
-    );
-    const chatUrl = `${baseUrl}/v1/chat/completions`;
+    if (!GATEWAY_TOKEN) {
+      return NextResponse.json({
+        content:
+          "Hej! Jag ar AIda, men jag saknar gateway-token. " +
+          "Be administratoren satta OPENCLAW_GATEWAY_TOKEN (eller OPENCLAW_AGENT_TOKEN i enkel setup).",
+        role: "assistant",
+      });
+    }
+
+    const siteAccess = buildOpenClawSiteAccess(req);
+    const chatUrl = `${GATEWAY_BASE_URL}/v1/chat/completions`;
 
     // Build messages array in OpenAI format
     const openaiMessages = [
-      { role: "system", content: buildSystemMessage(formContext) },
+      { role: "system", content: buildSystemMessage(formContext, siteAccess) },
       ...messages.slice(-15).map((m: { role: string; content: string }) => ({
         role: m.role === "assistant" ? "assistant" : "user",
         content: m.content,
@@ -65,11 +86,11 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${AGENT_TOKEN}`,
-        "x-openclaw-agent-id": "main",
+        Authorization: `Bearer ${GATEWAY_TOKEN}`,
+        "x-openclaw-agent-id": AGENT_ID,
       },
       body: JSON.stringify({
-        model: "openclaw:main",
+        model: CHAT_MODEL,
         stream: true,
         user: sessionId,
         messages: openaiMessages,

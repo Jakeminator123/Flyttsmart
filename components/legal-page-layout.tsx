@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollReveal } from "@/components/scroll-reveal"
 import { Header } from "@/components/header"
 import { SiteFooter } from "@/components/site-footer"
+import { OpenClawChatWidget } from "@/components/openclaw-chat-widget"
 
 interface LegalPageLayoutProps {
   badge: string
@@ -49,6 +50,7 @@ export function LegalPageLayout({ badge, title, lastUpdated, children }: LegalPa
         </section>
       </main>
       <SiteFooter />
+      <OpenClawChatWidget formType={`legal:${badge.toLowerCase()}`} />
     </div>
   )
 }

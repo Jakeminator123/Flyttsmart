@@ -10,6 +10,7 @@ import { FaqSection } from "@/components/faq-section"
 import { CtaSection } from "@/components/cta-section"
 import { SiteFooter } from "@/components/site-footer"
 import { MobileCta } from "@/components/mobile-cta"
+import { OpenClawChatWidget } from "@/components/openclaw-chat-widget"
 
 export default function HomePage() {
   return (
@@ -28,6 +29,7 @@ export default function HomePage() {
       </main>
       <SiteFooter />
       <MobileCta />
+      <OpenClawChatWidget formType="home" />
     </div>
   )
 }

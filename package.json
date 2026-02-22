@@ -8,7 +8,8 @@
     "lint": "eslint . --max-warnings=50",
     "start": "next start",
     "db:migrate": "npx tsx lib/db/migrate.ts",
-    "db:studio": "npx drizzle-kit studio"
+    "db:studio": "npx drizzle-kit studio",
+    "openclaw:doctor": "node scripts/openclaw-doctor.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

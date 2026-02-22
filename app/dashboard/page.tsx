@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, type KeyboardEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,6 +15,7 @@ import {
   Sparkles,
   FileText,
   Lock,
+  PlayCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +31,8 @@ import { Logo } from "@/components/logo";
 import { MoveTimeline, type MoveStatus } from "@/components/move-timeline";
 import { ChecklistView, type ChecklistItem } from "@/components/checklist-view";
 import { QrDisplay } from "@/components/qr-display";
-import { SkvGuide } from "@/components/skv-guide";
+import { SkatteverketGuide } from "@/components/skatteverket-guide";
+import { BookmarkletButton } from "@/components/bookmarklet-button";
 import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
 
 interface MoveData {
@@ -43,6 +45,9 @@ interface MoveData {
     toStreet: string | null;
     toPostal: string | null;
     toCity: string | null;
+    apartmentNumber: string | null;
+    propertyDesignation: string | null;
+    propertyOwner: string | null;
     moveDate: string | null;
     householdType: string | null;
     reason: string | null;
@@ -65,6 +70,9 @@ function DashboardContent() {
   const [data, setData] = useState<MoveData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [bankIdQrOnlyVisible, setBankIdQrOnlyVisible] = useState(false);
+  const [skvInt7Starting, setSkvInt7Starting] = useState(false);
+  const [skvInt7Status, setSkvInt7Status] = useState<string | null>(null);
 
   useEffect(() => {
     if (!moveId) {
@@ -88,6 +96,23 @@ function DashboardContent() {
 
     fetchMove();
   }, [moveId]);
+
+  useEffect(() => {
+    let alive = true;
+    async function loadSkvConfig() {
+      try {
+        const res = await fetch("/api/skv/config");
+        const cfg = await res.json();
+        if (alive) setBankIdQrOnlyVisible(Boolean(cfg?.bankIdQrOnlyVisible));
+      } catch {
+        if (alive) setBankIdQrOnlyVisible(false);
+      }
+    }
+    loadSkvConfig();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -121,13 +146,66 @@ function DashboardContent() {
         name: user.name,
         personalNumber: user.personalNumber,
         address: `${move.toStreet}, ${move.toPostal} ${move.toCity}`,
+        toStreet: move.toStreet,
+        toPostal: move.toPostal,
+        toCity: move.toCity,
         email: user.email,
         phone: user.phone,
+        moveDate: move.moveDate,
       }),
     });
 
     const result = await res.json();
     return { qrImage: result.qrImage, url: result.url };
+  }
+
+  async function handleStartSkvInt7() {
+    if (!data) return;
+    setSkvInt7Starting(true);
+    setSkvInt7Status(null);
+    try {
+      const [firstName = "", ...lastNameParts] = data.user.name.split(" ");
+      const res = await fetch("/api/skv/int7/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          formData: {
+            name: data.user.name,
+            firstName,
+            lastName: lastNameParts.join(" "),
+            personalNumber: data.user.personalNumber,
+            email: data.user.email,
+            phone: data.user.phone,
+            toStreet: data.move.toStreet,
+            toPostal: data.move.toPostal,
+            toCity: data.move.toCity,
+            apartmentNumber: data.move.apartmentNumber,
+            propertyDesignation: data.move.propertyDesignation,
+            propertyOwner: data.move.propertyOwner,
+            moveDate: data.move.moveDate,
+          },
+        }),
+      });
+      const responseBody = await res.json().catch(() => null);
+      if (!res.ok || !responseBody?.ok) {
+        throw new Error(responseBody?.error || "Kunde inte starta SKV-int7.");
+      }
+      setSkvInt7Status("SKV-int7 startad. Verifiera BankID i QR-vyn.");
+    } catch {
+      setSkvInt7Status(
+        "Kunde inte starta SKV-int7. Kontrollera Python/Playwright och försök igen."
+      );
+    } finally {
+      setSkvInt7Starting(false);
+    }
+  }
+
+  function blockSkvInt7KeyboardTrigger(event: KeyboardEvent<HTMLButtonElement>) {
+    // SKV-int7 must only be started by explicit button click.
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      event.stopPropagation();
+    }
   }
 
   return (
@@ -326,22 +404,66 @@ function DashboardContent() {
 
           {/* Skatteverket guide */}
           <TabsContent value="skatteverket">
-            <SkvGuide
-              moveData={{
-                name: user.name,
-                personalNumber: user.personalNumber || undefined,
-                email: user.email || undefined,
-                phone: user.phone || undefined,
-                fromStreet: move.fromStreet || undefined,
-                fromPostal: move.fromPostal || undefined,
-                fromCity: move.fromCity || undefined,
-                toStreet: move.toStreet || undefined,
-                toPostal: move.toPostal || undefined,
-                toCity: move.toCity || undefined,
-                moveDate: move.moveDate || undefined,
-                householdType: move.householdType || undefined,
-              }}
-            />
+            <div className="space-y-4">
+              <Card className="border-primary/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Automatisk SKV-int7</CardTitle>
+                  <CardDescription>
+                    Starta BankID-flödet manuellt med aktuella formulärdata.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    type="button"
+                    onKeyDown={blockSkvInt7KeyboardTrigger}
+                    onClick={handleStartSkvInt7}
+                    disabled={skvInt7Starting}
+                    className="w-full gap-2"
+                  >
+                    {skvInt7Starting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <PlayCircle className="h-4 w-4" />
+                    )}
+                    {skvInt7Starting
+                      ? "Startar SKV-int7..."
+                      : "Starta SKV-int7 (BankID)"}
+                  </Button>
+                  {skvInt7Status && (
+                    <p className="mt-2 text-xs text-muted-foreground">{skvInt7Status}</p>
+                  )}
+                </CardContent>
+              </Card>
+              <SkatteverketGuide
+                data={{
+                  name: user.name,
+                  personalNumber: user.personalNumber || undefined,
+                  toStreet: move.toStreet || undefined,
+                  toPostal: move.toPostal || undefined,
+                  toCity: move.toCity || undefined,
+                  apartmentNumber: move.apartmentNumber || undefined,
+                  propertyDesignation: move.propertyDesignation || undefined,
+                  propertyOwner: move.propertyOwner || undefined,
+                  moveDate: move.moveDate || undefined,
+                  householdType: move.householdType || undefined,
+                }}
+              />
+              <BookmarkletButton
+                data={{
+                  name: user.name,
+                  personalNumber: user.personalNumber,
+                  toStreet: move.toStreet,
+                  toPostal: move.toPostal,
+                  toCity: move.toCity,
+                  apartmentNumber: move.apartmentNumber,
+                  propertyDesignation: move.propertyDesignation,
+                  propertyOwner: move.propertyOwner,
+                  moveDate: move.moveDate,
+                  email: user.email,
+                  phone: user.phone,
+                }}
+              />
+            </div>
           </TabsContent>
 
           {/* QR code */}
@@ -358,7 +480,15 @@ function DashboardContent() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <QrDisplay onGenerate={handleGenerateQr} />
+                {bankIdQrOnlyVisible ? (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-muted-foreground">
+                    Data-QR är nedtonad i dev-läge eftersom <code>SKV_SYNLIGT_SKV=y</code>.
+                    Använd fliken <strong>Skatteverket</strong> för att starta SKV-int7 och
+                    verifiera BankID-QR.
+                  </div>
+                ) : (
+                  <QrDisplay onGenerate={handleGenerateQr} />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -370,7 +500,15 @@ function DashboardContent() {
         formType="dashboard"
         formData={data ? {
           userName: data.user.name,
+          personalNumber: data.user.personalNumber || "",
+          email: data.user.email || "",
+          phone: data.user.phone || "",
           moveStatus: data.move.status,
+          toStreet: data.move.toStreet || "",
+          toPostal: data.move.toPostal || "",
+          apartmentNumber: data.move.apartmentNumber || "",
+          propertyDesignation: data.move.propertyDesignation || "",
+          propertyOwner: data.move.propertyOwner || "",
           fromCity: data.move.fromCity || "",
           toCity: data.move.toCity || "",
           moveDate: data.move.moveDate || "",

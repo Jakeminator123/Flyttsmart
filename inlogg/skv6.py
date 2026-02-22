@@ -22,6 +22,16 @@ from flask import Flask, request, jsonify, render_template_string, send_from_dir
 
 # Playwright (sync)
 from playwright.sync_api import sync_playwright
+from skv_core import (
+    FORM_NEXT_HOST_SELECTOR,
+    USER_AGENT,
+    is_truthy,
+    load_config,
+    get_form_signals,
+    is_form_ready_from_signals,
+    get_all_pages_for_form,
+    pick_form_page,
+)
 
 
 APP_HOST = "127.0.0.1"
@@ -29,176 +39,44 @@ APP_PORT = int(os.environ.get("PORT", "8767"))  # Different port to run alongsid
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULT_DIR = os.path.join(SCRIPT_DIR, "results")
 os.makedirs(RESULT_DIR, exist_ok=True)
+RUNTIME_DIR = os.path.join(SCRIPT_DIR, "runtime")
+os.makedirs(RUNTIME_DIR, exist_ok=True)
 
 # Single session log - one file per run, overwrites previous session
 SESSION_LOG_FILE = os.path.join(SCRIPT_DIR, "skv6_session_log.txt")
 
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "config.txt")
+DEFAULT_PAYLOAD_FILE = os.path.join(RUNTIME_DIR, "skv_payload_latest.json")
 
 
 def _load_config() -> Dict[str, str]:
     """Load config from config.txt. Returns dict of KEY=value (lowercased values)."""
-    out = {}
-    try:
-        if os.path.isfile(CONFIG_FILE):
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if "=" in line and not line.startswith("#"):
-                        k, _, v = line.partition("=")
-                        out[k.strip().upper()] = (v.strip() or "").lower()
-    except Exception:
-        pass
-    return out
-FORM_NEXT_HOST_SELECTOR = "skv-button-10-0-7[button-type='primary'].flytt-skv-wizard-step-button"
+    return load_config(CONFIG_FILE)
 
 
 def _get_form_signals(p) -> Dict[str, Any]:
-    """Collect robust readiness signals from main/popup page."""
-    if not p:
-        return {
-            "ok": False,
-            "url": "",
-            "url_has_flytt": False,
-            "has_form": False,
-            "has_wizard_step": False,
-            "has_active_step": False,
-            "has_next_host": False,
-            "error": "no page",
-        }
-
-    try:
-        url = p.url or ""
-    except Exception:
-        return {
-            "ok": False,
-            "url": "",
-            "url_has_flytt": False,
-            "has_form": False,
-            "has_wizard_step": False,
-            "has_active_step": False,
-            "has_next_host": False,
-            "error": "url unavailable",
-        }
-
-    url_has_flytt = "flytt" in url.lower()
-    if not url_has_flytt:
-        return {
-            "ok": True,
-            "url": url,
-            "url_has_flytt": False,
-            "has_form": False,
-            "has_wizard_step": False,
-            "has_active_step": False,
-            "has_next_host": False,
-            "error": "",
-        }
-
-    try:
-        # Use shadow-DOM-piercing query: traverse shadow roots (Angular/web components)
-        out = p.evaluate(
-            """(nextSel) => {
-                function qs(root, sel) {
-                    try { const el = root.querySelector(sel); if (el) return el; } catch(e) {}
-                    const nodes = root.querySelectorAll('*');
-                    for (const n of nodes) {
-                        if (n.shadowRoot) { const f = qs(n.shadowRoot, sel); if (f) return f; }
-                    }
-                    return null;
-                }
-                const hasForm = !!qs(document, '#fbfFlyttanmalanForm');
-                const hasWizardStep = !!qs(document, 'flytt-skv-wizard-step');
-                const hasActiveStep = !!qs(document, '.flytt-skv-wizard-step--active, .flytt-skv-wizard-step--check');
-                const hasNextHost = !!qs(document, nextSel);
-                return { hasForm, hasWizardStep, hasActiveStep, hasNextHost, title: document.title || '' };
-            }""",
-            FORM_NEXT_HOST_SELECTOR,
-        )
-        return {
-            "ok": True,
-            "url": url,
-            "url_has_flytt": url_has_flytt,
-            "has_form": bool(out.get("hasForm")),
-            "has_wizard_step": bool(out.get("hasWizardStep")),
-            "has_active_step": bool(out.get("hasActiveStep")),
-            "has_next_host": bool(out.get("hasNextHost")),
-            "title": out.get("title", ""),
-            "error": "",
-        }
-    except Exception as e:
-        return {
-            "ok": False,
-            "url": url,
-            "url_has_flytt": url_has_flytt,
-            "has_form": False,
-            "has_wizard_step": False,
-            "has_active_step": False,
-            "has_next_host": False,
-            "error": str(e),
-        }
+    return get_form_signals(p, FORM_NEXT_HOST_SELECTOR)
 
 
 def _is_form_ready_from_signals(signals: Dict[str, Any], api_ready: bool) -> bool:
     """Readiness decision after QR: require real form signals, with API fallback."""
-    if not signals or not signals.get("url_has_flytt"):
-        return False
-    # Strict: form + wizard + (active step or Nästa button or api)
-    if signals.get("has_form") and signals.get("has_wizard_step"):
-        return bool(signals.get("has_active_step") or signals.get("has_next_host") or api_ready)
-    # Relaxed: flytt URL + Nästa button visible (form may be in different DOM structure)
-    if signals.get("has_next_host"):
-        return True
-    return False
+    return is_form_ready_from_signals(signals, api_ready)
 
 
 def _get_all_pages_for_form(page) -> list:
     """Collect all pages in page's context - includes all tabs in same window."""
-    try:
-        ctx = page.context
-        if ctx:
-            return list(ctx.pages)
-    except Exception:
-        pass
-    return []
+    return get_all_pages_for_form(page)
 
 
 def _pick_form_page(page, popup_ref, api_ready: bool, all_pages: Optional[list] = None):
     """Pick ready page among main, popup, and any other tabs (new tab often opens after BankID approval)."""
-    pages_to_check = []
-    if all_pages:
-        pages_to_check = [(p, f"tab_{i}") for i, p in enumerate(all_pages) if p and not p.is_closed()]
-    if not pages_to_check:
-        pages_to_check = [(page, "main")]
-        if popup_ref and not popup_ref.is_closed():
-            pages_to_check.append((popup_ref, "popup"))
-
-    main_signals = _get_form_signals(page)
-    popup_signals = _get_form_signals(popup_ref) if popup_ref and not popup_ref.is_closed() else None
-
-    for p, source in pages_to_check:
-        try:
-            sig = _get_form_signals(p)
-            if _is_form_ready_from_signals(sig, api_ready):
-                return p, source, sig, main_signals
-            # Fallback: Playwright locator pierces shadow DOM - if Nästa exists, form is ready
-            if sig.get("url_has_flytt"):
-                try:
-                    if p.locator(FORM_NEXT_HOST_SELECTOR).count() > 0:
-                        return p, source, {**sig, "has_next_host": True}, main_signals
-                    if p.get_by_role("button", name="Nästa").count() > 0:
-                        return p, source, {**sig, "has_next_host": True}, main_signals
-                except Exception:
-                    pass
-        except Exception:
-            continue
-    return None, "", main_signals, popup_signals
-
-
-# User-Agent to avoid some blocks
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-)
+    return pick_form_page(
+        page=page,
+        popup_ref=popup_ref,
+        api_ready=api_ready,
+        all_pages=all_pages,
+        next_selector=FORM_NEXT_HOST_SELECTOR,
+    )
 
 app = Flask(__name__)
 
@@ -688,7 +566,9 @@ def _run_playwright_job(
                         # Controlled by CLONE_TAB_FALLBACK in config.txt (default: off).
                         if not got_popup:
                             cfg = _load_config()
-                            clone_enabled = cfg.get("CLONE_TAB_FALLBACK", "") in ("y", "yes", "1", "true")
+                            clone_enabled = is_truthy(os.environ.get("SKV_FORCE_CLONE_TAB_FALLBACK", "")) or is_truthy(
+                                cfg.get("CLONE_TAB_FALLBACK", "")
+                            )
                             if clone_enabled:
                                 clone_url = cap.get("auth_spa_url")
                                 if not clone_url and cap.get("aid"):
@@ -705,6 +585,14 @@ def _run_playwright_job(
 
                         if bankid_url:
                             _log_qr_data("BANKID_URL_AVAILABLE", {"url": bankid_url})
+
+                        # Dev signal: keep focus on BankID QR window when requested.
+                        if is_truthy(os.environ.get("SKV_SYNLIGT_SKV", "")) and popup_page_ref and not popup_page_ref.is_closed():
+                            try:
+                                popup_page_ref.bring_to_front()
+                                _log_qr_data("QR_FOCUSED_FOR_DEV", {"enabled": True})
+                            except Exception:
+                                pass
                         break
                     except Exception as e:
                         job.details = job.details or {}
@@ -875,7 +763,8 @@ def _run_playwright_job(
 
             if flytt_page and not _normal_browser_opened:
                 cfg = _load_config()
-                if cfg.get("POPUP_BROWSER_NORMAL_WINDOW", "") in ("y", "yes", "1", "true"):
+                disable_normal_browser = is_truthy(os.environ.get("SKV_DISABLE_NORMAL_BROWSER_WINDOW", ""))
+                if is_truthy(cfg.get("POPUP_BROWSER_NORMAL_WINDOW", "")) and not disable_normal_browser:
                     try:
                         webbrowser.open(flytt_page.url)
                         _normal_browser_opened = True
@@ -894,7 +783,15 @@ def _run_playwright_job(
                     job.message = "Fyller flyttformulär..."
                     _set_job(job)
                     _log_session("Starting form filler", "FORM")
-                    run_flytt_form_filler(flytt_page, lambda: _is_cancelled(job_id), log_callback=_form_log)
+                    payload_file = os.environ.get("SKV_PAYLOAD_FILE", DEFAULT_PAYLOAD_FILE)
+                    allow_mockup = is_truthy(os.environ.get("SKV_ALLOW_MOCKUP_DATA", "y"))
+                    run_flytt_form_filler(
+                        flytt_page,
+                        lambda: _is_cancelled(job_id),
+                        log_callback=_form_log,
+                        payload_path=payload_file,
+                        allow_mockup_data=allow_mockup,
+                    )
                     _form_filler_done = True
                 except Exception as e:
                     job.details = job.details or {}

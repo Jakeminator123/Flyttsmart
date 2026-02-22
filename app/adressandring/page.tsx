@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type KeyboardEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -20,6 +20,7 @@ import {
   Smartphone,
   Copy,
   Check,
+  PlayCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,6 +75,9 @@ interface FormData {
   toStreet: string;
   toPostal: string;
   toCity: string;
+  apartmentNumber: string;
+  propertyDesignation: string;
+  propertyOwner: string;
   // Move details
   moveDate: string;
   householdType: string;
@@ -93,6 +97,9 @@ const emptyForm: FormData = {
   toStreet: "",
   toPostal: "",
   toCity: "",
+  apartmentNumber: "",
+  propertyDesignation: "",
+  propertyOwner: "",
   moveDate: "",
   householdType: "",
   reason: "",
@@ -124,6 +131,9 @@ export default function AdressandringPage() {
   const [copied, setCopied] = useState(false);
   const [mobileQrUrl, setMobileQrUrl] = useState<string | null>(null);
   const [autofillLoading, setAutofillLoading] = useState(false);
+  const [bankIdQrOnlyVisible, setBankIdQrOnlyVisible] = useState(false);
+  const [skvInt7Starting, setSkvInt7Starting] = useState(false);
+  const [skvInt7Status, setSkvInt7Status] = useState<string | null>(null);
 
   // OpenClaw real-time form mirroring
   const { mirrorField, mirrorStepChange, mirrorSubmit, mirrorEvent } =
@@ -136,6 +146,25 @@ export default function AdressandringPage() {
     const touch = navigator.maxTouchPoints > 0;
     const narrow = window.matchMedia("(max-width: 768px)").matches;
     setIsMobile(touch && narrow);
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    async function loadSkvConfig() {
+      try {
+        const res = await fetch("/api/skv/config");
+        const data = await res.json();
+        if (alive) {
+          setBankIdQrOnlyVisible(Boolean(data?.bankIdQrOnlyVisible));
+        }
+      } catch {
+        if (alive) setBankIdQrOnlyVisible(false);
+      }
+    }
+    loadSkvConfig();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // Auto-generate QR when entering step 5
@@ -173,24 +202,39 @@ export default function AdressandringPage() {
           }
         }
 
-        setForm((prev) => ({
-          ...prev,
-          firstName,
-          lastName,
-          personalNumber: data.personalNumber || "",
-          email: data.email || "",
-          phone: data.phone || "",
-          fromStreet: street,
-          fromPostal: postal,
-          fromCity: city,
-        }));
+        setForm((prev) => {
+          const next = {
+            ...prev,
+            firstName,
+            lastName,
+            personalNumber: data.personalNumber || "",
+            email: data.email || "",
+            phone: data.phone || "",
+            fromStreet: street,
+            fromPostal: postal,
+            fromCity: city,
+            toStreet: data.toStreet || prev.toStreet,
+            toPostal: data.toPostal || prev.toPostal,
+            toCity: data.toCity || prev.toCity,
+            apartmentNumber: data.apartmentNumber || "",
+            propertyDesignation: data.propertyDesignation || "",
+            propertyOwner: data.propertyOwner || "",
+            moveDate: data.moveDate || prev.moveDate,
+          };
+          mirrorEvent(
+            "qr_scan",
+            next as unknown as Record<string, string | boolean | number>,
+            currentStep
+          );
+          return next;
+        });
         setQrPrefilled(true);
         sessionStorage.removeItem("qr_prefill");
       }
     } catch {
       // ignore errors
     }
-  }, []);
+  }, [mirrorEvent, currentStep]);
 
   const updateForm = useCallback(
     (field: keyof FormData, value: string | boolean) => {
@@ -233,29 +277,34 @@ export default function AdressandringPage() {
         }
       }
 
-      setForm((prev) => ({
-        ...prev,
-        firstName: nameParts[0] || prev.firstName,
-        lastName: nameParts.slice(1).join(" ") || prev.lastName,
-        personalNumber: data.personalNumber || prev.personalNumber,
-        email: data.email || prev.email,
-        phone: data.phone || prev.phone,
-        fromStreet: street || prev.fromStreet,
-        fromPostal: postal || prev.fromPostal,
-        fromCity: city || prev.fromCity,
-      }));
-      setQrPrefilled(true);
-      // Mirror QR scan data to OpenClaw
-      mirrorEvent("qr_scan", {
-        firstName: nameParts[0] || "",
-        lastName: nameParts.slice(1).join(" ") || "",
-        personalNumber: data.personalNumber || "",
-        email: data.email || "",
-        phone: data.phone || "",
-        fromStreet: street,
-        fromPostal: postal,
-        fromCity: city,
+      setForm((prev) => {
+        const next = {
+          ...prev,
+          firstName: nameParts[0] || prev.firstName,
+          lastName: nameParts.slice(1).join(" ") || prev.lastName,
+          personalNumber: data.personalNumber || prev.personalNumber,
+          email: data.email || prev.email,
+          phone: data.phone || prev.phone,
+          fromStreet: street || prev.fromStreet,
+          fromPostal: postal || prev.fromPostal,
+          fromCity: city || prev.fromCity,
+          toStreet: data.toStreet || prev.toStreet,
+          toPostal: data.toPostal || prev.toPostal,
+          toCity: data.toCity || prev.toCity,
+          apartmentNumber: data.apartmentNumber || prev.apartmentNumber,
+          propertyDesignation:
+            data.propertyDesignation || prev.propertyDesignation,
+          propertyOwner: data.propertyOwner || prev.propertyOwner,
+          moveDate: data.moveDate || prev.moveDate,
+        };
+        mirrorEvent(
+          "qr_scan",
+          next as unknown as Record<string, string | boolean | number>,
+          currentStep
+        );
+        return next;
       });
+      setQrPrefilled(true);
     } catch {
       // QR decoding failed, user can fill in manually
     }
@@ -353,6 +402,9 @@ export default function AdressandringPage() {
           toStreet: form.toStreet,
           toPostal: form.toPostal,
           toCity: form.toCity,
+          apartmentNumber: form.apartmentNumber,
+          propertyDesignation: form.propertyDesignation,
+          propertyOwner: form.propertyOwner,
           moveDate: form.moveDate,
         }),
       });
@@ -398,6 +450,9 @@ export default function AdressandringPage() {
           toStreet: form.toStreet,
           toPostal: form.toPostal,
           toCity: form.toCity,
+          apartmentNumber: form.apartmentNumber,
+          propertyDesignation: form.propertyDesignation,
+          propertyOwner: form.propertyOwner,
         }),
       });
 
@@ -410,6 +465,11 @@ export default function AdressandringPage() {
               (next as Record<string, unknown>)[key] = value;
             }
           }
+          mirrorEvent(
+            "field_change",
+            next as unknown as Record<string, string | boolean | number>,
+            currentStep
+          );
           return next as FormData;
         });
       }
@@ -417,6 +477,40 @@ export default function AdressandringPage() {
       // Autofill failed silently
     } finally {
       setAutofillLoading(false);
+    }
+  }
+
+  async function handleStartSkvInt7() {
+    setSkvInt7Starting(true);
+    setSkvInt7Status(null);
+    try {
+      const res = await fetch("/api/skv/int7/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ formData: form }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Kunde inte starta SKV-int7.");
+      }
+      setSkvInt7Status(
+        "SKV-int7 är startad. Verifiera BankID i QR-vyn som öppnats."
+      );
+    } catch {
+      setSkvInt7Status(
+        "Kunde inte starta SKV-int7. Kontrollera Python/Playwright och försök igen."
+      );
+    } finally {
+      setSkvInt7Starting(false);
+    }
+  }
+
+  function blockSkvInt7KeyboardTrigger(event: KeyboardEvent<HTMLButtonElement>) {
+    // SKV-int7 must only be started by explicit button click.
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      event.stopPropagation();
     }
   }
 
@@ -439,6 +533,9 @@ export default function AdressandringPage() {
           toStreet: form.toStreet,
           toPostal: form.toPostal,
           toCity: form.toCity,
+          apartmentNumber: form.apartmentNumber,
+          propertyDesignation: form.propertyDesignation,
+          propertyOwner: form.propertyOwner,
           moveDate: form.moveDate,
           householdType: form.householdType,
           reason: form.reason,
@@ -549,6 +646,9 @@ export default function AdressandringPage() {
                 toStreet: form.toStreet,
                 toPostal: form.toPostal,
                 toCity: form.toCity,
+                apartmentNumber: form.apartmentNumber,
+                propertyDesignation: form.propertyDesignation,
+                propertyOwner: form.propertyOwner,
                 moveDate: form.moveDate,
                 householdType: form.householdType,
               }}
@@ -562,13 +662,17 @@ export default function AdressandringPage() {
                 toStreet: form.toStreet,
                 toPostal: form.toPostal,
                 toCity: form.toCity,
+                apartmentNumber: form.apartmentNumber,
+                propertyDesignation: form.propertyDesignation,
+                propertyOwner: form.propertyOwner,
                 moveDate: form.moveDate,
                 email: form.email,
                 phone: form.phone,
               }}
             />
 
-            {/* QR for mobile handoff */}
+            {/* QR for mobile handoff (hidden when SKV BankID QR-only mode is enabled) */}
+            {!bankIdQrOnlyVisible ? (
             <Card className="border-primary/30">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
@@ -633,6 +737,37 @@ export default function AdressandringPage() {
                 )}
               </CardContent>
             </Card>
+            ) : (
+              <Card className="border-primary/30 bg-primary/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">
+                    BankID QR-läge aktivt
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Data-QR döljs i dev-läge. Starta SKV-int7 för att visa BankID-QR och slutföra ifyllningen automatiskt.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    type="button"
+                    onKeyDown={blockSkvInt7KeyboardTrigger}
+                    onClick={handleStartSkvInt7}
+                    disabled={skvInt7Starting}
+                    className="w-full gap-2"
+                  >
+                    {skvInt7Starting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <PlayCircle className="h-4 w-4" />
+                    )}
+                    {skvInt7Starting ? "Startar SKV-int7..." : "Starta SKV-int7 (BankID)"}
+                  </Button>
+                  {skvInt7Status && (
+                    <p className="mt-2 text-xs text-muted-foreground">{skvInt7Status}</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <div className="mt-6 flex gap-3 justify-center">
@@ -777,7 +912,22 @@ export default function AdressandringPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* QR Scanner on mobile, info card on desktop */}
-                {isMobile ? (
+                {bankIdQrOnlyVisible ? (
+                  <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      <PlayCircle className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        BankID QR-läge aktivt
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                        Data-QR på sajten är nedtonad i dev-läge för att undvika
+                        förväxling med BankID-QR i SKV-int7.
+                      </p>
+                    </div>
+                  </div>
+                ) : isMobile ? (
                   <QrScanner
                     onScan={handleQrScan}
                     className="border-primary/20"
@@ -814,7 +964,7 @@ export default function AdressandringPage() {
                         size="sm"
                         className="w-full gap-1.5 text-xs border-yellow-400 text-yellow-800 hover:bg-yellow-100"
                         onClick={() => {
-                          setForm({
+                          const nextForm: FormData = {
                             firstName: "Anna",
                             lastName: "Andersson",
                             personalNumber: "19900101-1234",
@@ -826,11 +976,20 @@ export default function AdressandringPage() {
                             toStreet: "Kungsgatan 5, lgh 302",
                             toPostal: "411 19",
                             toCity: "Göteborg",
+                            apartmentNumber: "1302",
+                            propertyDesignation: "Rudan mindre 10",
+                            propertyOwner: "Egen",
                             moveDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
                             householdType: "myself",
                             reason: "work",
                             hasChildren: false,
-                          });
+                          };
+                          setForm(nextForm);
+                          mirrorEvent(
+                            "field_change",
+                            nextForm as unknown as Record<string, string | boolean | number>,
+                            currentStep
+                          );
                           setQrPrefilled(true);
                         }}
                       >
@@ -1043,6 +1202,43 @@ export default function AdressandringPage() {
                         placeholder="Göteborg"
                         value={form.toCity}
                         onChange={(e) => updateForm("toCity", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="apartmentNumber">Lägenhetsnummer</Label>
+                      <Input
+                        id="apartmentNumber"
+                        placeholder="t.ex. 1302"
+                        value={form.apartmentNumber}
+                        onChange={(e) =>
+                          updateForm("apartmentNumber", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="propertyDesignation">
+                        Fastighetsbeteckning (valfritt)
+                      </Label>
+                      <Input
+                        id="propertyDesignation"
+                        placeholder="t.ex. Rudan mindre 10"
+                        value={form.propertyDesignation}
+                        onChange={(e) =>
+                          updateForm("propertyDesignation", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="propertyOwner">
+                        Fastighetsägare (valfritt)
+                      </Label>
+                      <Input
+                        id="propertyOwner"
+                        placeholder="t.ex. Egen / BRF Solsidan"
+                        value={form.propertyOwner}
+                        onChange={(e) =>
+                          updateForm("propertyOwner", e.target.value)
+                        }
                       />
                     </div>
                   </div>
@@ -1370,13 +1566,50 @@ export default function AdressandringPage() {
                     <p className="text-xs text-muted-foreground">
                       {form.toPostal} {form.toCity}
                     </p>
+                    {form.apartmentNumber && (
+                      <p className="text-xs text-muted-foreground">
+                        Lägenhetsnummer: {form.apartmentNumber}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <Separator />
 
+                {!isMobile && bankIdQrOnlyVisible && (
+                  <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-5">
+                    <p className="text-sm font-semibold text-foreground">
+                      SKV-int7 (BankID QR) i dev-läge
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Data-QR är dold eftersom <code>SKV_SYNLIGT_SKV=y</code>.
+                      Starta SKV-int7 för att öppna BankID-QR och låta
+                      Playwright fylla Skatteverkets formulär med dessa uppgifter.
+                    </p>
+                    <Button
+                      type="button"
+                      onKeyDown={blockSkvInt7KeyboardTrigger}
+                      onClick={handleStartSkvInt7}
+                      disabled={skvInt7Starting}
+                      className="w-full gap-2"
+                    >
+                      {skvInt7Starting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <PlayCircle className="h-4 w-4" />
+                      )}
+                      {skvInt7Starting
+                        ? "Startar SKV-int7..."
+                        : "Starta SKV-int7 (BankID)"}
+                    </Button>
+                    {skvInt7Status && (
+                      <p className="text-xs text-muted-foreground">{skvInt7Status}</p>
+                    )}
+                  </div>
+                )}
+
                 {/* Mobile handoff via QR */}
-                {!isMobile && (
+                {!isMobile && !bankIdQrOnlyVisible && (
                   <div className="space-y-4 rounded-xl border border-primary/30 bg-primary/5 p-5">
                     <div className="flex items-center gap-2">
                       <Smartphone className="h-5 w-5 text-primary" />

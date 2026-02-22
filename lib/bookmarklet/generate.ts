@@ -13,6 +13,9 @@ export interface BookmarkletData {
   toStreet: string | null;
   toPostal: string | null;
   toCity: string | null;
+  apartmentNumber?: string | null;
+  propertyDesignation?: string | null;
+  propertyOwner?: string | null;
   moveDate: string | null;
   email: string | null;
   phone: string | null;
@@ -45,6 +48,9 @@ export function generateBookmarklet(data: BookmarkletData): string {
     street: esc(data.toStreet),
     postal: esc(data.toPostal),
     city: esc(data.toCity),
+    apartment: esc(data.apartmentNumber),
+    propertyDesignation: esc(data.propertyDesignation),
+    propertyOwner: esc(data.propertyOwner),
     date: esc(data.moveDate),
     email: esc(data.email),
     phone: esc(data.phone),
@@ -55,6 +61,9 @@ export function generateBookmarklet(data: BookmarkletData): string {
   if (d.street) rows.push({ label: "Ny gatuadress", value: d.street });
   if (d.postal) rows.push({ label: "Postnummer", value: d.postal });
   if (d.city) rows.push({ label: "Ort", value: d.city });
+  if (d.apartment) rows.push({ label: "Lägenhetsnummer", value: d.apartment });
+  if (d.propertyDesignation) rows.push({ label: "Fastighetsbeteckning", value: d.propertyDesignation });
+  if (d.propertyOwner) rows.push({ label: "Fastighetsägare", value: d.propertyOwner });
   if (d.date) rows.push({ label: "Flyttdatum", value: d.date });
   if (d.name) rows.push({ label: "Namn", value: d.name });
   if (d.email) rows.push({ label: "E-post", value: d.email });
@@ -66,7 +75,7 @@ export function generateBookmarklet(data: BookmarkletData): string {
 
   // The bookmarklet JS (ES5 compatible, single IIFE)
   const code = `void(function(){
-var D={street:'${d.street}',postal:'${d.postal}',city:'${d.city}',date:'${d.date}',name:'${d.name}',email:'${d.email}',phone:'${d.phone}'};
+var D={street:'${d.street}',postal:'${d.postal}',city:'${d.city}',apartment:'${d.apartment}',propertyDesignation:'${d.propertyDesignation}',propertyOwner:'${d.propertyOwner}',date:'${d.date}',name:'${d.name}',email:'${d.email}',phone:'${d.phone}'};
 var R=${rowsJson};
 var isSKV=location.hostname.indexOf('skatteverket.se')!==-1;
 var filled=0;
@@ -98,7 +107,12 @@ if(isSKV){
 tryFill(['gatuadress','gata','street','adress'],D.street);
 tryFill(['postnummer','postkod','postal'],D.postal);
 tryFill(['postort','ort','stad','city'],D.city);
+tryFill(['lagenhetsnummer','lägenhetsnummer','lgh','apartment'],D.apartment);
+tryFill(['fastighetsbeteckning','fastighet'],D.propertyDesignation);
+tryFill(['fastighetsägare','fastighetsagare','ägare','agare'],D.propertyOwner);
 tryFill(['flyttdatum','inflyttning','datum','date'],D.date);
+tryFill(['telefonnummer','telefon','phone'],D.phone);
+tryFill(['e-post','epost','email'],D.email);
 }
 var old=document.getElementById('flytt-io-p');if(old)old.remove();
 var p=document.createElement('div');p.id='flytt-io-p';

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, type KeyboardEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Loader2,
@@ -17,6 +17,7 @@ import {
   Phone,
   Shield,
   ClipboardList,
+  PlayCircle,
 } from "lucide-react";
 import {
   Card,
@@ -46,6 +47,9 @@ interface DecodedData {
   toStreet: string | null;
   toPostal: string | null;
   toCity: string | null;
+  apartmentNumber: string | null;
+  propertyDesignation: string | null;
+  propertyOwner: string | null;
   moveDate: string | null;
   timestamp: number;
 }
@@ -59,6 +63,9 @@ function StartContent() {
   const [decodedData, setDecodedData] = useState<DecodedData | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
+  const [bankIdQrOnlyVisible, setBankIdQrOnlyVisible] = useState(false);
+  const [skvInt7Starting, setSkvInt7Starting] = useState(false);
+  const [skvInt7Status, setSkvInt7Status] = useState<string | null>(null);
 
   // OpenClaw real-time form mirroring
   const { mirrorEvent } = useOpenClawMirror({ formType: "start" });
@@ -97,6 +104,9 @@ function StartContent() {
           toStreet: data.toStreet || "",
           toPostal: data.toPostal || "",
           toCity: data.toCity || "",
+          apartmentNumber: data.apartmentNumber || "",
+          propertyDesignation: data.propertyDesignation || "",
+          propertyOwner: data.propertyOwner || "",
           moveDate: data.moveDate || "",
           email: data.email || "",
           phone: data.phone || "",
@@ -116,6 +126,23 @@ function StartContent() {
     decodeQr();
   }, [searchParams, mirrorEvent]);
 
+  useEffect(() => {
+    let alive = true;
+    async function loadSkvConfig() {
+      try {
+        const res = await fetch("/api/skv/config");
+        const data = await res.json();
+        if (alive) setBankIdQrOnlyVisible(Boolean(data?.bankIdQrOnlyVisible));
+      } catch {
+        if (alive) setBankIdQrOnlyVisible(false);
+      }
+    }
+    loadSkvConfig();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   async function copyToClipboard(text: string, field: string) {
     await navigator.clipboard.writeText(text);
     setCopiedField(field);
@@ -130,6 +157,11 @@ function StartContent() {
       decodedData.toStreet && `Ny gatuadress: ${decodedData.toStreet}`,
       decodedData.toPostal && `Postnummer: ${decodedData.toPostal}`,
       decodedData.toCity && `Ort: ${decodedData.toCity}`,
+      decodedData.apartmentNumber &&
+        `Lägenhetsnummer: ${decodedData.apartmentNumber}`,
+      decodedData.propertyDesignation &&
+        `Fastighetsbeteckning: ${decodedData.propertyDesignation}`,
+      decodedData.propertyOwner && `Fastighetsägare: ${decodedData.propertyOwner}`,
       decodedData.moveDate && `Flyttdatum: ${decodedData.moveDate}`,
       decodedData.email && `E-post: ${decodedData.email}`,
       decodedData.phone && `Telefon: ${decodedData.phone}`,
@@ -139,6 +171,51 @@ function StartContent() {
 
     await navigator.clipboard.writeText(lines);
     setCopiedField("all");
+  }
+
+  async function handleStartSkvInt7() {
+    if (!decodedData) return;
+    setSkvInt7Starting(true);
+    setSkvInt7Status(null);
+    try {
+      const nameParts = (decodedData.name || "").split(" ");
+      const res = await fetch("/api/skv/int7/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          formData: {
+            name: decodedData.name,
+            firstName: nameParts[0] || "",
+            lastName: nameParts.slice(1).join(" "),
+            personalNumber: decodedData.personalNumber,
+            email: decodedData.email,
+            phone: decodedData.phone,
+            toStreet: decodedData.toStreet,
+            toPostal: decodedData.toPostal,
+            toCity: decodedData.toCity,
+            apartmentNumber: decodedData.apartmentNumber,
+            propertyDesignation: decodedData.propertyDesignation,
+            propertyOwner: decodedData.propertyOwner,
+            moveDate: decodedData.moveDate,
+          },
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body?.ok) throw new Error(body?.error || "SKV-int7 failed");
+      setSkvInt7Status("SKV-int7 startad. Verifiera BankID i QR-vyn.");
+    } catch {
+      setSkvInt7Status("Kunde inte starta SKV-int7 från /start.");
+    } finally {
+      setSkvInt7Starting(false);
+    }
+  }
+
+  function blockSkvInt7KeyboardTrigger(event: KeyboardEvent<HTMLButtonElement>) {
+    // SKV-int7 must only be started by explicit button click.
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      event.stopPropagation();
+    }
   }
 
   const formattedDate = decodedData?.moveDate
@@ -156,6 +233,12 @@ function StartContent() {
       dataRows.push({ icon: MapPin, label: "Ny adress", value: `${decodedData.toStreet}, ${decodedData.toPostal || ""} ${decodedData.toCity || ""}`.trim(), key: "address" });
     if (decodedData.moveDate)
       dataRows.push({ icon: CalendarDays, label: "Flyttdatum", value: formattedDate || decodedData.moveDate, key: "date" });
+    if (decodedData.apartmentNumber)
+      dataRows.push({ icon: MapPin, label: "Lägenhetsnummer", value: decodedData.apartmentNumber, key: "apartment" });
+    if (decodedData.propertyDesignation)
+      dataRows.push({ icon: MapPin, label: "Fastighetsbeteckning", value: decodedData.propertyDesignation, key: "propertyDesignation" });
+    if (decodedData.propertyOwner)
+      dataRows.push({ icon: User, label: "Fastighetsägare", value: decodedData.propertyOwner, key: "propertyOwner" });
     if (decodedData.name)
       dataRows.push({ icon: User, label: "Namn", value: decodedData.name, key: "name" });
     if (decodedData.email)
@@ -327,19 +410,55 @@ function StartContent() {
                   </CardContent>
                 </Card>
 
-                {/* Bookmarklet section */}
-                <BookmarkletButton
-                  data={{
-                    name: decodedData.name,
-                    personalNumber: decodedData.personalNumber,
-                    toStreet: decodedData.toStreet,
-                    toPostal: decodedData.toPostal,
-                    toCity: decodedData.toCity,
-                    moveDate: decodedData.moveDate,
-                    email: decodedData.email,
-                    phone: decodedData.phone,
-                  }}
-                />
+                {bankIdQrOnlyVisible ? (
+                  <Card className="border-primary/30 bg-primary/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">BankID QR-läge aktivt</CardTitle>
+                      <CardDescription className="text-xs">
+                        Data-QR/bokmärkesflöde är nedtonat i dev-läge. Starta SKV-int7
+                        för att öppna BankID-QR och fylla Skatteverkets formulär.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button
+                        type="button"
+                        onKeyDown={blockSkvInt7KeyboardTrigger}
+                        onClick={handleStartSkvInt7}
+                        disabled={skvInt7Starting}
+                        className="w-full gap-2"
+                      >
+                        {skvInt7Starting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <PlayCircle className="h-4 w-4" />
+                        )}
+                        {skvInt7Starting
+                          ? "Startar SKV-int7..."
+                          : "Starta SKV-int7 (BankID)"}
+                      </Button>
+                      {skvInt7Status && (
+                        <p className="mt-2 text-xs text-muted-foreground">{skvInt7Status}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  /* Bookmarklet section */
+                  <BookmarkletButton
+                    data={{
+                      name: decodedData.name,
+                      personalNumber: decodedData.personalNumber,
+                      toStreet: decodedData.toStreet,
+                      toPostal: decodedData.toPostal,
+                      toCity: decodedData.toCity,
+                      apartmentNumber: decodedData.apartmentNumber,
+                      propertyDesignation: decodedData.propertyDesignation,
+                      propertyOwner: decodedData.propertyOwner,
+                      moveDate: decodedData.moveDate,
+                      email: decodedData.email,
+                      phone: decodedData.phone,
+                    }}
+                  />
+                )}
               </>
             ) : (
               /* Full Skatteverket guide */
@@ -350,6 +469,9 @@ function StartContent() {
                   toStreet: decodedData.toStreet,
                   toPostal: decodedData.toPostal,
                   toCity: decodedData.toCity,
+                  apartmentNumber: decodedData.apartmentNumber,
+                  propertyDesignation: decodedData.propertyDesignation,
+                  propertyOwner: decodedData.propertyOwner,
                   moveDate: decodedData.moveDate,
                 }}
               />
@@ -389,6 +511,9 @@ function StartContent() {
           toStreet: decodedData.toStreet || "",
           toPostal: decodedData.toPostal || "",
           toCity: decodedData.toCity || "",
+          apartmentNumber: decodedData.apartmentNumber || "",
+          propertyDesignation: decodedData.propertyDesignation || "",
+          propertyOwner: decodedData.propertyOwner || "",
           moveDate: decodedData.moveDate || "",
           email: decodedData.email || "",
           phone: decodedData.phone || "",

@@ -44,6 +44,9 @@ async function migrate() {
       to_street TEXT,
       to_postal TEXT,
       to_city TEXT,
+      apartment_number TEXT,
+      property_designation TEXT,
+      property_owner TEXT,
       move_date TEXT,
       household_type TEXT,
       reason TEXT,
@@ -72,6 +75,20 @@ async function migrate() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  async function ensureMoveColumn(columnName: string, sqlType = "TEXT") {
+    const info = await client.execute("PRAGMA table_info(moves)");
+    const exists = info.rows.some(
+      (row) => String((row as Record<string, unknown>).name) === columnName
+    );
+    if (!exists) {
+      await client.execute(`ALTER TABLE moves ADD COLUMN ${columnName} ${sqlType}`);
+    }
+  }
+
+  await ensureMoveColumn("apartment_number");
+  await ensureMoveColumn("property_designation");
+  await ensureMoveColumn("property_owner");
 
   process.stdout.write(`Database migrated successfully at: ${url}\n`);
 }

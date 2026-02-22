@@ -40,6 +40,9 @@ interface SkatteverketGuideProps {
     toStreet?: string | null
     toPostal?: string | null
     toCity?: string | null
+    apartmentNumber?: string | null
+    propertyDesignation?: string | null
+    propertyOwner?: string | null
     moveDate?: string | null
     householdType?: string | null
   }
@@ -105,6 +108,9 @@ export function SkatteverketGuide({ data, className }: SkatteverketGuideProps) {
         { label: "Gatuadress", value: data.toStreet, key: "street" },
         { label: "Postnummer", value: data.toPostal, key: "postal" },
         { label: "Ort", value: data.toCity, key: "city" },
+        { label: "Lägenhetsnummer", value: data.apartmentNumber, key: "apartment" },
+        { label: "Fastighetsbeteckning", value: data.propertyDesignation, key: "propertyDesignation" },
+        { label: "Fastighetsägare", value: data.propertyOwner, key: "propertyOwner" },
       ],
     },
     {

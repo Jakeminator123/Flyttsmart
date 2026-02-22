@@ -17,6 +17,12 @@ export interface QrPersonData {
   np?: string;
   /** New address – city */
   nc?: string;
+  /** New address – apartment number */
+  an?: string;
+  /** Property designation */
+  fd?: string;
+  /** Property owner */
+  fo?: string;
   /** Move date (YYYY-MM-DD) */
   md?: string;
   /** Timestamp (unix seconds) */

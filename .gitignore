@@ -29,3 +29,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 old
+
+# SKV automation runtime artifacts
+/inlogg/runtime/
+/inlogg/results/
+/inlogg/*_session_log.txt
+/inlogg/senaste_formulär*.html
+
+# python cache artifacts
+__pycache__/
+*.py[cod]

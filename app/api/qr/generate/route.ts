@@ -17,6 +17,9 @@ export async function POST(req: NextRequest) {
       toStreet,
       toPostal,
       toCity,
+      apartmentNumber,
+      propertyDesignation,
+      propertyOwner,
       moveDate,
     } = body;
 
@@ -37,6 +40,9 @@ export async function POST(req: NextRequest) {
       ns: toStreet || undefined,
       np: toPostal || undefined,
       nc: toCity || undefined,
+      an: apartmentNumber || undefined,
+      fd: propertyDesignation || undefined,
+      fo: propertyOwner || undefined,
       md: moveDate || undefined,
       ts: Math.floor(Date.now() / 1000),
     };

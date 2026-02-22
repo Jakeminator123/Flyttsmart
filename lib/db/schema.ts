@@ -24,6 +24,9 @@ export const moves = sqliteTable("moves", {
   toStreet: text("to_street"),
   toPostal: text("to_postal"),
   toCity: text("to_city"),
+  apartmentNumber: text("apartment_number"),
+  propertyDesignation: text("property_designation"),
+  propertyOwner: text("property_owner"),
   moveDate: text("move_date"), // ISO date string
   householdType: text("household_type"), // "myself" | "family" | "partner" | "child"
   reason: text("reason"),

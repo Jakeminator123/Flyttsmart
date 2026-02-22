@@ -6,9 +6,11 @@ click Nästa to advance, repeat. Not sequential - handles any wizard step.
 """
 import os
 import time
-from typing import Callable, Optional
+import json
+import re
+from typing import Callable, Optional, Dict
 
-MOCKUP_DATA = {
+DEFAULT_MOCKUP_DATA = {
     "inflyttningsdatum": "2026-01-15",
     "gatuadress": "Storgatan 12",
     "postnummer": "11122",
@@ -47,10 +49,68 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_FILE = os.path.join(SCRIPT_DIR, "flytt_filler_log.txt")
 
 
+def _normalize_payload(payload: Dict[str, str | None]) -> Dict[str, str]:
+    def _clean_postal(v: str) -> str:
+        return re.sub(r"\s+", "", v or "")
+
+    def _clean_phone(v: str) -> str:
+        return re.sub(r"[^\d+]", "", v or "")
+
+    return {
+        "inflyttningsdatum": (payload.get("inflyttningsdatum") or payload.get("moveDate") or "").strip(),
+        "gatuadress": (payload.get("gatuadress") or payload.get("toStreet") or "").strip(),
+        "postnummer": _clean_postal((payload.get("postnummer") or payload.get("toPostal") or "").strip()),
+        "postort": (payload.get("postort") or payload.get("toCity") or "").strip(),
+        "lagenhetsnummer": (payload.get("lagenhetsnummer") or payload.get("apartmentNumber") or "").strip(),
+        "fastighetsbeteckning": (payload.get("fastighetsbeteckning") or payload.get("propertyDesignation") or "").strip(),
+        "fastighetsagare": (payload.get("fastighetsagare") or payload.get("propertyOwner") or "").strip(),
+        "telefonnummer": _clean_phone((payload.get("telefonnummer") or payload.get("phone") or "").strip()),
+        "email": (payload.get("email") or "").strip(),
+    }
+
+
+def _load_runtime_payload(payload_path: str) -> Dict[str, str]:
+    with open(payload_path, "r", encoding="utf-8") as f:
+        raw = json.load(f) or {}
+    if not isinstance(raw, dict):
+        return {}
+    return _normalize_payload({k: (str(v) if v is not None else "") for k, v in raw.items()})
+
+
+def _resolve_field_data(
+    form_data: Optional[Dict[str, str]],
+    payload_path: Optional[str],
+    allow_mockup_data: bool,
+    log: Callable[[str], None],
+) -> Dict[str, str]:
+    if form_data:
+        normalized = _normalize_payload(form_data)
+        log("Using form filler data from provided runtime form_data.")
+        return normalized
+
+    if payload_path and os.path.isfile(payload_path):
+        try:
+            normalized = _load_runtime_payload(payload_path)
+            log(f"Using form filler data from payload file: {payload_path}")
+            return normalized
+        except Exception as e:
+            log(f"Failed reading payload file '{payload_path}': {e}")
+
+    if allow_mockup_data:
+        log("Using explicit fallback mockup data (SKV_ALLOW_MOCKUP_DATA).")
+        return DEFAULT_MOCKUP_DATA.copy()
+
+    log("No runtime payload available; skipping auto-fill (mock fallback disabled).")
+    return {}
+
+
 def run_flytt_form_filler(
     page,
     cancel_check: Callable[[], bool],
     log_callback: Optional[Callable[[str], None]] = None,
+    form_data: Optional[Dict[str, str]] = None,
+    payload_path: Optional[str] = None,
+    allow_mockup_data: bool = False,
 ) -> None:
     def _default_log(msg: str) -> None:
         try:
@@ -70,6 +130,12 @@ def run_flytt_form_filler(
                 f.write("")
         except Exception:
             pass
+
+    data = _resolve_field_data(form_data, payload_path, allow_mockup_data, log)
+    fillable_fields = {k for k, v in data.items() if (v or "").strip()}
+    if not fillable_fields:
+        log("No fillable fields resolved. Exiting filler.")
+        return
 
     log("Flytt form filler started (scan-fill-advance mode)\n")
 
@@ -92,12 +158,16 @@ def run_flytt_form_filler(
         round_filled = 0
 
         for name, selector in FIELD_SELECTORS.items():
+            if name not in fillable_fields:
+                continue
             if name in filled:
                 continue
             try:
                 loc = page.locator(selector)
                 if loc.count() > 0 and loc.first.is_visible():
-                    value = MOCKUP_DATA.get(name, "")
+                    value = data.get(name, "")
+                    if not value:
+                        continue
                     page.fill(selector, value)
                     filled.add(name)
                     round_filled += 1
@@ -131,7 +201,7 @@ def run_flytt_form_filler(
             else:
                 time.sleep(POLL_INTERVAL)
 
-        if len(filled) >= len(FIELD_SELECTORS):
+        if len(filled) >= len(fillable_fields):
             if not first_next_gate_done:
                 _wait_for_first_next_ready(page, log)
                 first_next_gate_done = True

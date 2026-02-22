@@ -4,9 +4,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git wget \
  && rm -rf /var/lib/apt/lists/*
 
-# Force git to use HTTPS (npm dependency uses SSH URL which requires ssh client)
-RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
- && git config --global url."https://github.com/".insteadOf "git@github.com:"
+# Force git to use HTTPS for any GitHub SSH dependency.
+# Use --add so multiple rewrite rules are kept (not overwritten).
+RUN git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com/" \
+ && git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com" \
+ && git config --global --add url."https://github.com/".insteadOf "git@github.com:"
 
 # Install OpenClaw — skip node-llama-cpp build (gateway uses OpenAI, not local LLM)
 ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD=true

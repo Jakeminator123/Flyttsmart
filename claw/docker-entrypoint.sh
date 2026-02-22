@@ -6,6 +6,13 @@ CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
 AGENT_DIR="$OPENCLAW_DIR/agents/aida-flyttagent/agent"
 WORKSPACE_DIR="$OPENCLAW_DIR/workspace-aida"
 LISTEN_PORT="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
+BIND_MODE="${OPENCLAW_GATEWAY_BIND:-lan}"
+
+# Binding outside loopback requires auth; if token is missing, stay local.
+if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ] && [ "$BIND_MODE" != "loopback" ]; then
+  echo "[entrypoint] OPENCLAW_GATEWAY_TOKEN missing; forcing loopback bind"
+  BIND_MODE="loopback"
+fi
 
 # Ensure directories exist (important on first run with empty persistent volume)
 mkdir -p "$AGENT_DIR"
@@ -28,7 +35,8 @@ fi
 cat > "$CONFIG_FILE" <<EOF
 {
   "gateway": {
-    "mode": "local"
+    "mode": "local",
+    "bind": "${BIND_MODE}"
   },
   "agents": {
     "list": [
@@ -49,10 +57,10 @@ cat > "$CONFIG_FILE" <<EOF
 }
 EOF
 
-echo "[entrypoint] Config written — starting OpenClaw gateway on port ${LISTEN_PORT}"
+echo "[entrypoint] Config written — starting OpenClaw gateway on port ${LISTEN_PORT} (bind=${BIND_MODE})"
 
 if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
-  exec openclaw gateway --port "${LISTEN_PORT}" --token "${OPENCLAW_GATEWAY_TOKEN}" --allow-unconfigured
+  exec openclaw gateway --port "${LISTEN_PORT}" --bind "${BIND_MODE}" --token "${OPENCLAW_GATEWAY_TOKEN}" --allow-unconfigured
 fi
 
-exec openclaw gateway --port "${LISTEN_PORT}" --allow-unconfigured
+exec openclaw gateway --port "${LISTEN_PORT}" --bind "${BIND_MODE}" --allow-unconfigured

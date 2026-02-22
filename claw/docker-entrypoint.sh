@@ -30,13 +30,20 @@ if [ -d "/app/seed/workspace" ]; then
   echo "[entrypoint] Seeded workspace files"
 fi
 
-# Write a minimal OpenClaw config with the agents list.
-# Token/port are passed via CLI flags/env (not persisted in config file).
+# Write OpenClaw config for container runtime.
 cat > "$CONFIG_FILE" <<EOF
 {
   "gateway": {
     "mode": "local",
     "bind": "${BIND_MODE}",
+    "auth": {
+      "mode": "token",
+      "token": "${OPENCLAW_GATEWAY_TOKEN}"
+    },
+    "controlUi": {
+      "enabled": true,
+      "dangerouslyDisableDeviceAuth": true
+    },
     "http": {
       "endpoints": {
         "chatCompletions": { "enabled": true }
@@ -44,18 +51,23 @@ cat > "$CONFIG_FILE" <<EOF
     }
   },
   "agents": {
+    "defaults": {
+      "model": {
+        "primary": "openai/gpt-5.3-codex"
+      }
+    },
     "list": [
       {
-        "id": "main",
-        "model": {
-          "fallbacks": ["GPT (openai/gpt-5.3-codex)"]
-        }
+        "id": "main"
       },
       {
         "id": "aida-flyttagent",
         "name": "aida-flyttagent",
         "workspace": "${WORKSPACE_DIR}",
-        "agentDir": "${AGENT_DIR}"
+        "agentDir": "${AGENT_DIR}",
+        "model": {
+          "primary": "openai/gpt-5.3-codex"
+        }
       }
     ]
   }

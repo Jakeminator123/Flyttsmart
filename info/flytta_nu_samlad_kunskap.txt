@@ -1,0 +1,575 @@
+================================================================================
+FLYTTA.NU / FLYTT.IO  -  SAMLAD KUNSKAP
+================================================================================
+Senast uppdaterad: 2026-02-22
+Kompilerat fran: flytt_1.txt, flytt_2.txt, flytt-api-analys.txt,
+                 FLYTTANMALAN_FORMULAR_ANALYS.txt, jukridik_2_bra.txt
+================================================================================
+
+
+================================================================================
+DEL 1: PRODUKT & AFFARSIDE
+================================================================================
+
+PROJEKTNAMN
+-----------
+flytta.nu / flytt.io / flytta_nu (arbetsnamn)
+Domankandidater: flyttanmalan.nu, flytt.io
+
+PROBLEMET
+---------
+Att flytta ar ett av livets mest administrativa ogonblick men losningarna ar
+fragmenterade och foraldrade:
+- Alla maste gora flyttanmalan (Skatteverket) - obligatoriskt
+- Adressandring ar dyrt, manuellt och centrerat kring post (en doende use-case)
+- Anvandaren maste sjalv: fylla i uppgifter flera ganger, veta vilka foretag
+  som ska kontaktas, halla koll pa timing (el, forsäkring, bredband)
+- Foretag som vill na flyttare drunknar i brus
+- Ingen aktor tar helhetsansvar
+- Det finns checklistor - men ingen som gor jobbet
+
+LOSNINGEN
+---------
+En AI-agent som sköter flytten at anvandaren:
+1. Identifierar anvandaren med BankID
+2. Samlar in och validerar flyttdata
+3. Genomfor flyttanmalan/adressandring via ratt kanal
+4. Skapar en personlig, tidsatt checklista
+5. Levererar relevanta erbjudanden i exakt ratt ogonblick
+
+Anvandaren betalar inte med pengar - utan med samtycke och timing.
+Incitament: t.ex. gratis el forsta manaden pa nya adressen.
+
+SOKLAGE (SEO)
+-------------
+"adressandring":  29 000 sokningar/man, Keyword Difficulty: 10 (Easy)
+"flyttanmalan":    3 400 sokningar/man, Keyword Difficulty:  8 (Easy)
+Traffic Potential: 40 000 resp. 42 000
+Slutsats: Stora volymer, lag konkurrens, extremt hog kommersiell intention.
+
+AFFARMODEL
+----------
+Lead-driven, multi-vertikal. Samma flytt kan monetiseras flera ganger.
+Betalt per kvalificerad flyttare.
+
+Exempelintakter per flytt:
+  El:                         250 kr
+  Forsäkring:                 250 kr
+  Larm / flyttstad / magasin: 250 kr
+  Bredband (strategiskt):      10 kr
+  TOTALT:                   ~760 kr per flytt (utan att belasta anvandaren)
+
+Vertikaler:
+- El (primar trigger)
+- Forsäkring
+- Larm
+- Flyttstad / flyttfirma
+- Magasinering
+- Matkasse / retail
+- Sellpy (second hand)
+- Bredband & TV
+- Maklarkedjor
+
+Napkin business case:
+  4 500 klick/man
+  25% startar flodet = 1 125 flyttar
+  3 vertikaler x 250 kr = 750 kr/flytt
+  -> ca 840 000 kr/man (exkl. fler partners)
+
+GTM - GO-TO-MARKET
+------------------
+Steg 1: SEO & SEM - fanga "adressandring" och "flyttanmalan"
+Steg 2: Partnerskap - elbolag som primar trigger, fors., larm som sekundara
+Steg 3: Maklare - rev share per registrerad flytt
+
+BANKID - CENTRALT
+-----------------
+BankID ar nyckeln till hela upplevelsen:
+- Saker identifiering (skydd mot bedrageri)
+- Prefill av uppgifter -> hogre konvertering
+- Tydligt samtycke & signering
+- Myndighets- och partnerkompatibilitet
+Utan BankID: friktion. Med BankID: autopilot.
+
+TRE IMPLEMENTATIONSSPAR
+-----------------------
+Spar A: AI-lager ovanpa Skatteverket (hog trovardighet, kravar RPA)
+Spar B: AI-lager ovanpa Adressandring (storst volym, lattare UX-matchning)
+Spar C: Egen plattform (REKOMMENDERAD) - full kontroll over UX & affar,
+        agent postar mot Adressandring, bast for konvertering & skalbarhet
+
+KPI:ER (tidigt fokus)
+---------------------
+- Conversion: besok -> startad flytt
+- Andel genomforda flyttar
+- Intakt per flytt
+
+TECH-STACK (nuvarande)
+----------------------
+- Next.js (app)
+- AI-checklista via /api/ai/checklist (OpenAI GPT-4o)
+- OpenClaw-integration for chat och formular
+- Python/Playwright i inlogg/ for automatisering av Skatteverkets formular
+- SQLite/Turso (Drizzle ORM)
+- BankID QR-kod via /api/qr/generate
+
+
+================================================================================
+DEL 2: SKATTEVERKETS FLYTT ANMALAN - FORMULARANALYS
+================================================================================
+
+TEKNISK OVERSIKT
+----------------
+- Angular-app (fbfflytt-kund-web, ng-version 19.2.18)
+- Formular-ID: fbfFlyttanmalanForm
+- Wizard med 6 steg, custom elements (flytt-skv-*, skv-*)
+- Manga element anvander Shadow DOM
+- URL: https://www7.skatteverket.se/portal/flyttanmalan/
+
+WIZARD-STEG
+-----------
+Steg 1 (order=10): nuvarandeuppgifter
+  -> Folkbokforingsadress & datum. Endast visning, lases fran folkbokforingen.
+
+Steg 2 (order=20): inflyttningsdatum
+  -> FYLLBARA FALT
+
+Steg 3 (order=30): adress - Ny adress
+  -> FYLLBARA FALT
+
+Steg 4 (order=40): personer
+  -> Tabell med kryssrutor for vilka som flyttar (forvalda fran folkbokforing)
+
+Steg 5 (order=50): kontakt - Kontaktuppgifter
+  -> FYLLBARA FALT
+
+Steg 6 (order=60): granska
+  -> Sammanfattning + signering/skicka (BankID)
+
+ALLA FYLLBARA FALT
+------------------
+
+Falt               | Selector                    | Kravs | Format/Kommentar
+-------------------|-----------------------------|-------|------------------
+inflyttningsdatum  | input[name="inflyttningsdatum"] | JA  | YYYY-MM-DD
+period             | input[name="period"]        | JA    | Radio: "true"=Tills vidare
+gatuadress         | input[name="gatuadress"]    | JA    | Max 70 tecken, autocomplete
+postnummer         | input[name="postnummer"]    | JA    | Exakt 5 siffror [0-9]{5}
+postort            | input[name="postort"]       | JA    | Max 20 tecken
+lagenhetsnummer    | input[name="lagenhetsnummer"]| NEJ  | 4 siffror eller TR/BV/NB etc.
+fastighetsbeteckning| input[name="fastighetsbeteckning"]| NEJ | Max 40 tecken, ex. "Bonden 7:1"
+fastighetsagare    | input[name="fastighetsagare"]| NEJ  | Max 50 tecken, eller "egen"
+telefonnummer      | input[name="telefonnummer"] | NEJ   | 8-15 tecken
+email              | input[name="email"]         | NEJ   | Max 50 tecken
+
+MOCKUP-EXEMPEL
+--------------
+inflyttningsdatum    -> 2026-04-04
+period               -> (forvalt "Tills vidare")
+gatuadress           -> Folkungagatan 50
+postnummer           -> 11622
+postort              -> Stockholm  (auto-fylls fran postnummer)
+lagenhetsnummer      -> 1401
+fastighetsbeteckning -> Rudan mindre 10
+fastighetsagare      -> eigen / "AB Hyresvard 08-123456"
+telefonnummer        -> 0701234567
+email                -> exempel@gmail.com
+
+VIKTIGA KNAPPAR & ELEMENT
+--------------------------
+Nasta (primary):    skv-button-10-0-7[button-type="primary"].flytt-skv-wizard-step-button
+Avbryt (tertiary):  skv-button-10-0-7[button-type="tertiary"][icon="close"]
+Bekrafta-checkbox:  skv-selection-control-10-0-12[type="checkbox"]
+  (dyker upp dynamiskt vid adressvalideringsvarning - MASTE kryssas i)
+
+OBS: Alla knappar ar custom elements med Shadow DOM.
+     Playwright piercar Shadow DOM automatiskt med locator/fill.
+
+VALIDERING
+----------
+- Postnummer: Exakt 5 siffror, MASTE borja med 1-9 (svenska postnummer 10000-99999)
+- Gatuadress: Max 70 tecken, autocomplete fran adressregister
+- Lagenhetsnummer: Kravs om huset har lagenhetsnummer
+- Datum: Senast en vecka efter flytt maste anmalan vara inne
+
+
+================================================================================
+DEL 3: DATA-BERIKA - API:ER & STRATEGIER
+================================================================================
+
+VAD SOM KAN AUTO-FYLLAS vs. KRAVS FRAN ANVANDAREN
+--------------------------------------------------
+
+Falt                | Kalla
+--------------------|--------------------------------------------------
+postort             | PAP/API Lite (fran postnummer) - AUTO
+postnummer          | Anvandaren + validering
+gatuadress          | Anvandaren (VALID API kan ge autocomplete)
+fastighetsbeteckning| VALID API (Geposit) eller Lantmateriet
+fastighetsagare     | Anvandaren eller Eniro Company (om det ar foretag)
+inflyttningsdatum   | Anvandaren
+lagenhetsnummer     | Anvandaren / hyreskontraktet
+telefonnummer, email| Anvandaren
+
+OFFICIELLA ADRESS-API:ER
+------------------------
+1. VALID API (Geposit / Postnummerservice) - MEST KOMPLETT
+   URL:           https://developer.geposit.se/docs/valid-20
+   Funktioner:    Adressvalidering, autocomplete, fastighetsbeteckning
+   Data:          gatuadress, postnummer, postort, fastighetsbeteckning, GPS
+   Uppdatering:   Veckosvis
+   Kostnad:       Betalning
+
+2. PAP/API Lite - ENKEL & GRATIS (begransat)
+   URL:           https://papilite.se/dokumentation
+   API-endpoint:  https://api.papapi.se/lite/?query=POSTNUMMER&format=json&apikey=KEY
+   Funktioner:    Postnummer -> postort, stad, GPS, municipality
+   Gratis:        1 post per anrop (fullstandigt 5-siffrigt postnummer)
+   Gata+postort:  Kraver betald plan
+   Nyckel:        Registrera gratis pa https://papilite.se
+   Fallback:      Inbyggd i flytt_prefill.py (inga ~8000 vanliga postnummer)
+
+3. Lantmateriet - Referens Uppslag Adress
+   URL:           https://geotorget.lantmateriet.se
+   Funktioner:    Adress -> fastighetsbeteckning
+   Krav:          OAuth2, bestellning, juridisk provning
+   Kostnad:       Gratis (men krav pa tillstand)
+
+PERSONUPPGIFTS-API:ER (krav avtal/tillstand)
+--------------------------------------------
+4. SPAR (Statens personadressregister)
+   URL:           https://www.statenspersonadressregister.se
+   Funktioner:    Personnummer/namn+adress -> folkbokforingsuppgifter
+   Teknik:        SOAP/XML, klientcertifikat
+   Tillgang:      Ansok hos Skatteverket, GDPR-compliance kravs
+   Andamal:       Kontrol- eller urvalsandamal
+   ~3000 foretag: Banker, forsäkringsbolag, kreditupplysning m.fl.
+   Test:          https://test-personsok.statenspersonadressregister.se/2023.1
+   Produktion:    https://personsok.statenspersonadressregister.se/2023.1
+
+5. Skatteverkets folkbokforings-API
+   URL:           https://www7.skatteverket.se/portal/apier-och-oppna-data
+   Funktioner:    Folkbokforingsuppgifter
+   OBS:           Primar for offentliga aktorer, krav ansokan
+
+MELLANHANDER (aggregerar SPAR)
+------------------------------
+6. Signicat (signicat.com)
+   - Data Verification API med SPAR-atkomst, 30+ register, gratis sandbox
+
+7. UC (Upplysningscentralen) - developerportal.uc.se
+   - Consumer Check Search API, realtid mot SPAR, personnummer -> namn+adress
+
+8. Bisnode - api.bisnode.com
+   - Consumer Intelligence API med SPAR-integration
+
+9. ZignSec - docs.zignsec.com
+   - LookupPerson, SearchPerson, VerifyPerson (SE/DK/FI), testmiljo tillganglig
+
+10. Marknadsinformation.se / PersonKontakt.se
+    - Adressverifiering via personnummer ELLER telefonnummer
+    - Daglig uppdatering mot SPAR
+    - API-dok: https://apidocs.marknadsinformation.se/
+
+GRAZON-ALTERNATIV (juridiskt riskabla, men existerar)
+------------------------------------------------------
+11. Ratsit REST API (starkast grazon)
+    Swagger:  https://api.ratsit.se/swagger/ui/index.html
+    Nyckel:   Begar via ratsit.se/content/api_webservice.aspx
+    Data:     Adress, telefon, fodelsedag, grannar, fordon, foretag
+    Status:   YGL-skyddat (pressrattsskydd), etablerat foretag
+    Libs:     PHP (pontusab/Ratsit), Go (qoorp/go-ratsit) pa GitHub
+    Kostnad:  Betald plan
+
+12. Upplysning.se (inofficiellt)
+    Repo:     github.com/mikaeldui/upplysning-dotnet-client
+    Funktion: Namn -> adresser, fodelsedagar + reverse lookup
+    Status:   Inofficiell klient, grazon
+
+13. Eniro API
+    URL:      https://api.eniro.com
+    Trial:    Company-sokning GRATIS, Person/Number krav betald plan
+    Person:   Namn + plats -> lista, telefon -> person (ej i trial)
+    Pris:     990 kr/man (Basic) - 35 000 kr/man (High volume)
+    OBS:      ENIRO_API_KEY finns i .env - men trial ger ej personsokning
+
+IDENTITETSKEDJA (narrow it down)
+---------------------------------
+Strategi for att ga fran "5 Jakob Eberg" -> "1 person med 95% sakerhet":
+
+VARIANT A - Telefon forst (enklast):
+  Input:   Telefon (t.ex. 0739558087)
+  API Z:   Marknadsinformation / PersonKontakt
+  Output:  Namn, adress, evt. personnummer
+  Kontroll: Stammer namn = "Jakob Eberg" och adress ~ Folkungagatan?
+  Resultat: Hog sakerhet
+
+VARIANT B - Namn + plats forst:
+  Input:   Namn + stad (Jakob Eberg, Stockholm)
+  API Y:   Eniro Person Search (betald) eller Ratsit API
+  Output:  2-5 kandidater
+  API Z:   Telefon -> PersonKontakt -> koppla telefon till kandidat
+  Resultat: ~95% sakerhet
+
+FUZZY/PROBABILISTISK MATCHNING
+-------------------------------
+Nar data ar otillracklig (stavfel, variationer):
+- Levenshtein Distance, Cosine Similarity, Soundex
+- Fler falt = battre matchning (namn + postnr + telefon >> bara namn)
+- AWS Entity Resolution: regelbaserad + ML-matchning
+- Splink (open source): probabilistisk datalankningsbibliotek (Python)
+
+
+================================================================================
+DEL 4: JURIDISK ANALYS
+================================================================================
+
+FLODETS LAGLIGA DELAR
+----------------------
+1. Samla in uppgifter pa din egen sida
+   -> Lagligt. Krav: rattslig grund, integritetspolicy, GDPR.
+
+2. Visa BankID QR-kod for anvandaren
+   -> Lagligt SA LANGE anvandaren sjalv scannar och signerar.
+   -> Du far INTE logga in AT anvandaren.
+
+3. Hjalpa anvandaren fylla i formularet (RPA/Playwright)
+   -> Juridisk grazons. Tjanster som eDeklarera.se gor liknande.
+   -> Krav: anvandaren ger samtycke, loggar in sjalv, signerar sjalv.
+
+4. Signering
+   -> Anvandaren MASTE signera sjalv. Obligatoriskt.
+
+OLAGLIGT / HOG RISK
+--------------------
+1. Logga in AT anvandaren
+   -> OLAGLIGT: Brottsbalken 4 kap 9c (dataintrang)
+   -> Aven med samtycke kan det bryta mot BankID/SKV:s villkor
+   -> Straff: boter eller fangelse upp till 2 ar (grovt: 6 man - 6 ar)
+
+2. Logga personnummer, namn, BankID-tokens i klartext
+   -> GDPR-BROTT: art. 5 (uppgiftsminimering), art. 6 (rattslig grund)
+   -> IMY krav: styrdokument, retention-policy, atkomstkontroll, gallring
+
+3. Screen-scraping / UI-automation av SKV (hog risk)
+   -> PSD2-parallell: EU forbod screen-scraping for banker
+   -> SKV:s anvandarvillkor kan forbjuda automatiserad atkomst
+
+4. Bryta mot BankID:s villkor
+   -> "Saker start" (obligatorisk sedan 2024-05-01):
+      rorlig QR-kod, anvandaren initierar sjalv
+
+MINIMIKRAV FOR COMPLIANCE
+--------------------------
+| Krav             | Beskrivning                                     |
+|------------------|-------------------------------------------------|
+| Rattslig grund   | Samtycke ELLER avtal per datatyp (GDPR art. 6)  |
+| Dataminimering   | Logga INTE personnummer, namn, tokens i klartext|
+| Retention        | Kort lagringstid, automatisk radering           |
+| Atkomstkontroll  | Begransad last. av loggar, kryptering           |
+| Transparens      | Exakt info: vad lagras, varfor, hur lange       |
+| Signering        | Anvandaren MASTE signera sjalv                  |
+| Avtalsstod       | Verifiera att BankID/SKV tillater flodet        |
+
+ALTERNATIVA IMPLEMENTATIONSSPAR (riskmatris)
+--------------------------------------------
+| Alt              | Risk  | Lagligt?                           |
+|------------------|-------|------------------------------------|
+| A: Ombud-vagen   | LAG   | Ja (om behorighet finns for flytt) |
+| B: Partner-API   | LAG   | Ja (avtalat med SKV)               |
+| C: Forifylla+redir| LAG  | Ja (om SKV stodjer det)            |
+| D: Instruktionsguide| INGEN| Ja (noll juridisk risk)          |
+| E: Playwright-auto| HOG  | Grazon - beror pa villkor/impl.    |
+
+REKOMMENDERAD STRATEGI
+-----------------------
+1. KORT SIKT: Rensa loggning, ta bort personnummer/namn/tokens i klartext.
+   Lagg till tydlig ToS. Lat anvandaren sjalv logga in och signera.
+
+2. MEDELLANG SIKT: Kontakta Skatteverket om:
+   - Partner-API for flyttanmalan
+   - Utokad ombudsbehorighet for folkbokforing
+
+3. LANG SIKT: Bygg om till API-baserad integration (Alt B).
+   Da ar ni helt compliant och slipper Playwright.
+
+KALLOR
+------
+- IMY: imy.se/verksamhet/dataskydd/
+- Brottsbalken 4 kap 9c: lagen.nu/begrepp/Dataintrang
+- SKV Ombud: skatteverket.se/privat/skatter/ombud
+- SKV Partner-API: skatteverket.se/omoss/digitalasamarbeten
+- SKV Folkbokforings-API: www7.skatteverket.se/portal/apier-och-oppna-data
+- BankID Saker start: bankid.com/foretag/saker-start
+- SPAR juridisk grund: statenspersonadressregister.se (SparL 1998:527)
+
+
+================================================================================
+DEL 5: PYTHON-VERKTYG (inlogg/)
+================================================================================
+
+flytt_prefill.py
+  Syfte:   Pre-fill och validera formulardata for SKV-flytt
+  Input:   JSON-fil eller interaktivt
+  Berika:  postort fran postnummer (PAP API eller inbyggd fallback)
+  Output:  Validerad JSON, konfidensbedomning (mal 95%+)
+  Kora:    python inlogg/flytt_prefill.py -j payload.json -o out.json
+           python inlogg/flytt_prefill.py -i  (interaktivt)
+  Env:     PAP_API_KEY (gratis nyckel fran papilite.se)
+
+flytt_prefill_interactive.py
+  Syfte:   Interaktivt steg-for-steg test
+  Flode:   1. Postnummer -> visar postort direkt (auto)
+           2. Gatuadress, inflyttningsdatum, ovriga falt
+           3. Sammanstallning + konfidensprocent
+           4. Spara till resultat.json?
+  Kora:    python inlogg/flytt_prefill_interactive.py
+
+flytt_prefill_test.py
+  Syfte:   Stegvis test mot test_jakob.json (anvands av andra processer)
+  Kora:    python inlogg/flytt_prefill_test.py
+
+flytt_form_filler.py
+  Syfte:   Playwright-automatisering av SKV:s faktiska formular
+  Input:   payload_path (JSON fran flytt_prefill) eller form_data dict
+  Flode:   Scan-fill-advance (fyller synliga falt, klickar Nasta)
+
+test_jakob.json / payload_exempel.json
+  Testdata for prefill-skripten
+
+API-NYCKLAR (miljovariabler i .env)
+------------------------------------
+PAP_API_KEY    = Gratis fran papilite.se
+ENIRO_API_KEY  = Finns (trial - ej person/number, bara company)
+                 Uppgradera for person/telefon-sokning
+
+================================================================================
+SAMMANFATTNING - MINSTA GEMENSAMMA NAMNARE
+================================================================================
+
+For att na ~95% konfidens pa formulardata behover du:
+
+FRAN ANVANDAREN (ingen API kan ersatta):
+  inflyttningsdatum, gatuadress, postnummer,
+  lagenhetsnummer, fastighetsagare, telefonnummer, email
+
+AUTO-FYLLS GRATIS (PAP/fallback):
+  postort (fran postnummer)
+
+AUTO-FYLLS MED VALID API (betalt):
+  fastighetsbeteckning (fran adress)
+
+FRA SKATTEVERKET (nar anvandaren loggar in med BankID):
+  Nuvarande adress, namn, personnummer - SKV visar sjalv i formularet
+
+FOR PERSONIDENTIFIERING (krav avtal eller betald plan):
+  Telefon -> PersonKontakt/Marknadsinformation -> namn + adress
+  Namn + stad -> Eniro Person (betald) -> kandidatlista
+  Kedja dessa -> hog sakerhet pa person-match
+
+================================================================================
+
+
+================================================================================
+DEL 6: GRAZONSKRIPT & NAESTA STEG (uppdaterat 2026-02-22)
+================================================================================
+
+SKRIPT: inlogg/flytt_grazon.py
+-------------------------------
+Kombinerande grāzons-berikare. Keder ihop:
+  PAP/API Lite    - postnummer -> postort, GPS, kommundata  (AKTIV)
+  Eniro Company   - slå upp fastighetsagare/foretag        (AKTIV, trial)
+  Ratsit          - personnummer/namn -> persondata         (STUB - se nedan)
+  Eniro Person    - namn+stad -> personlista               (STUB - krav upgrade)
+  Eniro Number    - telefon -> person                      (STUB - krav upgrade)
+  PersonKontakt   - telefon/personnr -> adress             (STUB - REKOMMENDERAS)
+
+KALLOR - STATUS (per 2026-02-22)
+----------------------------------
+PAP/API Lite:
+  STATUS:  AKTIV
+  NYCKEL:  PAP_API_KEY=0162da2c... (fixad i .env - = borttaget)
+  URL:     https://api.papapi.se/lite/
+  GER:     postort, kommun, lan, GPS fran postnummer
+
+Eniro API:
+  STATUS:  TRIAL (company OK, person/number KRAV UPPGRADERING)
+  NYCKEL:  ENIRO_API_KEY= finns i .env
+  GER NU:  Foretags-sokning (bra for fastighetsagare)
+  FAR MED BETALD PLAN (990 kr/man):
+           Person: namn+plats -> personlista
+           Number: telefon -> person
+  UPPGRADERING: https://api.eniro.com/pricing
+
+Ratsit:
+  STATUS:  NEDLAGT (API-sidan ger 404, Swagger ger 502)
+  OLD URL: ratsit.se/Content/API_Webservice.aspx -> 404
+  GitHub-libs: 2013-2016, ej underhallna
+  SLUTSATS: Ratsit har tagit bort sin API-tjanst.
+  OM du vill undersoka: Kontakta ratsit.se direkt.
+
+PersonKontakt / Marknadsinformation:
+  STATUS:  STUB - BASTA GRAZON-ALTERNATIVET
+  KONTAKT: info@marknadsinformation.se
+  GER:     Telefon ELLER personnummer -> namn, adress, personnummer
+           Uppdateras dagligen mot SPAR
+  DOK:     https://apidocs.marknadsinformation.se/
+  PRIS:    Kontakta for offert
+
+SPAR (officiellt):
+  STATUS:  Ingen nyckel - men officiell vag
+  KONTAKT: kundtjanst@statenspersonadressregister.se / 0771-18 17 16
+  GER:     Full folkbokforing, 100% lagligt
+  KRAV:    Ansokan, GDPR-compliance, klientcertifikat
+  ANDAMAL: Kontrol- eller urvalsandamal
+
+PRIORITERAD ATGARDSLIST
+------------------------
+OMEDELBART (gratis, 5 minuter):
+  1. .env rensad - PAP_API_KEY korrekt (redan fixat)
+  2. OBS: .env rad 32-33 innehaller felaktig text - rensa dem:
+     Ta bort raderna:
+       "  RATSIT_API_KEY          - begar pa..."
+       "  PERSONKONTAKT_API_KEY   - kontakta..."
+
+KORT SIKT (betalar sig direkt):
+  3. Maila info@marknadsinformation.se
+     -> PersonKontakt API: telefon -> person
+     -> Ger 85-95% konfidens pa personidentifiering
+     -> Starkaste grāzons-alternativet som faktiskt finns
+
+MEDELLANG SIKT (om volym motiverar):
+  4. Uppgradera Eniro: api.eniro.com -> betald plan (990 kr/man)
+     -> Lagg till namnsokning och telefon-uppslag
+  5. Kontakta Ratsit direkt (ratsit.se) - fraga om API finns kvar
+
+LANG SIKT (officiell):
+  6. Ansok hos SPAR for kontrol-andamal
+     -> Fullt lagligt, GDPR-compliant, personnummer -> full folkbokforingsdata
+
+KONFIDENS PER KALL-KOMBINATION
+--------------------------------
+PAP (gratis) alena:                ~35%
++ Eniro Company:                   +5%  (fastighetsagare)
++ Eniro Person (betald):           +35% (namnsokning)
++ PersonKontakt (avtal):           +40% (telefon->person, SPAR-uppdaterat)
++ SPAR (officiell):                +55% (full folkbokforing)
+
+Realistiskt mal med PersonKontakt:  ~80-90%
+Realistiskt mal med SPAR:           ~95-100%
+
+GRAZONS-TEST (genomfort 2026-02-22)
+-------------------------------------
+Test med: Jakob Eberg, postnummer 11622, telefon 0739558087
+Resultat: postort=Stockholm [PAP], konfidens=35%
+Saknas:   Ratsit (nedlagt), PersonKontakt (inget avtal), Eniro Person (trial)
+Slutsats: Tekniken fungerar - kraver PersonKontakt-avtal for verklig nytta.
+
+ENV-VARIABLER KLAR-STATUS
+--------------------------
+PAP_API_KEY=0162da2c...       OK
+ENIRO_API_KEY=zOhVo6Zp...    OK (trial - company)
+RATSIT_API_KEY=              SAKNAS (API nedlagt)
+PERSONKONTAKT_API_KEY=       SAKNAS (maila info@marknadsinformation.se)
+
+================================================================================

@@ -61,9 +61,6 @@ export async function POST(req: NextRequest) {
       })),
     ];
 
-    console.log("[v0] OpenClaw chat request to:", chatUrl);
-    console.log("[v0] Session ID (user):", sessionId);
-
     const agentResponse = await fetch(chatUrl, {
       method: "POST",
       headers: {

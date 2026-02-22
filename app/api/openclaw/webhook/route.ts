@@ -91,8 +91,6 @@ export async function POST(req: NextRequest) {
       ""
     );
     const hooksUrl = `${baseUrl}/hooks/agent`;
-    console.log("[v0] Webhook posting to:", hooksUrl);
-
     const agentResponse = await fetch(hooksUrl, {
       method: "POST",
       headers: {

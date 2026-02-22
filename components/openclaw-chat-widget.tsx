@@ -117,7 +117,6 @@ export function OpenClawChatWidget({
       if (!res.ok) {
         const errBody = await res.json().catch(() => null);
         const errMsg = errBody?.content || errBody?.error || `Status ${res.status}`;
-        console.log("[v0] Chat request failed:", res.status, errMsg);
         throw new Error(errMsg);
       }
 
@@ -182,7 +181,6 @@ export function OpenClawChatWidget({
       if (minimized) setHasUnread(true);
     } catch (err) {
       const errorDetail = err instanceof Error ? err.message : "Okant fel";
-      console.log("[v0] Chat error caught:", errorDetail);
       setMessages((prev) => [
         ...prev,
         {
@@ -237,7 +235,7 @@ export function OpenClawChatWidget({
         </button>
       )}
 
-      {/* ── Minimized bar ───────────────────────────────── */}
+      {/* ── Minimized bar ─────────────���─────────────────── */}
       {open && minimized && (
         <button
           onClick={handleRestore}

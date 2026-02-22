@@ -114,7 +114,7 @@ function StartContent() {
     }
 
     decodeQr();
-  }, [searchParams]);
+  }, [searchParams, mirrorEvent]);
 
   async function copyToClipboard(text: string, field: string) {
     await navigator.clipboard.writeText(text);

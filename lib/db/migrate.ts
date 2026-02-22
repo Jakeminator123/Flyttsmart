@@ -73,7 +73,7 @@ async function migrate() {
     );
   `);
 
-  console.log("Database migrated successfully at:", url);
+  process.stdout.write(`Database migrated successfully at: ${url}\n`);
 }
 
 migrate().catch(console.error);

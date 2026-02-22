@@ -217,9 +217,10 @@ export function useOpenClawMirror({
 
   // Cleanup debounce timers on unmount
   useEffect(() => {
+    const timers = debounceTimers.current;
     return () => {
-      debounceTimers.current.forEach((timer) => clearTimeout(timer));
-      debounceTimers.current.clear();
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
     };
   }, []);
 

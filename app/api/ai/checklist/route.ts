@@ -3,8 +3,12 @@ import { getOpenAIClient } from "@/lib/ai/openai";
 import { CHECKLIST_SYSTEM } from "@/lib/ai/prompts";
 
 export async function POST(req: NextRequest) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let body: any = {};
+  let body: {
+    moveDate?: string;
+    scenario?: string;
+    hasChildren?: boolean;
+    toCity?: string;
+  } = {};
   try {
     body = await req.json();
     const { moveDate, scenario, hasChildren, toCity } = body;

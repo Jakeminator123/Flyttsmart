@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Store token in database (graceful – QR still works via HMAC if DB fails)
-    let expiresAt = new Date(
+    const expiresAt = new Date(
       Date.now() + 30 * 24 * 60 * 60 * 1000
     ).toISOString();
 

@@ -32,7 +32,6 @@ import { ChecklistView, type ChecklistItem } from "@/components/checklist-view";
 import { QrDisplay } from "@/components/qr-display";
 import { SkvGuide } from "@/components/skv-guide";
 import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
-import { useOpenClawMirror } from "@/hooks/use-openclaw-mirror";
 
 interface MoveData {
   move: {
@@ -66,9 +65,6 @@ function DashboardContent() {
   const [data, setData] = useState<MoveData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // OpenClaw real-time mirroring for dashboard events
-  const { mirrorEvent } = useOpenClawMirror({ formType: "dashboard" });
 
   useEffect(() => {
     if (!moveId) {

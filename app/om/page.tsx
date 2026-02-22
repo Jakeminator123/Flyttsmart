@@ -85,7 +85,7 @@ export default function OmPage() {
                 När du loggar in med BankID hjälper vi dig att:
               </p>
               <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                {features.map((feature, i) => (
+                {features.map((feature) => (
                   <div key={feature.title} className="gradient-border group flex items-start gap-4 rounded-xl border border-border/50 bg-card p-5 transition-all duration-500 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-all duration-500 group-hover:bg-primary group-hover:text-primary-foreground">
                       <feature.icon className="h-5 w-5" />

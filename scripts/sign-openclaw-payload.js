@@ -23,7 +23,8 @@ if (!secret) {
 
 const readStdin = async () => {
   if (!process.stdin.isTTY) {
-    const chunks: Buffer[] = [];
+    /** @type {Buffer[]} */
+    const chunks = [];
     for await (const chunk of process.stdin) {
       chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
     }

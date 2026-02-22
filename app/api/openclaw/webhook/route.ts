@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
 
     // If no gateway URL is configured, log and return OK (testing mode)
     if (!GATEWAY_BASE_URL) {
-      console.log(
+      console.warn(
         "[OpenClaw] No gateway URL configured (OPENCLAW_GATEWAY_URL / OPENCLAW_AGENT_URL) — payload logged:",
         {
           sessionId,

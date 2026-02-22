@@ -96,10 +96,6 @@ export function DidOpenClawBridgeWidget() {
     };
   }, []);
 
-  if (!DID_BRIDGE_ENABLED || !DID_SHARE_URL) {
-    return null;
-  }
-
   async function sendFieldBlurToBridge(fieldName: string, fieldValue: string) {
     try {
       const response = await fetch("/api/did/chat", {
@@ -204,6 +200,10 @@ export function DidOpenClawBridgeWidget() {
       document.removeEventListener("focusout", onFocusOut, true);
     };
   }, [testTalEnabled]);
+
+  if (!DID_BRIDGE_ENABLED || !DID_SHARE_URL) {
+    return null;
+  }
 
   return (
     <>

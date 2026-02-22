@@ -128,7 +128,7 @@ async function main() {
     process.env.OPENCLAW_HOOKS_TOKEN ||
     "";
   const webhookSecret = process.env.OPENCLAW_WEBHOOK_SECRET || "";
-  const testTalEnabled = (process.env.TEST_TAL || "").toLowerCase() === "y";
+  const testTalEnabledFromEnv = (process.env.TEST_TAL || "").toLowerCase() === "y";
   const didBridgeEnabled =
     (process.env.NEXT_PUBLIC_DID_BRIDGE_ENABLED || "").toLowerCase() === "true";
   const didBridgeSecret = process.env.DID_BRIDGE_SECRET || "";
@@ -145,11 +145,13 @@ async function main() {
   console.log(`- hooksToken: ${maskSecret(hooksToken)}`);
   console.log(`- accessToken: ${maskSecret(accessToken)}`);
   console.log(`- webhookSecret: ${maskSecret(webhookSecret)}`);
-  console.log(`- testTalEnabled: ${testTalEnabled}`);
+  console.log(`- testTalEnabled(env): ${testTalEnabledFromEnv}`);
   console.log(`- didBridgeEnabled: ${didBridgeEnabled}`);
   console.log(`- didBridgeSecret: ${maskSecret(didBridgeSecret)}`);
 
   const failures = [];
+
+  let testTalEnabledFromHealth = false;
 
   // 0) Health endpoint through app proxy
   try {
@@ -158,6 +160,7 @@ async function main() {
     });
     console.log(`\n[health] ${response.status}`);
     console.log(json || text.slice(0, 300));
+    testTalEnabledFromHealth = Boolean(json?.config?.testTalEnabled);
     if (!response.ok) failures.push(`health:${response.status}`);
   } catch (error) {
     console.log(`\n[health] request failed: ${String(error)}`);
@@ -290,7 +293,7 @@ async function main() {
       console.log(json || text.slice(0, 300));
       if (!response.ok) {
         failures.push(`did-test-tal:${response.status}`);
-      } else if (testTalEnabled && !json?.shouldSpeak) {
+      } else if (testTalEnabledFromHealth && !json?.shouldSpeak) {
         failures.push("did-test-tal:expected-shouldSpeak");
       }
     } catch (error) {

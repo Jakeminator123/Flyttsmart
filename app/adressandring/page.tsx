@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowLeft,
   ArrowRight,
@@ -583,9 +584,12 @@ export default function AdressandringPage() {
                 {mobileQrImage ? (
                   <div className="flex flex-col items-center gap-3">
                     <div className="rounded-xl border bg-white p-3 shadow-sm">
-                      <img
+                      <Image
                         src={mobileQrImage}
                         alt="QR-kod för Skatteverket"
+                        width={160}
+                        height={160}
+                        unoptimized
                         className="h-40 w-40"
                       />
                     </div>
@@ -1399,9 +1403,12 @@ export default function AdressandringPage() {
                     {mobileQrImage && (
                       <div className="flex flex-col items-center gap-3">
                         <div className="rounded-xl border bg-white p-3 shadow-sm">
-                          <img
+                          <Image
                             src={mobileQrImage}
                             alt="QR-kod för mobilen"
+                            width={192}
+                            height={192}
+                            unoptimized
                             className="h-48 w-48"
                           />
                         </div>

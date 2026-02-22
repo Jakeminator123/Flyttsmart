@@ -7,6 +7,7 @@ AGENT_DIR="$OPENCLAW_DIR/agents/aida-flyttagent/agent"
 WORKSPACE_DIR="$OPENCLAW_DIR/workspace-aida"
 LISTEN_PORT="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
 BIND_MODE="${OPENCLAW_GATEWAY_BIND:-lan}"
+MODEL_PRIMARY="${OPENCLAW_MODEL_PRIMARY:-openai/gpt-4o-mini}"
 
 # Binding outside loopback requires auth; if token is missing, stay local.
 if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ] && [ "$BIND_MODE" != "loopback" ]; then
@@ -53,7 +54,7 @@ cat > "$CONFIG_FILE" <<EOF
   "agents": {
     "defaults": {
       "model": {
-        "primary": "openai/gpt-5.3-codex"
+        "primary": "${MODEL_PRIMARY}"
       }
     },
     "list": [
@@ -66,7 +67,7 @@ cat > "$CONFIG_FILE" <<EOF
         "workspace": "${WORKSPACE_DIR}",
         "agentDir": "${AGENT_DIR}",
         "model": {
-          "primary": "openai/gpt-5.3-codex"
+          "primary": "${MODEL_PRIMARY}"
         }
       }
     ]
@@ -74,7 +75,7 @@ cat > "$CONFIG_FILE" <<EOF
 }
 EOF
 
-echo "[entrypoint] Config written — starting OpenClaw gateway on port ${LISTEN_PORT} (bind=${BIND_MODE})"
+echo "[entrypoint] Config written — model=${MODEL_PRIMARY}, port=${LISTEN_PORT}, bind=${BIND_MODE}"
 
 if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
   exec openclaw gateway --port "${LISTEN_PORT}" --bind "${BIND_MODE}" --token "${OPENCLAW_GATEWAY_TOKEN}" --allow-unconfigured

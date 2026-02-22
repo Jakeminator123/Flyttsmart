@@ -42,4 +42,3 @@ old
 # python cache artifacts
 __pycache__/
 *.py[cod]
-.vercel

@@ -5,6 +5,16 @@ OPENCLAW_DIR="/root/.openclaw"
 CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
 AGENT_DIR="$OPENCLAW_DIR/agents/aida-flyttagent/agent"
 WORKSPACE_DIR="$OPENCLAW_DIR/workspace-aida"
+LISTEN_PORT="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
+BIND_MODE="${OPENCLAW_GATEWAY_BIND:-lan}"
+MODEL_PRIMARY="${OPENCLAW_MODEL_PRIMARY:-openai/gpt-5.1-codex}"
+MODEL_FALLBACK="${OPENCLAW_MODEL_FALLBACK:-openai/gpt-5.3-codex}"
+
+# Binding outside loopback requires auth; if token is missing, stay local.
+if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ] && [ "$BIND_MODE" != "loopback" ]; then
+  echo "[entrypoint] OPENCLAW_GATEWAY_TOKEN missing; forcing loopback bind"
+  BIND_MODE="loopback"
+fi
 
 # Ensure directories exist (important on first run with empty persistent volume)
 mkdir -p "$AGENT_DIR"
@@ -22,27 +32,56 @@ if [ -d "/app/seed/workspace" ]; then
   echo "[entrypoint] Seeded workspace files"
 fi
 
-# Always write openclaw.json from env vars so tokens stay out of the image
+# Write OpenClaw config for container runtime.
 cat > "$CONFIG_FILE" <<EOF
 {
-  "gatewayToken": "${OPENCLAW_GATEWAY_TOKEN}",
-  "gatewayPort": ${OPENCLAW_GATEWAY_PORT:-18789},
-  "agents": [
-    {
-      "id": "main",
+  "gateway": {
+    "mode": "local",
+    "bind": "${BIND_MODE}",
+    "auth": {
+      "mode": "token",
+      "token": "${OPENCLAW_GATEWAY_TOKEN}"
+    },
+    "controlUi": {
+      "enabled": true,
+      "dangerouslyDisableDeviceAuth": true
+    },
+    "http": {
+      "endpoints": {
+        "chatCompletions": { "enabled": true }
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
       "model": {
-        "fallbacks": ["GPT (openai/gpt-5.3-codex)"]
+        "primary": "${MODEL_PRIMARY}",
+        "fallbacks": ["${MODEL_FALLBACK}"]
       }
     },
-    {
-      "id": "aida-flyttagent",
-      "name": "aida-flyttagent",
-      "workspace": "${WORKSPACE_DIR}",
-      "agentDir": "${AGENT_DIR}"
-    }
-  ]
+    "list": [
+      {
+        "id": "main"
+      },
+      {
+        "id": "aida-flyttagent",
+        "name": "aida-flyttagent",
+        "workspace": "${WORKSPACE_DIR}",
+        "agentDir": "${AGENT_DIR}",
+        "model": {
+          "primary": "${MODEL_PRIMARY}",
+          "fallbacks": ["${MODEL_FALLBACK}"]
+        }
+      }
+    ]
+  }
 }
 EOF
 
-echo "[entrypoint] Config written — starting OpenClaw gateway on port ${OPENCLAW_GATEWAY_PORT:-18789}"
-exec openclaw gateway --port "${OPENCLAW_GATEWAY_PORT:-18789}" --host 0.0.0.0
+echo "[entrypoint] Config written — model=${MODEL_PRIMARY}, fallback=${MODEL_FALLBACK}, port=${LISTEN_PORT}, bind=${BIND_MODE}"
+
+if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
+  exec openclaw gateway --port "${LISTEN_PORT}" --bind "${BIND_MODE}" --token "${OPENCLAW_GATEWAY_TOKEN}" --allow-unconfigured
+fi
+
+exec openclaw gateway --port "${LISTEN_PORT}" --bind "${BIND_MODE}" --allow-unconfigured

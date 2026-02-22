@@ -1,9 +1,19 @@
-FROM node:22-alpine
+FROM node:22-slim
 
-RUN apk add --no-cache git
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates git wget \
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
-# Install OpenClaw — version matches local: 2026.2.21-2
-RUN npm install -g openclaw
+# Force git to use HTTPS for any GitHub SSH dependency.
+# Use --add so multiple rewrite rules are kept (not overwritten).
+RUN git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com/" \
+ && git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com" \
+ && git config --global --add url."https://github.com/".insteadOf "git@github.com:"
+
+# Install OpenClaw — skip node-llama-cpp build (gateway uses OpenAI, not local LLM)
+ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD=true
+RUN npm install -g openclaw --ignore-scripts
 
 # Seed files (IDENTITY.md, workspace skills) — no secrets in image
 RUN mkdir -p /app/seed/workspace
@@ -11,12 +21,12 @@ COPY config/agents/aida-flyttagent/agent/IDENTITY.md /app/seed/IDENTITY.md
 COPY config/workspace/ /app/seed/workspace/
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY docker-healthcheck.sh /usr/local/bin/docker-healthcheck.sh
+
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-healthcheck.sh \
+ && chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-healthcheck.sh
 
 EXPOSE 18789
-
-COPY docker-healthcheck.sh /usr/local/bin/docker-healthcheck.sh
-RUN chmod +x /usr/local/bin/docker-healthcheck.sh
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD docker-healthcheck.sh

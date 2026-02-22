@@ -1,2 +1,3 @@
 #!/bin/sh
-wget -qO- "http://localhost:${OPENCLAW_GATEWAY_PORT:-18789}/health" || exit 1
+PORT_TO_CHECK="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
+wget -qO- "http://localhost:${PORT_TO_CHECK}/health" || exit 1

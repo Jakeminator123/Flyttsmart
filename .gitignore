@@ -42,3 +42,10 @@ old
 # python cache artifacts
 __pycache__/
 *.py[cod]
+
+.vercel
+.env*.local
+
+# Scraped competitor reference sites
+/adressandring/sida_*/
+/adressandring/skrapning_sajt.py

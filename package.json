@@ -1,5 +1,5 @@
 {
-  "name": "my-v0-project",
+  "name": "flytta-nu",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -75,7 +75,7 @@
     "esbuild": ">=0.25.0"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.3",
+    "@eslint/eslintrc": "^0.1.0",
     "@next/eslint-plugin-next": "^16.1.6",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/bcryptjs": "^2.4.6",
@@ -83,12 +83,12 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@typescript-eslint/eslint-plugin": "^8.54.0",
-    "@typescript-eslint/parser": "^8.54.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
     "drizzle-kit": "^0.31.8",
-    "eslint": "^9.39.2",
-    "eslint-config-next": "^16.1.6",
-    "eslint-plugin-react": "^7.37.5",
+    "eslint": "^10.0.1",
+    "eslint-config-next": "^0.2.4",
+    "eslint-plugin-react": "^7.22.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",

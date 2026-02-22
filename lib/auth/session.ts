@@ -2,7 +2,13 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
 const SESSION_COOKIE = "flytt_session";
-const getSecret = () => new TextEncoder().encode(process.env.JWT_SECRET || "dev-secret");
+const getSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is required");
+  }
+  return new TextEncoder().encode(secret);
+};
 
 export interface SessionPayload {
   userId: number;

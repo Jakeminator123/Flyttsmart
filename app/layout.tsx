@@ -5,14 +5,14 @@ import { Analytics } from '@vercel/analytics/next'
 import { DidOpenClawBridgeWidget } from '@/components/did-openclaw-bridge-widget'
 import './globals.css'
 
-const _inter = Inter({ subsets: ['latin'] })
-const _spaceGrotesk = Space_Grotesk({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
+const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-heading' })
 
 export const metadata: Metadata = {
   title: 'Flytt.io – Flyttanmälan som den borde fungera',
   description:
     'Flytt.io gör din flyttanmälan enkel och gratis. Vi hjälper dig med Skatteverket automatiskt – och ger dig fördelar på nya adressen med el, bredband och försäkring.',
-  generator: 'v0.app',
+  generator: 'Flytta.nu',
   icons: {
     icon: [
       {
@@ -44,7 +44,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="sv" suppressHydrationWarning>
+    <html lang="sv" suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <body className="font-sans antialiased">
         {children}
         <DidOpenClawBridgeWidget />

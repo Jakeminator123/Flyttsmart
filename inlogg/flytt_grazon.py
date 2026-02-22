@@ -9,10 +9,9 @@ Kombinerar flera kallor for att maximera autoifyllning och konfidens:
     [2] Eniro Company     - fastighetsagare (foretag)
 
   KRAV API-NYCKEL / AVTAL (stubar - aktiveras nar du skaffar nyckel):
-    [3] Ratsit            - OBS: API verkar nedlagt (404/502). Se nedan.
-    [4] Eniro Person      - namn+plats -> personlista  (krav uppgradering)
-    [5] Eniro Number      - telefon -> person           (krav uppgradering)
-    [6] PersonKontakt     - telefon/personnr -> adress  (krav avtal) BAST ALTERNATIV
+    [3] Eniro Person      - namn+plats -> personlista  (krav uppgradering)
+    [4] Eniro Number      - telefon -> person           (krav uppgradering)
+    [5] PersonKontakt     - telefon/personnr -> adress  (krav avtal) BAST ALTERNATIV
 
 Kora:
   python inlogg/flytt_grazon.py
@@ -21,8 +20,6 @@ Kora:
 Miljovariabler (satt i .env eller systemet):
   PAP_API_KEY             - gratis fran papilite.se
   ENIRO_API_KEY           - finns (trial) / uppgradera pa api.eniro.com
-  RATSIT_API_KEY          - OBS: Ratsit API verkar nedlagt (sidan 404, Swagger 502)
-                            Kontakta ratsit.se direkt om du vill undersoka vidare.
   PERSONKONTAKT_API_KEY   - kontakta info@marknadsinformation.se (REKOMMENDERAS)
 """
 
@@ -53,7 +50,6 @@ except ImportError:
 # ---------------------------------------------------------------------------
 PAP_KEY      = re.sub(r"^=+", "", os.environ.get("PAP_API_KEY", "").strip())
 ENIRO_KEY    = os.environ.get("ENIRO_API_KEY", "").strip()
-RATSIT_KEY   = os.environ.get("RATSIT_API_KEY", "").strip()
 PKONTAKT_KEY = os.environ.get("PERSONKONTAKT_API_KEY", "").strip()
 
 TIMEOUT = 6
@@ -152,79 +148,7 @@ def eniro_company_search(query: str, where: str = "sverige") -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# 3. Ratsit  (STUB - krav RATSIT_API_KEY)
-# ---------------------------------------------------------------------------
-def ratsit_person_lookup(personnummer: str, package: str = "personadress") -> dict | None:
-    """
-    Slår upp persondata pa personnummer.
-    Krav: RATSIT_API_KEY fran ratsit.se/Content/API_Webservice.aspx
-    Endpoints (fran go-ratsit / php-ratsit libs):
-      GET https://api.ratsit.se/api/v1/person/{personnummer}?package={package}
-    Paket: personadress, persontelefon, personkreditupp etc.
-    """
-    if not RATSIT_KEY:
-        _log("Ratsit: Ingen nyckel - hoppar over")
-        return None
-    url = f"https://api.ratsit.se/api/v1/person/{personnummer}"
-    headers = {"apiKey": RATSIT_KEY}
-    params  = {"package": package}
-    try:
-        r = requests.get(url, headers=headers, params=params, timeout=TIMEOUT)
-        if r.status_code == 200:
-            data = r.json()
-            person = data.get("person") or data
-            return {
-                "name":        f"{person.get('firstName','')} {person.get('lastName','')}".strip(),
-                "gatuadress":  person.get("address", {}).get("street", ""),
-                "postnummer":  re.sub(r"\s+", "", person.get("address", {}).get("zipCode", "")),
-                "postort":     person.get("address", {}).get("city", ""),
-                "telefonnummer": person.get("phone", ""),
-                "_source": "Ratsit",
-            }
-        else:
-            _log(f"Ratsit: HTTP {r.status_code}")
-    except Exception as e:
-        _log(f"Ratsit fel: {e}")
-    return None
-
-
-def ratsit_name_search(first_name: str, last_name: str, city: str = "") -> list[dict]:
-    """
-    Soker personer pa namn (om Ratsit har ett sadant endpoint).
-    OBS: Ratsit API verkar primar anvanda personnummer. Testa och uppdatera vid behov.
-    """
-    if not RATSIT_KEY:
-        _log("Ratsit: Ingen nyckel - hoppar over")
-        return []
-    url = "https://api.ratsit.se/api/v1/search/person"
-    headers = {"apiKey": RATSIT_KEY}
-    params  = {"firstName": first_name, "lastName": last_name}
-    if city:
-        params["city"] = city
-    try:
-        r = requests.get(url, headers=headers, params=params, timeout=TIMEOUT)
-        if r.status_code == 200:
-            hits = r.json().get("persons") or r.json().get("results") or []
-            results = []
-            for p in hits[:10]:
-                results.append({
-                    "name":       f"{p.get('firstName','')} {p.get('lastName','')}".strip(),
-                    "gatuadress": p.get("address", {}).get("street", ""),
-                    "postnummer": re.sub(r"\s+", "", p.get("address", {}).get("zipCode", "")),
-                    "postort":    p.get("address", {}).get("city", ""),
-                    "fodelsear":  p.get("birthYear", ""),
-                    "_source":    "Ratsit",
-                })
-            return results
-        else:
-            _log(f"Ratsit namnsokning: HTTP {r.status_code}")
-    except Exception as e:
-        _log(f"Ratsit namnsokning fel: {e}")
-    return []
-
-
-# ---------------------------------------------------------------------------
-# 4. Eniro Person Search  (STUB - krav uppgradering)
+# 3. Eniro Person Search  (STUB - krav uppgradering)
 # ---------------------------------------------------------------------------
 def eniro_person_search(name: str, where: str = "stockholm") -> list[dict]:
     """
@@ -259,7 +183,7 @@ def eniro_person_search(name: str, where: str = "stockholm") -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# 5. Eniro Number (STUB - krav uppgradering)
+# 4. Eniro Number (STUB - krav uppgradering)
 # ---------------------------------------------------------------------------
 def eniro_number_lookup(phone: str) -> dict | None:
     """
@@ -290,7 +214,7 @@ def eniro_number_lookup(phone: str) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
-# 6. PersonKontakt (STUB - krav avtal med marknadsinformation.se)
+# 5. PersonKontakt (STUB - krav avtal med marknadsinformation.se)
 # ---------------------------------------------------------------------------
 def personkontakt_phone_lookup(phone: str) -> dict | None:
     """
@@ -427,25 +351,7 @@ def berika(
             result["kallor_saknar"].append("PersonKontakt (kontakta info@marknadsinformation.se)")
             result["naesta_steg"].append("PersonKontakt: telefon -> person (krav avtal)")
 
-    # --- Steg 4: Ratsit - personnummer eller namnsokning ---
-    if personnummer:
-        rp = ratsit_person_lookup(personnummer)
-        if rp:
-            kandidater.append(rp)
-            result["kallor_aktiva"].append("Ratsit Personnr")
-    elif namn and RATSIT_KEY:
-        parts = namn.strip().split()
-        fn = parts[0] if parts else ""
-        ln = " ".join(parts[1:]) if len(parts) > 1 else ""
-        ratsit_hits = ratsit_name_search(fn, ln, stad)
-        kandidater.extend(ratsit_hits)
-        if ratsit_hits:
-            result["kallor_aktiva"].append("Ratsit Namnsokning")
-    elif not RATSIT_KEY:
-        result["kallor_saknar"].append("Ratsit (begar nyckel pa ratsit.se/Content/API_Webservice.aspx)")
-        result["naesta_steg"].append("Ratsit: namn/personnr -> persondata (krav API-nyckel)")
-
-    # --- Steg 5: Eniro Person (om nyckel och betald) ---
+    # --- Steg 4: Eniro Person (om nyckel och betald) ---
     if namn:
         eniro_hits = eniro_person_search(namn, stad or "stockholm")
         if eniro_hits:
@@ -455,7 +361,7 @@ def berika(
             result["kallor_saknar"].append("Eniro Person (krav uppgradering fran trial, 990 kr/man)")
             result["naesta_steg"].append("Eniro Person: namnsokning (uppgradera pa api.eniro.com)")
 
-    # --- Steg 6: Narrow down ---
+    # --- Steg 5: Narrow down ---
     result["kandidater"] = [c for _, c in narrow_down(kandidater)] if kandidater else []
     if kandidater:
         scored = narrow_down(kandidater, ref_name=namn, ref_city=stad, ref_phone=telefon)
@@ -499,7 +405,6 @@ def print_status() -> None:
     sources = [
         ("PAP/API Lite",    PAP_KEY,      "gratis pa papilite.se"),
         ("Eniro (Company)", ENIRO_KEY,    "trial - company OK, person krav uppgradering"),
-        ("Ratsit",          RATSIT_KEY,   "OBS: API verkar nedlagt. Kontakta ratsit.se"),
         ("PersonKontakt",   PKONTAKT_KEY, "info@marknadsinformation.se (avtal)"),
     ]
     for name, key, how in sources:
@@ -555,7 +460,7 @@ def print_result(res: dict) -> None:
         for s in res["naesta_steg"]:
             print(f"    -> {s}")
 
-    if not RATSIT_KEY and not PKONTAKT_KEY:
+    if not PKONTAKT_KEY:
         print()
         print("  BAST NASTA STEG:")
         print("    PersonKontakt (info@marknadsinformation.se)")

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, Minimize2, X, Send, Loader2 } from "lucide-react";
+import { Mic, Minimize2, X } from "lucide-react";
 
 const DID_SHARE_URL = process.env.NEXT_PUBLIC_DID_AGENT_SHARE_URL ?? "";
 const DID_BRIDGE_ENABLED = process.env.NEXT_PUBLIC_DID_BRIDGE_ENABLED === "true";
@@ -31,17 +31,8 @@ function pickBlurValue(target: HTMLInputElement | HTMLTextAreaElement | HTMLSele
 function canTrackBlur(target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement) {
   if (target instanceof HTMLInputElement) {
     const blockedTypes = new Set([
-      "hidden",
-      "password",
-      "button",
-      "submit",
-      "reset",
-      "file",
-      "checkbox",
-      "radio",
-      "range",
-      "color",
-      "image",
+      "hidden", "password", "button", "submit", "reset",
+      "file", "checkbox", "radio", "range", "color", "image",
     ]);
     if (blockedTypes.has(target.type)) return false;
   }
@@ -51,12 +42,10 @@ function canTrackBlur(target: HTMLInputElement | HTMLTextAreaElement | HTMLSelec
 function speakText(text: string) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   if (!text.trim()) return;
-
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "sv-SE";
   utterance.rate = 0.95;
   utterance.pitch = 1;
-
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(utterance);
 }
@@ -64,11 +53,7 @@ function speakText(text: string) {
 export function DidOpenClawBridgeWidget() {
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
   const [testTalEnabled, setTestTalEnabled] = useState(false);
-  const [lastReply, setLastReply] = useState("");
-  const [error, setError] = useState("");
   const sessionIdRef = useRef("");
   const lastFieldValuesRef = useRef<Map<string, string>>(new Map());
   const lastFieldTimesRef = useRef<Map<string, number>>(new Map());
@@ -91,9 +76,7 @@ export function DidOpenClawBridgeWidget() {
       }
     }
     loadHealthConfig();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   async function sendFieldBlurToBridge(fieldName: string, fieldValue: string) {
@@ -106,56 +89,15 @@ export function DidOpenClawBridgeWidget() {
           sessionId: sessionIdRef.current,
           fieldName,
           fieldValue,
-          source: "did-field-blur-test",
+          source: "did-field-blur",
         }),
       });
-
       const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(body?.error || `Status ${response.status}`);
-      }
-
-      if (body?.shouldSpeak && typeof body?.reply === "string") {
-        setLastReply(body.reply);
+      if (response.ok && body?.shouldSpeak && typeof body?.reply === "string") {
         speakText(body.reply);
       }
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : "Okant fel";
-      setError(`Blur-test fel: ${detail}`);
-    }
-  }
-
-  async function sendBridgeProbe() {
-    const message = input.trim();
-    if (!message || loading) return;
-
-    setLoading(true);
-    setError("");
-    try {
-      const response = await fetch("/api/did/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: sessionIdRef.current,
-          message,
-          source: "did-widget-probe",
-          formContext: { formType: "did-voice" },
-        }),
-      });
-
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(body?.error || `Status ${response.status}`);
-      }
-
-      const reply = body?.reply || body?.content || body?.text || "";
-      setLastReply(reply || "Tomt svar fran bridge.");
-      setInput("");
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : "Okant fel";
-      setError(`Bridge-fel: ${detail}`);
-    } finally {
-      setLoading(false);
+    } catch {
+      // Silent fail for field blur events
     }
   }
 
@@ -165,17 +107,12 @@ export function DidOpenClawBridgeWidget() {
     const onFocusOut = (event: FocusEvent) => {
       const target = event.target;
       if (
-        !(
-          target instanceof HTMLInputElement ||
+        !(target instanceof HTMLInputElement ||
           target instanceof HTMLTextAreaElement ||
-          target instanceof HTMLSelectElement
-        )
-      ) {
-        return;
-      }
+          target instanceof HTMLSelectElement)
+      ) return;
 
       if (!canTrackBlur(target)) return;
-
       const fieldValue = pickBlurValue(target);
       if (!fieldValue) return;
 
@@ -185,10 +122,7 @@ export function DidOpenClawBridgeWidget() {
       const previousValue = lastFieldValuesRef.current.get(fieldName);
       const previousTime = lastFieldTimesRef.current.get(fieldName) ?? 0;
 
-      // Skip duplicate blur events for the same field/value in quick succession.
-      if (previousValue === fieldValue && now - previousTime < 1000) {
-        return;
-      }
+      if (previousValue === fieldValue && now - previousTime < 1000) return;
 
       lastFieldValuesRef.current.set(fieldName, fieldValue);
       lastFieldTimesRef.current.set(fieldName, now);
@@ -196,133 +130,80 @@ export function DidOpenClawBridgeWidget() {
     };
 
     document.addEventListener("focusout", onFocusOut, true);
-    return () => {
-      document.removeEventListener("focusout", onFocusOut, true);
-    };
+    return () => document.removeEventListener("focusout", onFocusOut, true);
   }, [testTalEnabled]);
 
-  if (!DID_BRIDGE_ENABLED || !DID_SHARE_URL) {
-    return null;
-  }
+  if (!DID_BRIDGE_ENABLED || !DID_SHARE_URL) return null;
 
   return (
     <>
+      {/* Floating mic button */}
       {!open && (
         <button
-          onClick={() => {
-            setOpen(true);
-            setMinimized(false);
-          }}
-          className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-card text-primary shadow-xl transition-transform hover:scale-105 active:scale-95"
-          aria-label="Oppna D-ID rostagent"
+          onClick={() => { setOpen(true); setMinimized(false); }}
+          className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-card text-primary shadow-xl transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/20 active:scale-95"
+          aria-label="Prata med Aida"
         >
           <Mic className="h-5 w-5" />
         </button>
       )}
 
+      {/* Minimized pill */}
       {open && minimized && (
         <button
           onClick={() => setMinimized(false)}
-          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full border border-border/60 bg-card px-3 py-2 shadow-lg"
+          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full border border-border/60 bg-card px-4 py-2.5 shadow-lg transition-all duration-300 hover:shadow-xl"
         >
-          <Mic className="h-4 w-4 text-primary" />
-          <span className="text-sm text-foreground">D-ID Voice</span>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-            via OpenClaw
-          </span>
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
+            <Mic className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <span className="text-sm font-medium text-foreground">Aida Röst</span>
+          <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
         </button>
       )}
 
+      {/* Expanded voice panel */}
       {open && !minimized && (
-        <div className="fixed bottom-5 right-5 z-50 flex h-[min(760px,calc(100vh-2.5rem))] w-[min(450px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl">
+        <div className="fixed bottom-5 right-5 z-50 flex h-[min(680px,calc(100vh-2.5rem))] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl">
+          {/* Header */}
           <div className="flex items-center justify-between border-b bg-linear-to-r from-primary/5 to-primary/10 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <Mic className="h-4 w-4 text-primary" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15">
+                <Mic className="h-4 w-4 text-primary" />
+              </div>
               <div>
-                <p className="text-sm font-semibold text-foreground">D-ID Voice</p>
+                <p className="text-sm font-semibold text-foreground">Aida Röst</p>
                 <p className="text-[11px] text-muted-foreground">
-                  Roster i D-ID, hjarnan i OpenClaw
+                  Prata med din flyttassistent
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setMinimized(true)}
-                className="rounded p-1.5 text-muted-foreground hover:bg-muted"
-                aria-label="Minimera panel"
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Minimera"
               >
                 <Minimize2 className="h-4 w-4" />
               </button>
               <button
-                onClick={() => {
-                  setOpen(false);
-                  setMinimized(false);
-                }}
-                className="rounded p-1.5 text-muted-foreground hover:bg-muted"
-                aria-label="Stang panel"
+                onClick={() => { setOpen(false); setMinimized(false); }}
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Stäng"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
           </div>
 
+          {/* D-ID iframe */}
           <iframe
             src={DID_SHARE_URL}
-            className="h-[60%] w-full border-0"
+            className="flex-1 w-full border-0"
             allow="camera;microphone;display-capture;autoplay;clipboard-write"
             sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-presentation allow-downloads"
-            title="D-ID Agent Voice Panel"
+            title="Aida röstassistent"
           />
-
-          <div className="space-y-2 border-t p-3">
-            <p className="text-xs text-muted-foreground">
-              Snabbtest av D-ID → OpenClaw-bridge:
-            </p>
-            <p className="text-[11px] text-muted-foreground">
-              TEST_TAL:{" "}
-              <span className={testTalEnabled ? "text-emerald-600" : "text-muted-foreground"}>
-                {testTalEnabled ? "aktiv (blur talar sista ordet)" : "avstangd"}
-              </span>
-            </p>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                sendBridgeProbe();
-              }}
-              className="flex items-center gap-2"
-            >
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Testfraga till OpenClaw..."
-                className="h-9 flex-1 rounded-lg border border-border/60 bg-muted/40 px-3 text-sm text-foreground outline-none focus:border-primary/40"
-                disabled={loading}
-              />
-              <button
-                type="submit"
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
-                disabled={loading || !input.trim()}
-                aria-label="Skicka testfraga"
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </button>
-            </form>
-
-            {error && (
-              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-xs text-destructive">
-                {error}
-              </p>
-            )}
-            {lastReply && (
-              <p className="rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-xs text-foreground">
-                <span className="font-medium">OpenClaw svar:</span> {lastReply}
-              </p>
-            )}
-          </div>
         </div>
       )}
     </>

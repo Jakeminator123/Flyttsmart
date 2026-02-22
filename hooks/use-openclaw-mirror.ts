@@ -10,7 +10,13 @@ export type OpenClawEvent =
   | "submit"
   | "qr_scan"
   | "checklist_generated"
-  | "tab_change";
+  | "tab_change"
+  | "task_open"
+  | "task_close"
+  | "compare_open"
+  | "compare_close"
+  | "suggestion_shown"
+  | "suggestion_accepted";
 
 export interface OpenClawPayload {
   sessionId: string;
@@ -105,11 +111,6 @@ export function useOpenClawMirror({
         const signature = WEBHOOK_SECRET
           ? await signPayload(body, WEBHOOK_SECRET)
           : "";
-
-        // Use sendBeacon for unload scenarios, fetch otherwise
-        if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-          // sendBeacon doesn't support custom headers, so fall through to fetch
-        }
 
         await fetch("/api/openclaw/webhook", {
           method: "POST",

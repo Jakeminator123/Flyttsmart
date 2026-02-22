@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import QRCode from "qrcode";
 import { buildQrUrl, type QrPersonData } from "@/lib/qr/encode";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { qrTokens } from "@/lib/db/schema";
 import crypto from "crypto";
 
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
     ).toISOString();
 
     try {
+      const db = getDb();
       const tokenHash = crypto
         .createHash("sha256")
         .update(url)

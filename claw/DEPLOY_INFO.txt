@@ -1,0 +1,175 @@
+OpenClaw Setup Guide (Flyttsmart + Render)
+=========================================
+
+Purpose
+-------
+This file documents the current OpenClaw production setup for Flyttsmart.
+It is intended to be reusable by anyone deploying or troubleshooting the stack.
+
+
+1) Architecture
+---------------
+- Flyttsmart app runs on Vercel (frontend + API proxy routes).
+- OpenClaw Gateway runs on Render as a Docker Web Service.
+- Flyttsmart calls OpenClaw through:
+  - /api/openclaw/chat
+  - /api/openclaw/webhook
+  - /api/did/chat (bridge path)
+- D-ID UI widget stays in Flyttsmart (Vercel), not on Render.
+
+
+2) Repo Paths Used by This Setup
+--------------------------------
+- Render service source root: claw/
+- Runtime entrypoint: claw/docker-entrypoint.sh
+- Docker image: claw/Dockerfile
+- Health script: claw/docker-healthcheck.sh
+- Agent identity seed: claw/config/agents/aida-flyttagent/agent/IDENTITY.md
+
+Flyttsmart API routes that talk to OpenClaw:
+- app/api/openclaw/chat/route.ts
+- app/api/openclaw/webhook/route.ts
+- app/api/did/chat/route.ts
+- app/api/openclaw/health/route.ts
+
+
+3) Render Service Configuration
+-------------------------------
+Service type:
+- Web Service
+- Runtime: Docker
+- Branch: master
+- Root Directory: claw
+
+Disk:
+- Mount path: /root/.openclaw
+- Size: 1 GB or larger
+
+Render environment variables (required):
+- OPENCLAW_GATEWAY_TOKEN=<secret>
+- OPENCLAW_GATEWAY_PORT=10000
+- OPENAI_API_KEY=<secret>
+
+Render environment variables (optional but recommended):
+- OPENCLAW_GATEWAY_BIND=lan
+- OPENCLAW_MODEL_PRIMARY=openai/gpt-5.1-codex
+- OPENCLAW_MODEL_FALLBACK=openai/gpt-5.3-codex
+
+Notes:
+- Do not manually set PORT unless you have a specific reason.
+- The entrypoint resolves port in this order:
+  PORT -> OPENCLAW_GATEWAY_PORT -> 18789
+
+
+4) Vercel Environment Variables (flyttsmart project)
+----------------------------------------------------
+Required OpenClaw vars:
+- OPENCLAW_GATEWAY_URL=https://openclaw-aida.onrender.com
+- OPENCLAW_AGENT_URL=https://openclaw-aida.onrender.com
+- OPENCLAW_GATEWAY_TOKEN=<same token as Render>
+- OPENCLAW_AGENT_ID=aida-flyttagent
+
+Recommended OpenClaw vars:
+- OPENCLAW_AGENT_TOKEN=<secret>
+- OPENCLAW_HOOKS_TOKEN=<secret>
+- OPENCLAW_ACCESS_TOKEN=<secret>
+- OPENCLAW_WEBHOOK_SECRET=<secret>   (for form mirror signature verification)
+
+Other app-critical vars:
+- TURSO_DATABASE_URL
+- TURSO_AUTH_TOKEN
+- OPENAI_API_KEY
+- QR_SIGNING_SECRET
+
+D-ID related vars:
+- NEXT_PUBLIC_DID_BRIDGE_ENABLED=true
+- NEXT_PUBLIC_DID_AGENT_SHARE_URL=<D-ID share URL>
+- DID_BRIDGE_SECRET=<optional>
+- TEST_TAL=y or n
+
+
+5) Known Behavior (Important)
+-----------------------------
+- OpenClaw dashboard session key "main" is normal.
+  It is a session bucket, not necessarily the active agent id used by Flyttsmart.
+- Flyttsmart uses OPENCLAW_AGENT_ID from Vercel (expected: aida-flyttagent).
+- No channels are required for website chat.
+  Channels are only for integrations like Telegram/Discord/WhatsApp.
+
+
+6) TEST_TAL Behavior
+--------------------
+- TEST_TAL=y:
+  /api/did/chat field_blur events can return shouldSpeak=true and trigger browser speech.
+- TEST_TAL=n:
+  field blur speech path is disabled.
+
+Quick verification:
+- GET /api/openclaw/health?debug=1
+  Expect config.testTalEnabled true/false based on TEST_TAL.
+
+
+7) Smoke Test Checklist
+-----------------------
+Render checks:
+1) GET https://openclaw-aida.onrender.com -> HTTP 200
+2) Logs contain:
+   - Config written
+   - [gateway] listening on ws://0.0.0.0:10000
+
+Vercel checks:
+1) GET https://flyttsmart.vercel.app/api/openclaw/health?debug=1
+   Expect:
+   - gatewayUrl = https://openclaw-aida.onrender.com
+   - agentId = aida-flyttagent
+   - hasGatewayToken = true
+2) POST /api/openclaw/chat
+   Expect HTTP 200 and SSE chunks with content.
+
+
+8) Common Failures and Fixes
+----------------------------
+Symptom: Render build fails at npm install with SSH/git errors
+Fix:
+- Ensure git is installed in image.
+- Ensure GitHub SSH URLs are rewritten to HTTPS.
+- Ensure ca-certificates are installed.
+
+Symptom: Render deploy logs show "No open ports detected"
+Fix:
+- Ensure gateway bind is lan (0.0.0.0).
+- Ensure service listens on Render port (10000 in this setup).
+
+Symptom: "Gateway start blocked: set gateway.mode=local"
+Fix:
+- gateway.mode must be local, or run with --allow-unconfigured.
+
+Symptom: /v1/chat/completions returns 405
+Fix:
+- Enable gateway.http.endpoints.chatCompletions.enabled=true.
+
+Symptom: Flyttsmart /api/openclaw/chat returns 500
+Fix:
+- Verify Vercel gateway URL/token/agent vars.
+- Verify Render OpenAI key and model config.
+
+Symptom: "No API key found for provider openai-codex"
+Fix:
+- Set OPENAI_API_KEY on Render.
+- Use models compatible with env-key auth or provide auth profiles for codex provider.
+
+
+9) Security Notes
+-----------------
+- Never commit secrets to git.
+- Rotate OPENCLAW_GATEWAY_TOKEN after stabilization.
+- Keep OPENCLAW_WEBHOOK_SECRET and QR_SIGNING_SECRET private.
+- Avoid exposing NEXT_PUBLIC_* secrets (client-visible).
+
+
+10) Operational Notes
+---------------------
+- Redeploy Render after changing entrypoint/config defaults.
+- Redeploy Vercel after changing build-time NEXT_PUBLIC_* vars.
+- If local and cloud behavior differ, verify linked Vercel project first:
+  this setup must target project "flyttsmart" (not legacy project names).

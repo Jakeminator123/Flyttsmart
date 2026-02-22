@@ -2,11 +2,10 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { ArrowRight, ChevronDown, CheckCircle, Shield, Fingerprint, Star } from "lucide-react"
+import { ArrowRight, ChevronDown, CheckCircle, Shield, Fingerprint } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollReveal } from "@/components/scroll-reveal"
 import { HeroVisual } from "@/components/hero-visual"
 
@@ -23,11 +22,9 @@ export function HeroSection() {
       id="hero"
       className="relative min-h-screen overflow-hidden bg-linear-to-b from-hero-gradient-from to-background"
     >
-      {/* Animated mesh gradient background */}
       <div className="hero-mesh" />
       <div className="hero-mesh-accent" />
 
-      {/* WebGL floating lines – subtle animated layer */}
       <div className="pointer-events-none absolute inset-0 opacity-20">
         <FloatingLines
           linesGradient={HERO_GRADIENT}
@@ -40,11 +37,9 @@ export function HeroSection() {
         />
       </div>
 
-      {/* Dot grid overlay */}
       <div className="pointer-events-none absolute inset-0 dot-grid opacity-40" />
 
       <div className="relative mx-auto flex max-w-7xl flex-col items-center gap-16 px-4 pt-36 pb-20 lg:flex-row lg:items-center lg:gap-16 lg:px-8 lg:pt-44 lg:pb-28 xl:gap-20">
-        {/* Text content */}
         <div className="flex flex-1 flex-col items-center text-center lg:items-start lg:text-left">
           <ScrollReveal>
             <Badge variant="outline" className="gap-2 rounded-full border-primary/30 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary backdrop-blur-sm">
@@ -123,42 +118,16 @@ export function HeroSection() {
               </div>
             </TooltipProvider>
           </ScrollReveal>
-
-          {/* Social proof */}
-          <ScrollReveal delay={500}>
-            <div className="mt-8 flex items-center gap-3 glass rounded-full px-5 py-2.5">
-              <div className="flex -space-x-2">
-                {["AL", "MK", "SJ", "EL"].map((initials) => (
-                  <Avatar key={initials} className="h-7 w-7 border-2 border-card">
-                    <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
-              </div>
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Star key={i} className="h-3.5 w-3.5 fill-accent text-accent" />
-                ))}
-              </div>
-              <span className="text-xs text-muted-foreground">
-                10 000+ nöjda flyttare
-              </span>
-            </div>
-          </ScrollReveal>
         </div>
 
-        {/* Animated app preview */}
         <ScrollReveal variant="scale" delay={200} className="flex-1 w-full lg:max-w-md">
           <div className="relative">
-            {/* Glow behind card */}
             <div className="absolute -inset-8 rounded-4xl bg-primary/8 blur-3xl animate-float-slow" />
             <HeroVisual />
           </div>
         </ScrollReveal>
       </div>
 
-      {/* Scroll indicator */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
         <div className="flex h-10 w-6 items-start justify-center rounded-full border-2 border-muted-foreground/30 pt-2">
           <div className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" />

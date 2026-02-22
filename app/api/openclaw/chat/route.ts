@@ -22,8 +22,14 @@ function buildSystemMessage(
   siteAccess?: Record<string, unknown> | null
 ) {
   let base =
-    "Du ar AIda, en hjalpsam svensk flyttassistent for Flyttsmart. " +
-    "Svara alltid pa svenska. Hjalp anvandaren med adressandring, flytt och relaterade fragor.";
+    "Du ar Aida, en hjalpsam svensk flyttassistent for Flytt.io. " +
+    "Svara alltid pa svenska. Hjalp anvandaren med adressandring, flytt och relaterade fragor.\n\n" +
+    "Nar du vill foreslå att ett formularfalt fylls i, inkludera ett suggestion-block:\n" +
+    "```suggestion\n{\"faltnamn\": \"varde\"}\n```\n" +
+    "Tillatna faltnamn: firstName, lastName, personalNumber, fromStreet, fromPostal, fromCity, " +
+    "toStreet, toPostal, toCity, apartmentNumber, propertyDesignation, propertyOwner, " +
+    "email, phone, moveDate.\n" +
+    "Foreslå BARA falt du ar saker pa. Skriv en forklaring INNAN suggestion-blocket.";
 
   if (formContext) {
     base +=
@@ -56,7 +62,7 @@ export async function POST(req: NextRequest) {
     if (!GATEWAY_BASE_URL) {
       return NextResponse.json({
         content:
-          "Hej! Jag ar AIda, men jag ar inte helt konfigurerad annu. " +
+          "Hej! Jag ar Aida, men jag ar inte helt konfigurerad annu. " +
           "Be administratoren satta OPENCLAW_GATEWAY_URL eller OPENCLAW_AGENT_URL i miljovariablerna.",
         role: "assistant",
       });
@@ -65,7 +71,7 @@ export async function POST(req: NextRequest) {
     if (!GATEWAY_TOKEN) {
       return NextResponse.json({
         content:
-          "Hej! Jag ar AIda, men jag saknar gateway-token. " +
+          "Hej! Jag ar Aida, men jag saknar gateway-token. " +
           "Be administratoren satta OPENCLAW_GATEWAY_TOKEN (eller OPENCLAW_AGENT_TOKEN i enkel setup).",
         role: "assistant",
       });
@@ -105,7 +111,7 @@ export async function POST(req: NextRequest) {
       );
       return NextResponse.json(
         {
-          content: `AIda kunde inte svara just nu (${agentResponse.status}). Forsok igen om en stund.`,
+          content: `Aida kunde inte svara just nu (${agentResponse.status}). Forsok igen om en stund.`,
         },
         { status: 502 }
       );
@@ -211,7 +217,7 @@ export async function POST(req: NextRequest) {
     console.error("[v0] OpenClaw chat proxy error:", error);
     return NextResponse.json(
       {
-        content: "Ett fel uppstod i anslutningen till AIda. Forsok igen.",
+        content: "Ett fel uppstod i anslutningen till Aida. Forsok igen.",
       },
       { status: 500 }
     );

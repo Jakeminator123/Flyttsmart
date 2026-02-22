@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { ScrollReveal } from "@/components/scroll-reveal"
 import { Logo } from "@/components/logo"
-import { Mail, Phone, MapPin } from "lucide-react"
+import { Mail, MapPin } from "lucide-react"
 
 export function SiteFooter() {
   return (
@@ -41,17 +41,6 @@ export function SiteFooter() {
                       </a>
                     </TooltipTrigger>
                     <TooltipContent>Skicka oss ett mejl</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <a href="tel:+46101234567" className="flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-primary">
-                        <Phone className="h-4 w-4" />
-                        010-123 45 67
-                      </a>
-                    </TooltipTrigger>
-                    <TooltipContent>Ring oss vardagar 8-17</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
@@ -100,14 +89,6 @@ export function SiteFooter() {
                   Juridiskt
                 </h3>
                 <ul className="flex flex-col gap-3">
-                  <li>
-                    <Link
-                      href="/villkor"
-                      className="text-sm text-muted-foreground transition-colors hover:text-primary"
-                    >
-                      Allmänna villkor
-                    </Link>
-                  </li>
                   <li>
                     <Link
                       href="/anvandarvillkor"
@@ -170,7 +151,7 @@ export function SiteFooter() {
             &copy; 2026 Flytt.io. Alla rättigheter förbehållna.
           </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <Link href="/villkor" className="transition-colors hover:text-primary">
+            <Link href="/anvandarvillkor" className="transition-colors hover:text-primary">
               Villkor
             </Link>
             <Separator orientation="vertical" className="h-3" />

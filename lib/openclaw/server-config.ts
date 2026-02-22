@@ -3,9 +3,20 @@ import type { NextRequest } from "next/server";
 const DEFAULT_DEV_GATEWAY_URL = "http://127.0.0.1:18789";
 const DEFAULT_REDIRECT_PATH = "/adressandring";
 
+function sanitizeEnvValue(value: string): string {
+  return value
+    .trim()
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/\\r|\\n/g, "")
+    .replace(/[\r\n]/g, "")
+    .replace(/(%0d|%0a)/gi, "");
+}
+
 function firstNonEmpty(...values: Array<string | undefined>): string {
   for (const value of values) {
-    if (value && value.trim()) return value.trim();
+    if (!value) continue;
+    const sanitized = sanitizeEnvValue(value);
+    if (sanitized) return sanitized;
   }
   return "";
 }

@@ -66,7 +66,7 @@ function buildSystemMessage(
   siteAccess?: Record<string, unknown> | null
 ) {
   let base =
-    "Du ar AIda, en hjalpsam svensk flyttassistent for Flyttsmart. " +
+    "Du ar Aida, en hjalpsam svensk flyttassistent for Flytt.io. " +
     "Svara alltid pa svenska, kort och tydligt. Hjalp anvandaren med flytt, adressandring och checklistor.";
 
   if (formContext) {
@@ -219,7 +219,7 @@ export async function POST(req: NextRequest) {
 
     const gatewayJson = await gatewayResponse.json().catch(() => null);
     const reply =
-      extractOpenClawText(gatewayJson) ?? "AIda kunde inte generera ett svar.";
+      extractOpenClawText(gatewayJson) ?? "Aida kunde inte generera ett svar.";
 
     return NextResponse.json(
       {

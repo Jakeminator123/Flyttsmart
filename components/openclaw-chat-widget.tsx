@@ -9,25 +9,44 @@ import {
   Bot,
   User,
   Minus,
-  FlaskConical,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { parseOpenClawResponse } from "@/lib/openclaw/response";
 
 // ─── Types ─────────────────────────────────────────────
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  suggestions?: Record<string, string> | null;
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  firstName: "Förnamn",
+  lastName: "Efternamn",
+  personalNumber: "Personnummer",
+  fromStreet: "Nuvarande gata",
+  fromPostal: "Nuvarande postnummer",
+  fromCity: "Nuvarande ort",
+  toStreet: "Ny gata",
+  toPostal: "Nytt postnummer",
+  toCity: "Ny ort",
+  apartmentNumber: "Lägenhetsnummer",
+  propertyDesignation: "Fastighetsbeteckning",
+  propertyOwner: "Fastighetsägare",
+  email: "E-post",
+  phone: "Telefon",
+  moveDate: "Flyttdatum",
+};
+
 interface OpenClawChatWidgetProps {
-  /** Form type identifier for context */
   formType: string;
-  /** Current form data snapshot (sent with each message for context) */
   formData?: Record<string, string | boolean | number>;
-  /** Current step index (for multi-step forms) */
   currentStep?: number;
+  /** Called when the user accepts a field suggestion from the agent */
+  onSuggestion?: (field: string, value: string) => void;
 }
 
 // ─── Session ID helper ─────────────────────────────────
@@ -52,6 +71,7 @@ export function OpenClawChatWidget({
   formType,
   formData,
   currentStep,
+  onSuggestion,
 }: OpenClawChatWidgetProps) {
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
@@ -59,7 +79,7 @@ export function OpenClawChatWidget({
     {
       role: "assistant",
       content:
-        "Hej! Jag ar AIda, din personliga flyttassistent. Jag foljer med i formularet du fyller i och kan hjalpa dig med fragor om flytt, adressandring eller vad du an undrar over.",
+        "Hej! Jag är Aida, din personliga flyttassistent. Jag följer med i formuläret du fyller i och kan hjälpa dig med frågor om flytt, adressändring eller vad du än undrar över.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -123,7 +143,6 @@ export function OpenClawChatWidget({
       const contentType = res.headers.get("content-type") || "";
 
       if (contentType.includes("text/event-stream")) {
-        // Stream SSE response
         const reader = res.body?.getReader();
         const decoder = new TextDecoder();
         let assistantContent = "";
@@ -165,15 +184,29 @@ export function OpenClawChatWidget({
             }
           }
         }
+
+        if (assistantContent) {
+          const { text, suggestions } = parseOpenClawResponse(assistantContent);
+          setMessages((prev) => {
+            const next = [...prev];
+            next[next.length - 1] = {
+              role: "assistant",
+              content: text || assistantContent,
+              suggestions,
+            };
+            return next;
+          });
+        }
       } else {
-        // JSON response
         const data = await res.json();
+        const raw = data.content || data.reply || "Inget svar från agenten.";
+        const { text, suggestions } = parseOpenClawResponse(raw);
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            content:
-              data.content || data.reply || "Inget svar fran agenten.",
+            content: text || raw,
+            suggestions,
           },
         ]);
       }
@@ -185,7 +218,7 @@ export function OpenClawChatWidget({
         ...prev,
         {
           role: "assistant",
-          content: `Anslutningen till AIda misslyckades: ${errorDetail}. Forsok igen om en stund.`,
+          content: `Anslutningen till Aida misslyckades: ${errorDetail}. Försök igen om en stund.`,
         },
       ]);
     } finally {
@@ -220,7 +253,7 @@ export function OpenClawChatWidget({
         <button
           onClick={handleOpen}
           className="fixed bottom-5 left-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-primary/30 active:scale-95"
-          aria-label="Oppna AIda-assistent"
+          aria-label="Öppna Aida-assistent"
         >
           <MessageCircle className="h-6 w-6" />
           {hasUnread && (
@@ -228,10 +261,6 @@ export function OpenClawChatWidget({
               !
             </span>
           )}
-          {/* Test mode indicator */}
-          <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-accent-foreground">
-            <FlaskConical className="h-3 w-3" />
-          </span>
         </button>
       )}
 
@@ -245,11 +274,9 @@ export function OpenClawChatWidget({
             <Bot className="h-4 w-4 text-primary" />
           </div>
           <span className="text-sm font-medium text-foreground">
-            AIda
+            Aida
           </span>
-          <span className="flex h-5 items-center rounded-full bg-accent/20 px-1.5 text-[10px] font-medium text-accent-foreground">
-            TEST
-          </span>
+          <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           {hasUnread && (
             <span className="flex h-2.5 w-2.5 rounded-full bg-primary animate-pulse" />
           )}
@@ -259,7 +286,7 @@ export function OpenClawChatWidget({
               handleClose();
             }}
             className="ml-1 rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Stang chatt"
+                aria-label="Stäng chatt"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -282,15 +309,9 @@ export function OpenClawChatWidget({
                 <Bot className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold leading-none text-foreground">
-                    AIda
-                  </p>
-                  <span className="flex h-5 items-center gap-1 rounded-full bg-accent/20 px-2 text-[10px] font-semibold text-accent-foreground">
-                    <FlaskConical className="h-3 w-3" />
-                    TEST
-                  </span>
-                </div>
+                <p className="text-sm font-semibold leading-none text-foreground">
+                  Aida
+                </p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
                   Din personliga flyttassistent
                 </p>
@@ -307,7 +328,7 @@ export function OpenClawChatWidget({
               <button
                 onClick={handleClose}
                 className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Stang chatt"
+                aria-label="Stäng chatt"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -364,6 +385,37 @@ export function OpenClawChatWidget({
                       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/40 [animation-delay:300ms]" />
                     </div>
                   )}
+                  {msg.suggestions && onSuggestion && (
+                    <div className="mt-2 flex flex-wrap gap-1.5 border-t border-border/30 pt-2">
+                      {Object.entries(msg.suggestions).map(([field, value]) => (
+                        <button
+                          key={field}
+                          type="button"
+                          onClick={() => {
+                            onSuggestion(field, value);
+                            setMessages((prev) =>
+                              prev.map((m, idx) =>
+                                idx === i
+                                  ? {
+                                      ...m,
+                                      suggestions: Object.fromEntries(
+                                        Object.entries(m.suggestions ?? {}).filter(
+                                          ([k]) => k !== field,
+                                        ),
+                                      ),
+                                    }
+                                  : m,
+                              ),
+                            );
+                          }}
+                          className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/15 active:scale-95"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          {FIELD_LABELS[field] ?? field}: {value}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -383,7 +435,7 @@ export function OpenClawChatWidget({
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Fraga AIda..."
+                placeholder="Fråga Aida..."
                 className="h-10 flex-1 rounded-xl border border-border/60 bg-muted/40 px-3.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 transition-colors focus:border-primary/40 focus:bg-background disabled:opacity-50"
                 disabled={loading}
               />

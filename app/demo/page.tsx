@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   QrCode,
@@ -38,6 +39,14 @@ const DEMO_DATA = {
 };
 
 export default function DemoPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") {
+      router.replace("/");
+    }
+  }, [router]);
+
   const [name, setName] = useState(DEMO_DATA.name);
   const [personalNumber, setPersonalNumber] = useState(DEMO_DATA.personalNumber);
   const [address, setAddress] = useState(DEMO_DATA.address);

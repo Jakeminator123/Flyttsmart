@@ -32,8 +32,7 @@ export function Header() {
 
   const navLinks = [
     { label: "Hur det funkar", href: "#hur-det-funkar" },
-    { label: "Fördelar", href: "#fordelar" },
-    { label: "Omdömen", href: "#omdomnen" },
+    { label: "Säkerhet", href: "#sakerhet" },
     { label: "Vanliga frågor", href: "#faq" },
   ]
 

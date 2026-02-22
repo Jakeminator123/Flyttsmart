@@ -35,7 +35,7 @@ const trustSignals = [
 
 export function TrustSection() {
   return (
-    <section className="relative overflow-hidden bg-background py-28 lg:py-36">
+    <section id="sakerhet" className="relative overflow-hidden bg-background py-28 lg:py-36">
       <div className="section-divider absolute top-0 left-0 right-0" />
 
       {/* Animated background orbs */}

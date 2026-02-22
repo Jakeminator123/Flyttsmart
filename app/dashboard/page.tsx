@@ -392,10 +392,10 @@ function DashboardContent() {
               </CardHeader>
               <CardContent>
                 {checklist.length > 0 ? (
-                  <ChecklistView items={checklist} />
+                  <ChecklistView items={checklist} readOnly />
                 ) : (
                   <p className="py-8 text-center text-sm text-muted-foreground">
-                    Ingen checklista genererad. Gå tillbaka och generera en.
+                    Ingen flyttlista sparad ännu.
                   </p>
                 )}
               </CardContent>

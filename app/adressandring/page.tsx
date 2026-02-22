@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, type KeyboardEvent } from "react";
+import { useState, useEffect, useCallback, useRef, type KeyboardEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -85,6 +85,13 @@ interface FormData {
   hasChildren: boolean;
 }
 
+type SuggestionSource = "postal" | "ai" | "openclaw";
+
+interface FieldSuggestion {
+  value: string;
+  source: SuggestionSource;
+}
+
 const emptyForm: FormData = {
   firstName: "",
   lastName: "",
@@ -106,6 +113,22 @@ const emptyForm: FormData = {
   hasChildren: false,
 };
 
+const AUTOFILL_ENABLED =
+  (process.env.NEXT_PUBLIC_AUTOFILL_ENABLED ?? "true") === "true";
+const AUTOFILL_DEV_ONLY =
+  (process.env.NEXT_PUBLIC_AUTOFILL_DEV_ONLY ?? "true") === "true";
+const AUTOFILL_MODE = process.env.NEXT_PUBLIC_AUTOFILL_MODE ?? "manual";
+const SUGGESTION_PRIORITY: Record<SuggestionSource, number> = {
+  postal: 3,
+  ai: 2,
+  openclaw: 1,
+};
+const SUGGESTION_SOURCE_LABEL: Record<SuggestionSource, string> = {
+  postal: "Postnummer-uppslag",
+  ai: "AI-förslag",
+  openclaw: "Aida-förslag",
+};
+
 export default function AdressandringPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [agreed, setAgreed] = useState(false);
@@ -116,9 +139,7 @@ export default function AdressandringPage() {
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [checklistLoading, setChecklistLoading] = useState(false);
   const [checklistError, setChecklistError] = useState<string | null>(null);
-  const [checklistSource, setChecklistSource] = useState<
-    "ai" | "fallback" | null
-  >(null);
+  const [checklistSource, setChecklistSource] = useState<"template" | null>(null);
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<{
     confidence: number;
@@ -131,9 +152,16 @@ export default function AdressandringPage() {
   const [copied, setCopied] = useState(false);
   const [mobileQrUrl, setMobileQrUrl] = useState<string | null>(null);
   const [autofillLoading, setAutofillLoading] = useState(false);
+  const [fieldSuggestions, setFieldSuggestions] = useState<
+    Partial<Record<keyof FormData, FieldSuggestion>>
+  >({});
   const [bankIdQrOnlyVisible, setBankIdQrOnlyVisible] = useState(false);
   const [skvInt7Starting, setSkvInt7Starting] = useState(false);
   const [skvInt7Status, setSkvInt7Status] = useState<string | null>(null);
+
+  const autofillActive =
+    AUTOFILL_ENABLED &&
+    (!AUTOFILL_DEV_ONLY || process.env.NODE_ENV === "development");
 
   // OpenClaw real-time form mirroring
   const { mirrorField, mirrorStepChange, mirrorSubmit, mirrorEvent } =
@@ -243,9 +271,167 @@ export default function AdressandringPage() {
         mirrorField(field, value, next as unknown as Record<string, string | boolean | number>);
         return next;
       });
+      setFieldSuggestions((prev) => {
+        if (!prev[field]) return prev;
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
     },
     [mirrorField]
   );
+
+  const queueSuggestion = useCallback(
+    (field: keyof FormData, rawValue: string, source: SuggestionSource) => {
+      if (!autofillActive) return;
+      const value = rawValue.trim();
+      if (!value) return;
+
+      if (AUTOFILL_MODE === "auto") {
+        mirrorEvent(
+          "suggestion_shown",
+          { field, value, source, mode: "auto" },
+          currentStep
+        );
+        updateForm(field, value);
+        mirrorEvent(
+          "suggestion_accepted",
+          { field, value, source, mode: "auto" },
+          currentStep
+        );
+        return;
+      }
+
+      setFieldSuggestions((prev) => {
+        const existing = prev[field];
+        if (
+          existing &&
+          SUGGESTION_PRIORITY[existing.source] > SUGGESTION_PRIORITY[source]
+        ) {
+          return prev;
+        }
+        mirrorEvent(
+          "suggestion_shown",
+          { field, value, source, mode: "manual" },
+          currentStep
+        );
+        return { ...prev, [field]: { value, source } };
+      });
+    },
+    [autofillActive, currentStep, mirrorEvent, updateForm]
+  );
+
+  const acceptSuggestion = useCallback(
+    (field: keyof FormData) => {
+      const suggestion = fieldSuggestions[field];
+      if (!suggestion) return;
+      updateForm(field, suggestion.value);
+      mirrorEvent(
+        "suggestion_accepted",
+        { field, value: suggestion.value, source: suggestion.source },
+        currentStep
+      );
+      setFieldSuggestions((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    },
+    [currentStep, fieldSuggestions, mirrorEvent, updateForm]
+  );
+
+  const dismissSuggestion = useCallback((field: keyof FormData) => {
+    setFieldSuggestions((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }, []);
+
+  const renderSuggestionBanner = (field: keyof FormData) => {
+    const suggestion = fieldSuggestions[field];
+    if (!suggestion || !autofillActive) return null;
+
+    return (
+      <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <span className="font-medium">Förslag ({SUGGESTION_SOURCE_LABEL[suggestion.source]}): </span>
+            <span>{suggestion.value}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => acceptSuggestion(field)}
+              className="rounded border border-red-400 bg-white px-2 py-0.5 font-medium text-red-700 hover:bg-red-100"
+            >
+              Acceptera
+            </button>
+            <button
+              type="button"
+              onClick={() => dismissSuggestion(field)}
+              className="rounded border border-red-300 bg-white px-2 py-0.5 text-red-600 hover:bg-red-100"
+            >
+              Avvisa
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Auto-lookup city from postal code via PAP API
+  const fromPostalAbortRef = useRef<AbortController | null>(null);
+  const toPostalAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!autofillActive) return;
+    const postalCode = form.fromPostal.replace(/\s+/g, "");
+    if (postalCode.length !== 5 || !/^\d{5}$/.test(postalCode)) return;
+    if (form.fromCity && AUTOFILL_MODE !== "manual") return;
+
+    fromPostalAbortRef.current?.abort();
+    const controller = new AbortController();
+    fromPostalAbortRef.current = controller;
+
+    fetch(`/api/enrich/postal?postalCode=${postalCode}`, {
+      signal: controller.signal,
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.city) {
+          queueSuggestion("fromCity", data.city, "postal");
+        }
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, [AUTOFILL_MODE, autofillActive, form.fromCity, form.fromPostal, queueSuggestion]);
+
+  useEffect(() => {
+    if (!autofillActive) return;
+    const postalCode = form.toPostal.replace(/\s+/g, "");
+    if (postalCode.length !== 5 || !/^\d{5}$/.test(postalCode)) return;
+    if (form.toCity && AUTOFILL_MODE !== "manual") return;
+
+    toPostalAbortRef.current?.abort();
+    const controller = new AbortController();
+    toPostalAbortRef.current = controller;
+
+    fetch(`/api/enrich/postal?postalCode=${postalCode}`, {
+      signal: controller.signal,
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.city) {
+          queueSuggestion("toCity", data.city, "postal");
+        }
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, [AUTOFILL_MODE, autofillActive, form.toCity, form.toPostal, queueSuggestion]);
 
   // Handle QR scan result
   async function handleQrScan(rawData: string) {
@@ -340,7 +526,7 @@ export default function AdressandringPage() {
     }
   }
 
-  // Generate checklist via AI
+  // Generate checklist from deterministic template
   async function generateChecklist() {
     if (!form.moveDate) {
       setChecklistError(
@@ -352,13 +538,11 @@ export default function AdressandringPage() {
     setChecklistError(null);
     setChecklistSource(null);
     try {
-      const res = await fetch("/api/ai/checklist", {
+      const res = await fetch("/api/checklist/template", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           moveDate: form.moveDate,
-          scenario: form.householdType || "apartment, single person",
-          hasChildren: form.hasChildren,
           toCity: form.toCity || undefined,
         }),
       });
@@ -373,7 +557,7 @@ export default function AdressandringPage() {
         throw new Error("Ingen checklista returnerades. Försök igen.");
       }
       setChecklist(items);
-      setChecklistSource(data.source || "ai");
+      setChecklistSource("template");
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Kunde inte generera checklistan.";
@@ -382,6 +566,45 @@ export default function AdressandringPage() {
     } finally {
       setChecklistLoading(false);
     }
+  }
+
+  function handleChecklistItemChange(
+    index: number,
+    changes: Partial<ChecklistItem>
+  ) {
+    const currentItem = checklist[index];
+    if (currentItem) {
+      const basePayload = {
+        taskKey: currentItem.taskKey || `index_${index}`,
+        title: currentItem.title,
+        section: currentItem.section || "",
+      };
+      if (typeof changes.needHelp === "boolean") {
+        mirrorEvent(
+          changes.needHelp ? "task_open" : "task_close",
+          { ...basePayload, needHelp: changes.needHelp },
+          currentStep
+        );
+      }
+      if (typeof changes.wantCompare === "boolean") {
+        mirrorEvent(
+          changes.wantCompare ? "compare_open" : "compare_close",
+          { ...basePayload, wantCompare: changes.wantCompare },
+          currentStep
+        );
+      }
+    }
+
+    setChecklist((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        const next = { ...item, ...changes };
+        if (changes.status) {
+          next.completed = changes.status === "done";
+        }
+        return next;
+      })
+    );
   }
 
   // Generate QR code for mobile handoff
@@ -435,6 +658,7 @@ export default function AdressandringPage() {
 
   // AI autofill – suggest missing fields based on what's already entered
   async function handleAutofill() {
+    if (!autofillActive) return;
     setAutofillLoading(true);
     try {
       const res = await fetch("/api/ai/autofill", {
@@ -458,20 +682,10 @@ export default function AdressandringPage() {
 
       const data = await res.json();
       if (data.suggestions) {
-        setForm((prev) => {
-          const next = { ...prev };
-          for (const [key, value] of Object.entries(data.suggestions)) {
-            if (value && !prev[key as keyof FormData]) {
-              (next as Record<string, unknown>)[key] = value;
-            }
-          }
-          mirrorEvent(
-            "field_change",
-            next as unknown as Record<string, string | boolean | number>,
-            currentStep
-          );
-          return next as FormData;
-        });
+        for (const [key, value] of Object.entries(data.suggestions)) {
+          if (typeof value !== "string" || !value.trim()) continue;
+          queueSuggestion(key as keyof FormData, value, "ai");
+        }
       }
     } catch {
       // Autofill failed silently
@@ -1009,6 +1223,7 @@ export default function AdressandringPage() {
                 {/* Manual entry */}
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
+                    {renderSuggestionBanner("firstName")}
                     <Label htmlFor="firstName">Förnamn</Label>
                     <Input
                       id="firstName"
@@ -1018,6 +1233,7 @@ export default function AdressandringPage() {
                     />
                   </div>
                   <div className="space-y-2">
+                    {renderSuggestionBanner("lastName")}
                     <Label htmlFor="lastName">Efternamn</Label>
                     <Input
                       id="lastName"
@@ -1028,6 +1244,7 @@ export default function AdressandringPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  {renderSuggestionBanner("personalNumber")}
                   <Label htmlFor="personalNumber">Personnummer</Label>
                   <Input
                     id="personalNumber"
@@ -1044,6 +1261,7 @@ export default function AdressandringPage() {
                 <Separator />
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
+                    {renderSuggestionBanner("email")}
                     <Label htmlFor="email">E-postadress</Label>
                     <Input
                       id="email"
@@ -1054,6 +1272,7 @@ export default function AdressandringPage() {
                     />
                   </div>
                   <div className="space-y-2">
+                    {renderSuggestionBanner("phone")}
                     <Label htmlFor="phone">Telefonnummer</Label>
                     <Input
                       id="phone"
@@ -1136,6 +1355,7 @@ export default function AdressandringPage() {
                   </h3>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2 sm:col-span-2">
+                      {renderSuggestionBanner("fromStreet")}
                       <Label htmlFor="fromStreet">Gatuadress</Label>
                       <Input
                         id="fromStreet"
@@ -1147,6 +1367,7 @@ export default function AdressandringPage() {
                       />
                     </div>
                     <div className="space-y-2">
+                      {renderSuggestionBanner("fromPostal")}
                       <Label htmlFor="fromPostal">Postnummer</Label>
                       <Input
                         id="fromPostal"
@@ -1158,6 +1379,7 @@ export default function AdressandringPage() {
                       />
                     </div>
                     <div className="space-y-2">
+                      {renderSuggestionBanner("fromCity")}
                       <Label htmlFor="fromCity">Ort</Label>
                       <Input
                         id="fromCity"
@@ -1178,6 +1400,7 @@ export default function AdressandringPage() {
                   </h3>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2 sm:col-span-2">
+                      {renderSuggestionBanner("toStreet")}
                       <Label htmlFor="toStreet">Gatuadress</Label>
                       <Input
                         id="toStreet"
@@ -1187,6 +1410,7 @@ export default function AdressandringPage() {
                       />
                     </div>
                     <div className="space-y-2">
+                      {renderSuggestionBanner("toPostal")}
                       <Label htmlFor="toPostal">Postnummer</Label>
                       <Input
                         id="toPostal"
@@ -1196,6 +1420,7 @@ export default function AdressandringPage() {
                       />
                     </div>
                     <div className="space-y-2">
+                      {renderSuggestionBanner("toCity")}
                       <Label htmlFor="toCity">Ort</Label>
                       <Input
                         id="toCity"
@@ -1205,6 +1430,7 @@ export default function AdressandringPage() {
                       />
                     </div>
                     <div className="space-y-2">
+                      {renderSuggestionBanner("apartmentNumber")}
                       <Label htmlFor="apartmentNumber">Lägenhetsnummer</Label>
                       <Input
                         id="apartmentNumber"
@@ -1216,6 +1442,7 @@ export default function AdressandringPage() {
                       />
                     </div>
                     <div className="space-y-2 sm:col-span-2">
+                      {renderSuggestionBanner("propertyDesignation")}
                       <Label htmlFor="propertyDesignation">
                         Fastighetsbeteckning (valfritt)
                       </Label>
@@ -1229,6 +1456,7 @@ export default function AdressandringPage() {
                       />
                     </div>
                     <div className="space-y-2 sm:col-span-2">
+                      {renderSuggestionBanner("propertyOwner")}
                       <Label htmlFor="propertyOwner">
                         Fastighetsägare (valfritt)
                       </Label>
@@ -1248,11 +1476,13 @@ export default function AdressandringPage() {
                 <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
                   <Sparkles className="h-4 w-4 shrink-0 text-primary" />
                   <p className="flex-1 text-xs text-muted-foreground">
-                    Saknar du postnummer eller ort? AI kan försöka komplettera.
+                    {autofillActive
+                      ? `Autofyll är aktiv (${AUTOFILL_MODE === "auto" ? "auto" : "manuell accept"}). Förslag visas ovanför fält.`
+                      : "Autofyll är avstängd i denna miljö."}
                   </p>
                   <Button
                     onClick={handleAutofill}
-                    disabled={autofillLoading}
+                    disabled={autofillLoading || !autofillActive}
                     variant="outline"
                     size="sm"
                     className="shrink-0 gap-1.5 text-xs"
@@ -1262,7 +1492,7 @@ export default function AdressandringPage() {
                     ) : (
                       <Sparkles className="h-3.5 w-3.5" />
                     )}
-                    {autofillLoading ? "Fyller i..." : "AI-komplettera"}
+                    {autofillLoading ? "Tar fram förslag..." : "Hämta AI-förslag"}
                   </Button>
                 </div>
               </CardContent>
@@ -1288,6 +1518,7 @@ export default function AdressandringPage() {
               <CardContent className="space-y-5">
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
+                    {renderSuggestionBanner("moveDate")}
                     <Label htmlFor="moveDate">Inflyttningsdatum</Label>
                     <Input
                       id="moveDate"
@@ -1360,18 +1591,18 @@ export default function AdressandringPage() {
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2 font-medium text-foreground">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    AI-checklista genereras i nästa steg
+                    Flyttlistan laddas i nästa steg
                   </div>
                   <p className="mt-1">
-                    Baserat på ditt inflyttningsdatum och scenario skapar vår AI
-                    en personlig, tidsatt checklista.
+                    Du får en komplett checklista med kolumnerna Behöver hjälp,
+                    Vill jämföra och Status.
                   </p>
                 </div>
               </CardContent>
             </>
           )}
 
-          {/* ── Step 4: AI Checklist ───────────────────────────────── */}
+          {/* ── Step 4: Checklist matrix ───────────────────────────── */}
           {currentStep === 4 && (
             <>
               <CardHeader>
@@ -1379,29 +1610,19 @@ export default function AdressandringPage() {
                   <Badge variant="outline" className="text-primary">
                     Steg 4
                   </Badge>
-                  {checklistSource === "ai" && (
+                  {checklistSource === "template" && (
                     <Badge className="gap-1 bg-primary/10 text-primary">
-                      <Sparkles className="h-3 w-3" />
-                      AI-genererad
-                    </Badge>
-                  )}
-                  {checklistSource === "fallback" && (
-                    <Badge
-                      variant="secondary"
-                      className="gap-1 text-orange-600"
-                    >
-                      <AlertCircle className="h-3 w-3" />
-                      Standardchecklista
+                      <ListChecks className="h-3 w-3" />
+                      Mallbaserad
                     </Badge>
                   )}
                 </div>
                 <CardTitle className="font-heading text-xl">
-                  Din personliga checklista
+                  Din flyttlista
                 </CardTitle>
                 <CardDescription>
-                  {checklistSource === "fallback"
-                    ? "AI-tjänsten var inte tillgänglig. Här är en standardchecklista anpassad efter ditt flyttdatum."
-                    : `AI har skapat en tidsatt checklista baserad på din flytt den ${form.moveDate || "–"}${form.toCity ? ` till ${form.toCity}` : ""}. Inkluderar områdestips!`}
+                  Markera vilka moment du vill ha hjalp med, vad du vill jamfora
+                  och hur langt du har kommit.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1409,39 +1630,17 @@ export default function AdressandringPage() {
                   <div className="flex flex-col items-center gap-3 py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     <p className="text-sm text-muted-foreground">
-                      AI skapar din checklista...
+                      Laddar flyttlistan...
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Detta kan ta några sekunder
                     </p>
                   </div>
                 ) : checklist.length > 0 ? (
-                  <div className="space-y-4">
-                    {checklistSource === "fallback" && (
-                      <div className="flex items-start gap-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm">
-                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-orange-600" />
-                        <div>
-                          <p className="font-medium text-orange-800">
-                            Standardchecklista visas
-                          </p>
-                          <p className="mt-0.5 text-orange-700">
-                            AI-tjänsten kunde inte nås. Du kan försöka generera
-                            en AI-anpassad checklista igen.
-                          </p>
-                          <Button
-                            onClick={generateChecklist}
-                            variant="outline"
-                            size="sm"
-                            className="mt-2 gap-1.5"
-                          >
-                            <Sparkles className="h-3.5 w-3.5" />
-                            Försök igen med AI
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                    <ChecklistView items={checklist} />
-                  </div>
+                  <ChecklistView
+                    items={checklist}
+                    onItemChange={handleChecklistItemChange}
+                  />
                 ) : (
                   <div className="flex flex-col items-center gap-3 py-12 text-center">
                     {checklistError ? (
@@ -1468,7 +1667,7 @@ export default function AdressandringPage() {
                             </>
                           ) : (
                             <>
-                              <Sparkles className="h-4 w-4" />
+                              <ListChecks className="h-4 w-4" />
                               Försök igen
                             </>
                           )}
@@ -1485,8 +1684,8 @@ export default function AdressandringPage() {
                           variant="outline"
                           className="gap-2"
                         >
-                          <Sparkles className="h-4 w-4" />
-                          Generera checklista
+                          <ListChecks className="h-4 w-4" />
+                          Ladda flyttlista
                         </Button>
                       </>
                     )}
@@ -1780,6 +1979,9 @@ export default function AdressandringPage() {
         formType="adressandring"
         formData={form as unknown as Record<string, string | boolean | number>}
         currentStep={currentStep}
+        onSuggestion={(field, value) => {
+          queueSuggestion(field as keyof FormData, value, "openclaw");
+        }}
       />
     </div>
   );

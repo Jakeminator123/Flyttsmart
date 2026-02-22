@@ -115,7 +115,10 @@ export function OpenClawChatWidget({
       });
 
       if (!res.ok) {
-        throw new Error(`Chat request failed: ${res.status}`);
+        const errBody = await res.json().catch(() => null);
+        const errMsg = errBody?.content || errBody?.error || `Status ${res.status}`;
+        console.log("[v0] Chat request failed:", res.status, errMsg);
+        throw new Error(errMsg);
       }
 
       const contentType = res.headers.get("content-type") || "";
@@ -177,13 +180,14 @@ export function OpenClawChatWidget({
       }
 
       if (minimized) setHasUnread(true);
-    } catch {
+    } catch (err) {
+      const errorDetail = err instanceof Error ? err.message : "Okant fel";
+      console.log("[v0] Chat error caught:", errorDetail);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content:
-            "Anslutningen till AIda misslyckades. Forsok igen om en stund.",
+          content: `Anslutningen till AIda misslyckades: ${errorDetail}. Forsok igen om en stund.`,
         },
       ]);
     } finally {

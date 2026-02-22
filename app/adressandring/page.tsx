@@ -1535,7 +1535,7 @@ export default function AdressandringPage() {
         </Card>
       </main>
 
-      {/* OpenClaw Chat Widget (replaces AiChatBubble for testing) */}
+      {/* OpenClaw chat widget */}
       <OpenClawChatWidget
         formType="adressandring"
         formData={form as unknown as Record<string, string | boolean | number>}

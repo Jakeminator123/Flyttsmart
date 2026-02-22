@@ -128,6 +128,11 @@ async function main() {
     process.env.OPENCLAW_HOOKS_TOKEN ||
     "";
   const webhookSecret = process.env.OPENCLAW_WEBHOOK_SECRET || "";
+  const testTalEnabled = (process.env.TEST_TAL || "").toLowerCase() === "y";
+  const didBridgeEnabled =
+    (process.env.NEXT_PUBLIC_DID_BRIDGE_ENABLED || "").toLowerCase() === "true";
+  const didBridgeSecret = process.env.DID_BRIDGE_SECRET || "";
+  const runDidCheck = readArg("--did", didBridgeEnabled ? "1" : "0") === "1";
 
   const prompt = readArg("--prompt", "Svara med exakt ordet DOCTOR_OK");
   const sessionId = `doctor-${Date.now()}`;
@@ -140,8 +145,24 @@ async function main() {
   console.log(`- hooksToken: ${maskSecret(hooksToken)}`);
   console.log(`- accessToken: ${maskSecret(accessToken)}`);
   console.log(`- webhookSecret: ${maskSecret(webhookSecret)}`);
+  console.log(`- testTalEnabled: ${testTalEnabled}`);
+  console.log(`- didBridgeEnabled: ${didBridgeEnabled}`);
+  console.log(`- didBridgeSecret: ${maskSecret(didBridgeSecret)}`);
 
   const failures = [];
+
+  // 0) Health endpoint through app proxy
+  try {
+    const { response, text, json } = await request(`${appUrl}/api/openclaw/health?debug=1`, {
+      method: "GET",
+    });
+    console.log(`\n[health] ${response.status}`);
+    console.log(json || text.slice(0, 300));
+    if (!response.ok) failures.push(`health:${response.status}`);
+  } catch (error) {
+    console.log(`\n[health] request failed: ${String(error)}`);
+    failures.push("health:network");
+  }
 
   // 1) Access endpoint through app proxy
   try {
@@ -220,6 +241,64 @@ async function main() {
   } catch (error) {
     console.log(`\n[chat] request failed: ${String(error)}`);
     failures.push("chat:network");
+  }
+
+  // 3b) D-ID bridge endpoint (optional)
+  if (runDidCheck) {
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (didBridgeSecret) {
+        headers["x-did-bridge-secret"] = didBridgeSecret;
+      }
+
+      const { response, text, json } = await request(`${appUrl}/api/did/chat`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          sessionId,
+          message: "Svara med exakt ordet DID_OK",
+          formContext: { formType: "did-voice" },
+        }),
+      });
+
+      console.log(`\n[did-bridge] ${response.status}`);
+      console.log(json || text.slice(0, 300));
+      if (!response.ok) failures.push(`did-bridge:${response.status}`);
+    } catch (error) {
+      console.log(`\n[did-bridge] request failed: ${String(error)}`);
+      failures.push("did-bridge:network");
+    }
+
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (didBridgeSecret) {
+        headers["x-did-bridge-secret"] = didBridgeSecret;
+      }
+
+      const { response, text, json } = await request(`${appUrl}/api/did/chat`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          eventType: "field_blur",
+          sessionId,
+          fieldName: "firstName",
+          fieldValue: "Anna",
+        }),
+      });
+
+      console.log(`\n[did-test-tal] ${response.status}`);
+      console.log(json || text.slice(0, 300));
+      if (!response.ok) {
+        failures.push(`did-test-tal:${response.status}`);
+      } else if (testTalEnabled && !json?.shouldSpeak) {
+        failures.push("did-test-tal:expected-shouldSpeak");
+      }
+    } catch (error) {
+      console.log(`\n[did-test-tal] request failed: ${String(error)}`);
+      failures.push("did-test-tal:network");
+    }
+  } else {
+    console.log("\n[did-bridge] skipped (--did 1 to enable)");
   }
 
   // 4) Direct gateway checks (optional but useful in dev/cloud debugging)

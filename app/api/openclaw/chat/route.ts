@@ -6,6 +6,7 @@ import {
   getOpenClawGatewayBaseUrl,
   getOpenClawTokens,
 } from "@/lib/openclaw/server-config";
+import { extractOpenClawText } from "@/lib/openclaw/response";
 
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
@@ -194,32 +195,12 @@ export async function POST(req: NextRequest) {
     // Non-streaming JSON fallback
     const data = await agentResponse.json().catch(() => null);
 
-    // OpenAI format
-    if (data?.choices?.[0]?.message?.content) {
+    const parsedContent = extractOpenClawText(data);
+    if (parsedContent) {
       return NextResponse.json({
-        content: data.choices[0].message.content,
+        content: parsedContent,
         role: "assistant",
       });
-    }
-
-    // OpenResponses format
-    if (data?.output) {
-      const textParts: string[] = [];
-      for (const item of data.output) {
-        if (item.type === "message" && item.content) {
-          for (const c of item.content) {
-            if (c.type === "output_text" && c.text) {
-              textParts.push(c.text);
-            }
-          }
-        }
-      }
-      if (textParts.length > 0) {
-        return NextResponse.json({
-          content: textParts.join(""),
-          role: "assistant",
-        });
-      }
     }
 
     return NextResponse.json({

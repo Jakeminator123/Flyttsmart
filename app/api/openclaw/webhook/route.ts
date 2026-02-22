@@ -85,7 +85,13 @@ export async function POST(req: NextRequest) {
     }
 
     // POST to OpenClaw hooks/agent endpoint
-    const hooksUrl = `${AGENT_URL.replace(/\/$/, "")}/hooks/agent`;
+    // Strip any /sessions/... suffix from the URL in case user pasted the full session URL
+    const baseUrl = AGENT_URL.replace(/\/+$/, "").replace(
+      /\/sessions\/.*$/,
+      ""
+    );
+    const hooksUrl = `${baseUrl}/hooks/agent`;
+    console.log("[v0] Webhook posting to:", hooksUrl);
 
     const agentResponse = await fetch(hooksUrl, {
       method: "POST",

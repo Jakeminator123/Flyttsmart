@@ -1,28 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const AGENT_URL = process.env.OPENCLAW_AGENT_URL ?? ""; // gateway base, e.g. https://assistant.openclaw.ai
+// OPENCLAW_AGENT_URL must be the gateway base URL, e.g. https://assistant.openclaw.ai
+// NOT the session URL (no /sessions/... suffix)
+const AGENT_URL = process.env.OPENCLAW_AGENT_URL ?? "";
 const AGENT_TOKEN = process.env.OPENCLAW_AGENT_TOKEN ?? "";
-const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
-const DEFAULT_REDIRECT_PATH = "/adressandring";
 
 /**
- * Convert our chat messages to OpenResponses input items.
- */
-function toOpenResponsesInput(
-  messages: { role: string; content: string }[]
-) {
-  return messages.map((m) => ({
-    type: "message" as const,
-    role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
-    content: m.content,
-  }));
-}
-
-/**
- * Build a system-level instruction string that includes form context
+ * Build a system message that includes form context
  * so the agent knows what the user is doing on the page.
  */
-function buildInstructions(formContext?: Record<string, unknown> | null) {
+function buildSystemMessage(formContext?: Record<string, unknown> | null) {
   let base =
     "Du ar AIda, en hjalpsam svensk flyttassistent for Flyttsmart. " +
     "Svara alltid pa svenska. Hjalp anvandaren med adressandring, flytt och relaterade fragor.";
@@ -52,49 +39,54 @@ export async function POST(req: NextRequest) {
     if (!AGENT_URL) {
       return NextResponse.json({
         content:
-          "Hej! Jag ar AIda, men jag ar inte helt konfigurerad annu. Be administratoren satta OPENCLAW_AGENT_URL i miljovariablerna.",
+          "Hej! Jag ar AIda, men jag ar inte helt konfigurerad annu. " +
+          "Be administratoren satta OPENCLAW_AGENT_URL i miljovariablerna.",
         role: "assistant",
       });
     }
 
-    // OpenResponses API endpoint
-    const responsesUrl = `${AGENT_URL.replace(/\/$/, "")}/v1/responses`;
+    // Use OpenAI Chat Completions endpoint (simpler SSE format)
+    const baseUrl = AGENT_URL.replace(/\/+$/, "").replace(
+      /\/sessions\/.*$/,
+      ""
+    );
+    const chatUrl = `${baseUrl}/v1/chat/completions`;
 
-    // Build siteAccess info for the instructions so the agent can access protected pages
-    const accessEndpoint = `${req.nextUrl.origin}/api/openclaw/access`;
-    let siteAccessNote = "";
-    if (BYPASS_SECRET) {
-      siteAccessNote =
-        `\n\nFor att komma at skyddade sidor, anvand headern "x-vercel-protection-bypass: ${BYPASS_SECRET}" ` +
-        `eller hamta en cookie via: ${accessEndpoint}?token=${encodeURIComponent(AGENT_TOKEN)}&redirect=${encodeURIComponent(DEFAULT_REDIRECT_PATH)}`;
-    }
+    // Build messages array in OpenAI format
+    const openaiMessages = [
+      { role: "system", content: buildSystemMessage(formContext) },
+      ...messages.slice(-15).map((m: { role: string; content: string }) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: m.content,
+      })),
+    ];
 
-    const instructions = buildInstructions(formContext) + siteAccessNote;
+    console.log("[v0] OpenClaw chat request to:", chatUrl);
+    console.log("[v0] Session ID (user):", sessionId);
 
-    const agentResponse = await fetch(responsesUrl, {
+    const agentResponse = await fetch(chatUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${AGENT_TOKEN}`,
-        Accept: "text/event-stream",
+        "x-openclaw-agent-id": "main",
       },
       body: JSON.stringify({
         model: "openclaw:main",
         stream: true,
         user: sessionId,
-        instructions,
-        input: toOpenResponsesInput(messages.slice(-15)),
+        messages: openaiMessages,
       }),
     });
 
     if (!agentResponse.ok) {
       const errText = await agentResponse.text().catch(() => "Unknown");
       console.error(
-        `[OpenClaw] Chat error ${agentResponse.status}: ${errText}`
+        `[v0] OpenClaw chat error ${agentResponse.status}: ${errText}`
       );
       return NextResponse.json(
         {
-          content: "AIda kunde inte svara just nu. Forsok igen om en stund.",
+          content: `AIda kunde inte svara just nu (${agentResponse.status}). Forsok igen om en stund.`,
         },
         { status: 502 }
       );
@@ -102,7 +94,8 @@ export async function POST(req: NextRequest) {
 
     const contentType = agentResponse.headers.get("content-type") || "";
 
-    // If the agent streams SSE, transform OpenResponses events to our simple format
+    // Stream SSE -- OpenAI Chat Completions format:
+    // data: {"choices":[{"delta":{"content":"..."}}]}
     if (
       contentType.includes("text/event-stream") &&
       agentResponse.body
@@ -111,7 +104,6 @@ export async function POST(req: NextRequest) {
       const writer = writable.getWriter();
       const encoder = new TextEncoder();
 
-      // Process the OpenResponses SSE stream in background
       (async () => {
         try {
           const reader = agentResponse.body!.getReader();
@@ -126,48 +118,47 @@ export async function POST(req: NextRequest) {
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";
 
-            let currentEvent = "";
-
             for (const line of lines) {
-              if (line.startsWith("event: ")) {
-                currentEvent = line.slice(7).trim();
-              } else if (line.startsWith("data: ")) {
-                const dataStr = line.slice(6);
+              if (!line.startsWith("data: ")) continue;
+              const dataStr = line.slice(6).trim();
 
-                if (dataStr === "[DONE]") {
+              if (dataStr === "[DONE]") {
+                await writer.write(encoder.encode("data: [DONE]\n\n"));
+                continue;
+              }
+
+              try {
+                const data = JSON.parse(dataStr);
+
+                // OpenAI Chat Completions SSE format
+                const delta = data.choices?.[0]?.delta;
+                if (delta?.content) {
+                  await writer.write(
+                    encoder.encode(
+                      `data: ${JSON.stringify({ content: delta.content })}\n\n`
+                    )
+                  );
+                }
+
+                // Also handle OpenResponses format (in case gateway uses it)
+                if (data.type === "response.output_text.delta" && data.delta) {
+                  await writer.write(
+                    encoder.encode(
+                      `data: ${JSON.stringify({ content: data.delta })}\n\n`
+                    )
+                  );
+                }
+
+                if (data.type === "response.completed") {
                   await writer.write(encoder.encode("data: [DONE]\n\n"));
-                  continue;
                 }
-
-                try {
-                  const data = JSON.parse(dataStr);
-
-                  if (
-                    currentEvent === "response.output_text.delta" ||
-                    data.type === "response.output_text.delta"
-                  ) {
-                    // Forward as simple content chunk for the widget
-                    await writer.write(
-                      encoder.encode(
-                        `data: ${JSON.stringify({ content: data.delta })}\n\n`
-                      )
-                    );
-                  } else if (
-                    currentEvent === "response.completed" ||
-                    data.type === "response.completed"
-                  ) {
-                    await writer.write(
-                      encoder.encode("data: [DONE]\n\n")
-                    );
-                  }
-                } catch {
-                  // Skip unparseable lines
-                }
+              } catch {
+                // Skip unparseable lines
               }
             }
           }
         } catch (e) {
-          console.error("[OpenClaw] Stream processing error:", e);
+          console.error("[v0] Stream processing error:", e);
         } finally {
           await writer.close();
         }
@@ -182,11 +173,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Non-streaming: extract output text from OpenResponses format
+    // Non-streaming JSON fallback
     const data = await agentResponse.json().catch(() => null);
 
+    // OpenAI format
+    if (data?.choices?.[0]?.message?.content) {
+      return NextResponse.json({
+        content: data.choices[0].message.content,
+        role: "assistant",
+      });
+    }
+
+    // OpenResponses format
     if (data?.output) {
-      // OpenResponses returns output as an array of items
       const textParts: string[] = [];
       for (const item of data.output) {
         if (item.type === "message" && item.content) {
@@ -197,10 +196,12 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-      return NextResponse.json({
-        content: textParts.join("") || "Inget svar fran agenten.",
-        role: "assistant",
-      });
+      if (textParts.length > 0) {
+        return NextResponse.json({
+          content: textParts.join(""),
+          role: "assistant",
+        });
+      }
     }
 
     return NextResponse.json({
@@ -208,7 +209,7 @@ export async function POST(req: NextRequest) {
       role: "assistant",
     });
   } catch (error) {
-    console.error("[OpenClaw] Chat proxy error:", error);
+    console.error("[v0] OpenClaw chat proxy error:", error);
     return NextResponse.json(
       {
         content: "Ett fel uppstod i anslutningen till AIda. Forsok igen.",

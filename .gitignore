@@ -19,6 +19,9 @@ yarn-error.log*
 # env files
 .env*
 
+# OpenClaw server secrets (claw/ subfolder)
+claw/config/openclaw.json
+
 # SQLite database
 /data/
 

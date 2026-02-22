@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: openclaw-server
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    disk:
+      name: openclaw-data
+      mountPath: /root/.openclaw
+      sizeGB: 1

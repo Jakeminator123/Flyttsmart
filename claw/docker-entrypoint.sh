@@ -22,29 +22,35 @@ if [ -d "/app/seed/workspace" ]; then
   echo "[entrypoint] Seeded workspace files"
 fi
 
-# Always write openclaw.json from env vars so tokens stay out of the image
+# Write a minimal OpenClaw config with the agents list.
+# Token/port are passed via CLI flags/env (not persisted in config file).
 cat > "$CONFIG_FILE" <<EOF
 {
-  "gatewayToken": "${OPENCLAW_GATEWAY_TOKEN}",
-  "gatewayPort": ${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}},
-  "agents": [
-    {
-      "id": "main",
-      "model": {
-        "fallbacks": ["GPT (openai/gpt-5.3-codex)"]
+  "agents": {
+    "list": [
+      {
+        "id": "main",
+        "model": {
+          "fallbacks": ["GPT (openai/gpt-5.3-codex)"]
+        }
+      },
+      {
+        "id": "aida-flyttagent",
+        "name": "aida-flyttagent",
+        "workspace": "${WORKSPACE_DIR}",
+        "agentDir": "${AGENT_DIR}"
       }
-    },
-    {
-      "id": "aida-flyttagent",
-      "name": "aida-flyttagent",
-      "workspace": "${WORKSPACE_DIR}",
-      "agentDir": "${AGENT_DIR}"
-    }
-  ]
+    ]
+  }
 }
 EOF
 
 LISTEN_PORT="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
 
 echo "[entrypoint] Config written — starting OpenClaw gateway on port ${LISTEN_PORT}"
-exec openclaw gateway --port "${LISTEN_PORT}" --host 0.0.0.0
+
+if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
+  exec openclaw gateway --port "${LISTEN_PORT}" --token "${OPENCLAW_GATEWAY_TOKEN}"
+fi
+
+exec openclaw gateway --port "${LISTEN_PORT}"

@@ -1,7 +1,8 @@
 FROM node:22-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git wget \
+    ca-certificates git wget \
+ && update-ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
 # Force git to use HTTPS for any GitHub SSH dependency.

@@ -1,5 +1,7 @@
 FROM node:22-alpine
 
+RUN apk add --no-cache git
+
 # Install OpenClaw — version matches local: 2026.2.21-2
 RUN npm install -g openclaw
 

@@ -4,10 +4,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git wget \
  && rm -rf /var/lib/apt/lists/*
 
+# Force git to use HTTPS (npm dependency uses SSH URL which requires ssh client)
+RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
+ && git config --global url."https://github.com/".insteadOf "git@github.com:"
+
 # Install OpenClaw — skip node-llama-cpp build (gateway uses OpenAI, not local LLM)
 ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD=true
-RUN npm install -g openclaw --ignore-scripts \
- && npx --yes openclaw --version || true
+RUN npm install -g openclaw --ignore-scripts
 
 # Seed files (IDENTITY.md, workspace skills) — no secrets in image
 RUN mkdir -p /app/seed/workspace

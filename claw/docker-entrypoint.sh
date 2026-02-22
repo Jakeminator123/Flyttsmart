@@ -36,7 +36,12 @@ cat > "$CONFIG_FILE" <<EOF
 {
   "gateway": {
     "mode": "local",
-    "bind": "${BIND_MODE}"
+    "bind": "${BIND_MODE}",
+    "http": {
+      "endpoints": {
+        "chatCompletions": { "enabled": true }
+      }
+    }
   },
   "agents": {
     "list": [

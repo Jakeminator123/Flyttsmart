@@ -269,8 +269,8 @@ export function DidOpenClawBridgeWidget() {
           <iframe
             src={DID_SHARE_URL}
             className="h-[60%] w-full border-0"
-            allow="camera;microphone;display-capture;autoplay"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
+            allow="camera;microphone;display-capture;autoplay;clipboard-write"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-presentation allow-downloads"
             title="D-ID Agent Voice Panel"
           />
 

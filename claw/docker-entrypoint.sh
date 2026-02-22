@@ -26,7 +26,7 @@ fi
 cat > "$CONFIG_FILE" <<EOF
 {
   "gatewayToken": "${OPENCLAW_GATEWAY_TOKEN}",
-  "gatewayPort": ${OPENCLAW_GATEWAY_PORT:-18789},
+  "gatewayPort": ${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}},
   "agents": [
     {
       "id": "main",
@@ -44,5 +44,7 @@ cat > "$CONFIG_FILE" <<EOF
 }
 EOF
 
-echo "[entrypoint] Config written — starting OpenClaw gateway on port ${OPENCLAW_GATEWAY_PORT:-18789}"
-exec openclaw gateway --port "${OPENCLAW_GATEWAY_PORT:-18789}" --host 0.0.0.0
+LISTEN_PORT="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
+
+echo "[entrypoint] Config written — starting OpenClaw gateway on port ${LISTEN_PORT}"
+exec openclaw gateway --port "${LISTEN_PORT}" --host 0.0.0.0

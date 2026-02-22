@@ -1,0 +1,8 @@
+claw/
+inlogg/
+docs/
+scripts/
+info/
+*.py
+*.mp4
+*.webp

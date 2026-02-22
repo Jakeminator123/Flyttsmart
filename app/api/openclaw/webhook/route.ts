@@ -65,58 +65,57 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, mode: "log_only" });
     }
 
-    const accessEndpoint = `${req.nextUrl.origin}/api/openclaw/access`;
-    const bypassCookieUrl =
-      BYPASS_SECRET && AGENT_TOKEN
-        ? `${accessEndpoint}?token=${encodeURIComponent(
-            AGENT_TOKEN
-          )}&redirect=${encodeURIComponent(DEFAULT_REDIRECT_PATH)}`
-        : null;
+    // Build a human-readable message for the hook
+    const fieldSummary = Object.entries(fields)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(", ");
+    const stepInfo = payload.currentStep
+      ? ` (steg: ${payload.currentStep})`
+      : "";
+    const hookMessage = `Formularuppdatering: ${event} pa ${formType}${stepInfo}. Falt: ${fieldSummary}`;
 
-    // Forward to OpenClaw agent (fire-and-forget style, but we await for logging)
-    const agentResponse = await fetch(AGENT_URL, {
+    // Include site access info in the message so the agent can reach protected pages
+    let siteAccessInfo = "";
+    if (BYPASS_SECRET) {
+      const accessEndpoint = `${req.nextUrl.origin}/api/openclaw/access`;
+      siteAccessInfo =
+        ` | Site access: baseUrl=${req.nextUrl.origin}, ` +
+        `bypassHeader=x-vercel-protection-bypass, bypassToken=${BYPASS_SECRET}, ` +
+        `cookieUrl=${accessEndpoint}?token=${encodeURIComponent(AGENT_TOKEN)}&redirect=${encodeURIComponent(DEFAULT_REDIRECT_PATH)}`;
+    }
+
+    // POST to OpenClaw hooks/agent endpoint
+    const hooksUrl = `${AGENT_URL.replace(/\/$/, "")}/hooks/agent`;
+
+    const agentResponse = await fetch(hooksUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${AGENT_TOKEN}`,
+        "x-openclaw-token": AGENT_TOKEN,
       },
       body: JSON.stringify({
-        sessionId,
-        event,
-        formType,
-        fields,
-        currentStep: payload.currentStep ?? null,
-        meta: payload.meta ?? {},
-        // Provide the site URL + bypass token so OpenClaw can access protected pages
-        siteAccess: BYPASS_SECRET
-          ? {
-              baseUrl: req.nextUrl.origin,
-              bypassHeader: "x-vercel-protection-bypass",
-              bypassToken: BYPASS_SECRET,
-              accessEndpoint,
-              defaultRedirectPath: DEFAULT_REDIRECT_PATH,
-              bypassCookieUrl,
-            }
-          : undefined,
+        message: hookMessage + siteAccessInfo,
+        name: "FormMirror",
+        sessionKey: `hook:flyttsmart:${sessionId}`,
+        wakeMode: "now",
+        deliver: false,
       }),
     });
 
     if (!agentResponse.ok) {
       const errText = await agentResponse.text().catch(() => "Unknown error");
       console.error(
-        `[OpenClaw] Agent returned ${agentResponse.status}: ${errText}`
+        `[OpenClaw] hooks/agent returned ${agentResponse.status}: ${errText}`
       );
       // Still return 200 to the client so the form is not blocked
       return NextResponse.json({ ok: true, agentStatus: agentResponse.status });
     }
 
-    // Optionally return any field patches from the agent
     const agentData = await agentResponse.json().catch(() => null);
 
     return NextResponse.json({
       ok: true,
-      fieldPatch: agentData?.fieldPatch ?? null,
-      reply: agentData?.reply ?? null,
+      hookResponse: agentData ?? null,
     });
   } catch (error) {
     console.error("[OpenClaw] Webhook error:", error);

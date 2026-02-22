@@ -1,0 +1,3 @@
+POPUP_BROWSER_NORMAL_WINDOW=y
+# Opens a clone Playwright tab to show QR if no popup appeared (fallback for scanning)
+CLONE_TAB_FALLBACK=n

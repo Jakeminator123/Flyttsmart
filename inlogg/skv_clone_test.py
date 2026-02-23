@@ -5,6 +5,7 @@ Click sequences → QR login → auto-fill form → save HTML snapshot.
 Single session log file (overwrites previous). POPUP_BROWSER_NORMAL_WINDOW
 opens form URL in default browser when form is found.
 """
+import base64
 import json
 import os
 import re
@@ -167,6 +168,97 @@ def _log_qr_data(label: str, data: str | dict) -> None:
     """Append QR/BankID-related data to session log."""
     payload = data if isinstance(data, dict) else {"msg": str(data)}
     _log_session(label, "QR/AUTH", payload)
+
+
+QR_PROXY_BASE_URL = "https://auth.funktionstjanster.se/id/bankid/qr?aid="
+
+# Throttle QR capture from Playwright (seconds between captures per job)
+_qr_capture_last_time: Dict[str, float] = {}
+QR_CAPTURE_INTERVAL_SECONDS = 2.0
+
+
+def _capture_qr_from_playwright_page(target_page, job_id: str) -> bool:
+    """
+    Capture QR code from a Playwright page (auth SPA) and store in _qr_captured.
+    Tries: canvas, img with qr-like attributes, then viewport screenshot.
+    Returns True if capture succeeded.
+    """
+    if target_page is None:
+        return False
+    try:
+        if target_page.is_closed():
+            return False
+    except Exception:
+        return False
+
+    try:
+        # Try common QR element selectors (BankID auth page often uses canvas)
+        selectors_to_try = [
+            "canvas",
+            "img[alt*='QR'], img[alt*='qr'], img[data-qr]",
+            "[class*='qr'][class*='code'], [class*='qrcode']",
+            "svg",
+        ]
+        screenshot_bytes = None
+
+        for sel in selectors_to_try:
+            try:
+                loc = target_page.locator(sel).first
+                if not loc.is_visible(timeout=500):
+                    continue
+                box = loc.bounding_box()
+                if not box or box.get("width", 0) < 50 or box.get("height", 0) < 50:
+                    continue
+                screenshot_bytes = loc.screenshot(type="png", timeout=3000)
+                if screenshot_bytes and len(screenshot_bytes) > 100:
+                    break
+            except Exception:
+                continue
+
+        # Fallback: viewport screenshot (QR is usually visible in center)
+        if not screenshot_bytes or len(screenshot_bytes) < 100:
+            try:
+                screenshot_bytes = target_page.screenshot(type="png", timeout=3000)
+            except Exception:
+                pass
+
+        if screenshot_bytes and len(screenshot_bytes) > 100:
+            b64 = base64.b64encode(screenshot_bytes).decode("ascii")
+            with _log_lock:
+                if job_id not in _qr_captured:
+                    _qr_captured[job_id] = {}
+                _qr_captured[job_id]["qr_image_base64"] = b64
+                _qr_captured[job_id]["qr_image_updated_at"] = time.time()
+            return True
+    except Exception as e:
+        _log_qr_data("QR_CAPTURE_ERROR", {"job_id": job_id, "error": str(e)})
+    return False
+
+
+def _is_clone_qr_to_site_enabled() -> bool:
+    """Feature gate for experimental QR mirroring endpoint."""
+    cfg = _load_config()
+    return is_truthy(os.environ.get("SKV_CLONE_QR_FROMPLAYWRIGHT_TO_SITE", "")) or is_truthy(
+        cfg.get("CLONE_QR_FROMPLAYWRIGHT_TO_SITE", "")
+    )
+
+
+def _get_clone_qr_context(job_id: str) -> Dict[str, Any]:
+    """Return best-effort QR clone context for a given running job."""
+    with _log_lock:
+        cap = dict(_qr_captured.get(job_id, {}))
+
+    aid = str(cap.get("aid") or "").strip()
+    qr_url = f"{QR_PROXY_BASE_URL}{aid}" if aid else ""
+
+    return {
+        "aid": aid,
+        "qr_url": qr_url,
+        "qr_image_ready": bool(cap.get("qr_image_base64")),
+        "auth_spa_url": cap.get("auth_spa_url"),
+        "api_ready": bool(cap.get("flytt_api_ready")),
+        "api_last_url": cap.get("flytt_api_last_url"),
+    }
 
 
 def _resolve_browser_trace_config() -> tuple[bool, float]:
@@ -938,6 +1030,26 @@ def _run_playwright_job(
                     api_ready = bool(_qr_captured.get(job_id, {}).get("flytt_api_ready"))
 
                 all_pages = _get_all_pages_for_form(page)
+
+                # QR clone: capture QR from Playwright auth page for mirror view
+                if _is_clone_qr_to_site_enabled() and not api_ready:
+                    cap = _qr_captured.get(job_id, {})
+                    aid_val = cap.get("aid", "")
+                    has_image = bool(cap.get("qr_image_base64"))
+                    now_ts = time.time()
+                    last_cap = _qr_capture_last_time.get(job_id, 0)
+                    if aid_val and (not has_image or (now_ts - last_cap) >= QR_CAPTURE_INTERVAL_SECONDS):
+                        for p in all_pages or []:
+                            if p is None:
+                                continue
+                            try:
+                                purl = (p.url or "").lower()
+                                if "auth.funktionstjanster.se" in purl and "aid=" in purl:
+                                    if _capture_qr_from_playwright_page(p, job_id):
+                                        _qr_capture_last_time[job_id] = now_ts
+                                        break
+                            except Exception:
+                                pass
                 candidate_page, candidate_source, source_signals, other_signals = _pick_form_page(
                     page, popup_page_ref, api_ready, all_pages
                 )
@@ -1382,6 +1494,7 @@ svg path</textarea>
     <div style="margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap;">
       <button id="startBtn" onclick="startJob()">Starta</button>
       <button class="secondary" id="cancelBtn" onclick="cancelJob()" disabled>Avbryt</button>
+      <button class="secondary" id="cloneBtn" onclick="openCloneView()" disabled>Öppna QR-spegel (experiment)</button>
     </div>
 
     <h3 style="margin-top: 16px;">Status</h3>
@@ -1433,6 +1546,7 @@ function setStatus(obj) {
   const running = obj && (obj.state === "running" || obj.state === "queued");
   document.getElementById("startBtn").disabled = running;
   document.getElementById("cancelBtn").disabled = !running;
+  document.getElementById("cloneBtn").disabled = !currentJobId;
 }
 
 async function startJob() {
@@ -1491,6 +1605,13 @@ async function pollStatus() {
 async function cancelJob() {
   if (!currentJobId) return;
   await fetch("/api/cancel/" + encodeURIComponent(currentJobId), { method: "POST" });
+}
+
+function openCloneView() {
+  if (!currentJobId) return;
+  const targetUrl = "/clone/qr-view/" + encodeURIComponent(currentJobId);
+  const w = window.open(targetUrl, "_blank", "noopener,noreferrer,width=560,height=800");
+  if (!w) alert("Popup blockerade fönstret. Tillåt popups för localhost.");
 }
 
 function openView() {
@@ -1566,6 +1687,99 @@ go();
 """
 
 
+CLONE_QR_HTML = """
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>QR-spegel (experiment)</title>
+  <style>
+    body { margin: 0; padding: 18px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background: #f8fafc; color: #111827; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; max-width: 520px; margin: 0 auto; }
+    h1 { margin: 0 0 8px 0; font-size: 18px; }
+    p { margin: 6px 0; line-height: 1.45; }
+    .small { font-size: 12px; color: #4b5563; }
+    .warn { font-size: 12px; color: #7c2d12; background: #ffedd5; border: 1px solid #fdba74; border-radius: 10px; padding: 8px 10px; }
+    .status { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; margin-top: 10px; white-space: pre-wrap; word-break: break-word; }
+    .qr-wrap { margin-top: 14px; display: grid; place-items: center; background: #fff; border: 1px dashed #d1d5db; border-radius: 12px; min-height: 280px; padding: 10px; }
+    img { width: 100%; max-width: 360px; height: auto; image-rendering: pixelated; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>QR-spegel (experiment)</h1>
+    <p class="small">Job ID: <code>{{ job_id }}</code></p>
+    <p class="warn">Experimentläge för lokal test. Använd inte detta som produktionsinloggning.</p>
+    <div id="state" class="status">Startar...</div>
+    <div class="qr-wrap">
+      <img id="qr" alt="Dynamisk BankID QR" style="display:none;" />
+      <div id="placeholder" class="small">Väntar på aktiv QR...</div>
+    </div>
+  </div>
+
+<script>
+const jobId = "{{ job_id }}";
+const stateEl = document.getElementById("state");
+const qrEl = document.getElementById("qr");
+const placeholderEl = document.getElementById("placeholder");
+
+function renderState(data) {
+  const lines = [];
+  lines.push("enabled: " + Boolean(data.enabled));
+  lines.push("job_state: " + (data.jobState || "okänd"));
+  lines.push("aid_present: " + Boolean(data.aidPresent));
+  lines.push("qr_ready: " + Boolean(data.qrReady));
+  lines.push("qr_image_ready: " + Boolean(data.qrImageReady));
+  lines.push("api_ready: " + Boolean(data.apiReady));
+  stateEl.textContent = lines.join("\\n");
+}
+
+async function pollClone() {
+  try {
+    const res = await fetch("/api/clone/state/" + encodeURIComponent(jobId) + "?t=" + Date.now(), { cache: "no-store" });
+    const data = await res.json();
+    renderState(data);
+
+    if (!res.ok || !data.enabled) {
+      qrEl.style.display = "none";
+      placeholderEl.style.display = "block";
+      placeholderEl.textContent = data.error || "QR-spegel är inte aktiverad.";
+      return;
+    }
+
+    if (data.qrReady) {
+      const src = "/api/clone/qr/" + encodeURIComponent(jobId) + "?t=" + Date.now();
+      qrEl.src = src;
+      if (data.qrImageReady) {
+        qrEl.style.display = "block";
+        placeholderEl.style.display = "none";
+      } else {
+        qrEl.style.display = "none";
+        placeholderEl.style.display = "block";
+        placeholderEl.textContent = "Capturerar QR från Playwright...";
+      }
+    } else {
+      qrEl.style.display = "none";
+      placeholderEl.style.display = "block";
+      placeholderEl.textContent = "Väntar på att QR-sessionen ska bli tillgänglig...";
+    }
+  } catch (err) {
+    qrEl.style.display = "none";
+    placeholderEl.style.display = "block";
+    placeholderEl.textContent = "Kunde inte läsa QR-status.";
+    stateEl.textContent = "Fel vid statuspoll: " + (err?.message || String(err));
+  }
+}
+
+setInterval(pollClone, 1200);
+pollClone();
+</script>
+</body>
+</html>
+"""
+
+
 @app.get("/")
 def index():
     return render_template_string(INDEX_HTML)
@@ -1579,6 +1793,71 @@ def iframe_window():
 @app.get("/results/<path:filename>")
 def results(filename: str):
     return send_from_directory(RESULT_DIR, filename)
+
+
+@app.get("/clone/qr-view/<job_id>")
+def clone_qr_view(job_id: str):
+    if not _is_clone_qr_to_site_enabled():
+        return (
+            "QR-spegel är avstängd. Sätt CLONE_QR_FROMPLAYWRIGHT_TO_SITE=y i config/env för att testa.",
+            403,
+        )
+    return render_template_string(CLONE_QR_HTML, job_id=job_id)
+
+
+@app.get("/api/clone/state/<job_id>")
+def api_clone_state(job_id: str):
+    enabled = _is_clone_qr_to_site_enabled()
+    job = _get_job(job_id)
+    clone_ctx = _get_clone_qr_context(job_id)
+
+    payload = {
+        "ok": True,
+        "enabled": enabled,
+        "jobId": job_id,
+        "jobExists": bool(job),
+        "jobState": job.state if job else None,
+        "aidPresent": bool(clone_ctx.get("aid")),
+        "qrReady": bool(clone_ctx.get("qr_url")),
+        "qrImageReady": bool(clone_ctx.get("qr_image_ready")),
+        "apiReady": bool(clone_ctx.get("api_ready")),
+        "authSpaUrl": clone_ctx.get("auth_spa_url"),
+        "qrProxyUrl": f"/api/clone/qr/{job_id}" if clone_ctx.get("qr_url") else None,
+    }
+    if not enabled:
+        payload["ok"] = False
+        payload["error"] = "QR clone feature is disabled"
+        return jsonify(payload), 403
+    return jsonify(payload)
+
+
+@app.get("/api/clone/qr/<job_id>")
+def api_clone_qr(job_id: str):
+    if not _is_clone_qr_to_site_enabled():
+        return jsonify({"ok": False, "error": "QR clone feature is disabled"}), 403
+
+    clone_ctx = _get_clone_qr_context(job_id)
+    aid = (clone_ctx.get("aid") or "").strip()
+    if not aid:
+        return jsonify({"ok": False, "error": "QR not ready yet for this job"}), 425
+
+    # Serve from Playwright-captured screenshot (robust; no upstream session needed)
+    with _log_lock:
+        cap = dict(_qr_captured.get(job_id, {}))
+    qr_b64 = cap.get("qr_image_base64")
+    if qr_b64:
+        try:
+            img_bytes = base64.b64decode(qr_b64)
+        except Exception as e:
+            _log_qr_data("QR_CLONE_DECODE_ERROR", {"job_id": job_id, "error": str(e)})
+            return jsonify({"ok": False, "error": "Invalid cached QR image"}), 500
+        headers = {
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+        }
+        return Response(img_bytes, status=200, headers=headers, content_type="image/png")
+
+    return jsonify({"ok": False, "error": "QR image not captured yet (wait for auth page)"}), 425
 
 
 @app.post("/api/run")
@@ -1630,7 +1909,11 @@ def api_run():
     )
     t.start()
 
-    return jsonify(asdict(job))
+    body = asdict(job)
+    if _is_clone_qr_to_site_enabled():
+        body["clone_qr_view_url"] = f"/clone/qr-view/{job_id}"
+        body["clone_qr_state_url"] = f"/api/clone/state/{job_id}"
+    return jsonify(body)
 
 
 @app.get("/api/status/<job_id>")

@@ -1,27 +1,32 @@
 """
-skv_int7.py
+Int7 BankID flow runner.
 
-Runs the same Playwright methodology as skv6, but as a
-manual-triggered automation entrypoint for dev flows.
+Relocated from inlogg/skv_int7.py so int7-specific logic lives in one folder.
 """
 
 import argparse
 import json
 import os
+import sys
 import time
 import uuid
 from datetime import datetime
 from typing import Optional
 
-import skv6
 
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-RUNTIME_DIR = os.path.join(SCRIPT_DIR, "runtime")
+MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
+INLOGG_DIR = os.path.dirname(MODULE_DIR)
+RUNTIME_DIR = os.path.join(INLOGG_DIR, "runtime")
 DEFAULT_PAYLOAD_FILE = os.path.join(RUNTIME_DIR, "skv_payload_latest.json")
-SESSION_LOG_FILE = os.path.join(SCRIPT_DIR, "skv_int7_session_log.txt")
+SESSION_LOG_FILE = os.path.join(INLOGG_DIR, "skv_int7_session_log.txt")
 
 os.makedirs(RUNTIME_DIR, exist_ok=True)
+
+# Ensure legacy modules under inlogg/ are importable when this file is executed directly.
+if INLOGG_DIR not in sys.path:
+    sys.path.insert(0, INLOGG_DIR)
+
+import skv6
 
 
 # Keep selectors/timings aligned with skv6 defaults.
@@ -108,15 +113,18 @@ def run_int7_flow(
     _reset_log()
     _write_last_payload_snapshot(payload_file)
 
-    _log("Starting skv_int7 flow", {
-        "target_url": target_url,
-        "payload_file": payload_file,
-        "timeout_seconds": timeout_seconds,
-        "allow_mockup_data": allow_mockup_data,
-        "allow_normal_browser_window": allow_normal_browser_window,
-        "force_clone_fallback": force_clone_fallback,
-        "skv_synligt_skv": os.environ.get("SKV_SYNLIGT_SKV", ""),
-    })
+    _log(
+        "Starting skv_int7 flow",
+        {
+            "target_url": target_url,
+            "payload_file": payload_file,
+            "timeout_seconds": timeout_seconds,
+            "allow_mockup_data": allow_mockup_data,
+            "allow_normal_browser_window": allow_normal_browser_window,
+            "force_clone_fallback": force_clone_fallback,
+            "skv_synligt_skv": os.environ.get("SKV_SYNLIGT_SKV", ""),
+        },
+    )
 
     temp_env = {
         "SKV_PAYLOAD_FILE": payload_file,
@@ -152,12 +160,15 @@ def run_int7_flow(
             _log("skv_int7 finished without final job record")
             return 1
 
-        _log("skv_int7 finished", {
-            "state": final_job.state,
-            "message": final_job.message,
-            "screenshot_path": final_job.screenshot_path,
-            "details": final_job.details or {},
-        })
+        _log(
+            "skv_int7 finished",
+            {
+                "state": final_job.state,
+                "message": final_job.message,
+                "screenshot_path": final_job.screenshot_path,
+                "details": final_job.details or {},
+            },
+        )
 
         if final_job.state == "matched":
             return 0
@@ -202,7 +213,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+def main() -> int:
     args = parse_args()
     exit_code = run_int7_flow(
         target_url=args.url,
@@ -214,4 +225,8 @@ if __name__ == "__main__":
     )
     # Give user-visible browser operations a tiny flush window before process exits.
     time.sleep(0.2)
-    raise SystemExit(exit_code)
+    return exit_code
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

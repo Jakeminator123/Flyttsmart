@@ -10,7 +10,7 @@ const INLOGG_DIR = path.join(process.cwd(), "inlogg");
 const RUNTIME_DIR = path.join(INLOGG_DIR, "runtime");
 const PAYLOAD_FILE = path.join(RUNTIME_DIR, "skv_payload_latest.json");
 const PROCESS_FILE = path.join(RUNTIME_DIR, "skv_int7_process.json");
-const PY_SCRIPT = path.join(INLOGG_DIR, "skv_int7.py");
+const PY_SCRIPT = path.join(INLOGG_DIR, "int7", "runner.py");
 
 function isTruthy(value: string | undefined): boolean {
   const normalized = (value ?? "").trim().toLowerCase();
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
           pid: existing.pid,
           startedAt: existing.startedAt ?? null,
           payload,
-          script: "skv_int7.py",
+          script: "int7/runner.py",
         });
       }
     } catch {
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       started: true,
       payload,
-      script: "skv_int7.py",
+      script: "int7/runner.py",
     });
   } catch (error) {
     console.error("[SKV int7] failed to start:", error);

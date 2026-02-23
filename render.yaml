@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: skv-playwright
+    runtime: docker
+    plan: starter
+    rootDir: inlogg
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: SKV_HEADLESS
+        value: "y"
+      - key: SKV_HOST
+        value: "0.0.0.0"
+      - key: CLONE_QR_FROMPLAYWRIGHT_TO_SITE
+        value: "y"
+      - key: SKV_API_KEY
+        sync: false

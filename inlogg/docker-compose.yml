@@ -5,6 +5,8 @@ services:
       - "8767:8767"
     environment:
       - PORT=8767
+      - SKV_HOST=0.0.0.0
+      - SKV_HEADLESS=y
       - CLONE_QR_FROMPLAYWRIGHT_TO_SITE=y
     volumes:
       - ./runtime:/app/runtime

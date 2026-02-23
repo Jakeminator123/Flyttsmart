@@ -35,8 +35,15 @@ from skv_core import (
 )
 
 
-APP_HOST = "127.0.0.1"
-APP_PORT = int(os.environ.get("PORT", "8767"))  # Different port to run alongside skv2
+APP_HOST = os.environ.get("SKV_HOST", "127.0.0.1")
+APP_PORT = int(os.environ.get("PORT", "8767"))
+SKV_API_KEY = os.environ.get("SKV_API_KEY", "").strip()
+
+def _resolve_headless() -> bool:
+    explicit = os.environ.get("SKV_HEADLESS", "").strip().lower()
+    if explicit:
+        return is_truthy(explicit)
+    return not bool(os.environ.get("DISPLAY"))
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULT_DIR = os.path.join(SCRIPT_DIR, "results")
 os.makedirs(RESULT_DIR, exist_ok=True)
@@ -80,6 +87,23 @@ def _pick_form_page(page, popup_ref, api_ready: bool, all_pages: Optional[list] 
     )
 
 app = Flask(__name__)
+
+
+@app.before_request
+def _check_api_key():
+    if not SKV_API_KEY:
+        return
+    if request.path == "/api/health":
+        return
+    if request.path.startswith("/api/"):
+        token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+        if token != SKV_API_KEY:
+            return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+
+@app.get("/api/health")
+def api_health():
+    return jsonify({"ok": True, "service": "skv-playwright", "headless": _resolve_headless()})
 
 
 @app.after_request
@@ -611,20 +635,6 @@ def proxy_route():
 
 
 # ----------------------------
-# Playwright: open URL in new window (no iframe)
-# ----------------------------
-
-def _open_playwright_window(url: str) -> None:
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
-            page = browser.new_page()
-            page.goto(url, wait_until="domcontentloaded")
-    except Exception as e:
-        print(f"Playwright open error: {e}")
-
-
-# ----------------------------
 # Core: Fill Watch job
 # ----------------------------
 
@@ -659,7 +669,7 @@ def _run_playwright_job(
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
+            browser = p.chromium.launch(headless=_resolve_headless())
             page = browser.new_page()
             context = page.context
             trace_browser_windows, trace_interval_seconds = _resolve_browser_trace_config()
@@ -1734,109 +1744,6 @@ def results(filename: str):
     return send_from_directory(RESULT_DIR, filename)
 
 
-CLONE_QR_HTML = """
-<!doctype html>
-<html lang="sv">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>QR-spegel (experiment)</title>
-  <style>
-    body { margin: 0; padding: 18px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background: #f8fafc; color: #111827; }
-    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; max-width: 520px; margin: 0 auto; }
-    h1 { margin: 0 0 8px 0; font-size: 18px; }
-    p { margin: 6px 0; line-height: 1.45; }
-    .small { font-size: 12px; color: #4b5563; }
-    .warn { font-size: 12px; color: #7c2d12; background: #ffedd5; border: 1px solid #fdba74; border-radius: 10px; padding: 8px 10px; }
-    .status { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; margin-top: 10px; white-space: pre-wrap; word-break: break-word; }
-    .qr-wrap { margin-top: 14px; display: grid; place-items: center; background: #fff; border: 1px dashed #d1d5db; border-radius: 12px; min-height: 280px; padding: 10px; }
-    img { width: 100%; max-width: 360px; height: auto; image-rendering: pixelated; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>QR-spegel (experiment)</h1>
-    <p class="small">Job ID: <code>{{ job_id }}</code></p>
-    <p class="warn">Experimentläge för lokal test. Använd inte detta som produktionsinloggning.</p>
-    <div id="state" class="status">Startar...</div>
-    <div class="qr-wrap">
-      <img id="qr" alt="Dynamisk BankID QR" style="display:none;" />
-      <div id="placeholder" class="small">Väntar på aktiv QR...</div>
-    </div>
-  </div>
-
-<script>
-const jobId = "{{ job_id }}";
-const stateEl = document.getElementById("state");
-const qrEl = document.getElementById("qr");
-const placeholderEl = document.getElementById("placeholder");
-
-function renderState(data) {
-  const lines = [];
-  lines.push("enabled: " + Boolean(data.enabled));
-  lines.push("job_state: " + (data.jobState || "okänd"));
-  lines.push("aid_present: " + Boolean(data.aidPresent));
-  lines.push("qr_ready: " + Boolean(data.qrReady));
-  lines.push("qr_image_ready: " + Boolean(data.qrImageReady));
-  lines.push("api_ready: " + Boolean(data.apiReady));
-  stateEl.textContent = lines.join("\\n");
-}
-
-async function pollClone() {
-  try {
-    const res = await fetch("/api/clone/state/" + encodeURIComponent(jobId) + "?t=" + Date.now(), { cache: "no-store" });
-    const data = await res.json();
-    renderState(data);
-
-    if (!res.ok || !data.enabled) {
-      qrEl.style.display = "none";
-      placeholderEl.style.display = "block";
-      placeholderEl.textContent = data.error || "QR-spegel är inte aktiverad.";
-      return;
-    }
-
-    if (data.qrReady) {
-      const src = "/api/clone/qr/" + encodeURIComponent(jobId) + "?t=" + Date.now();
-      qrEl.src = src;
-      if (data.qrImageReady) {
-        qrEl.style.display = "block";
-        placeholderEl.style.display = "none";
-      } else {
-        qrEl.style.display = "none";
-        placeholderEl.style.display = "block";
-        placeholderEl.textContent = "Capturerar QR från Playwright...";
-      }
-    } else {
-      qrEl.style.display = "none";
-      placeholderEl.style.display = "block";
-      placeholderEl.textContent = "Väntar på att QR-sessionen ska bli tillgänglig...";
-    }
-  } catch (err) {
-    qrEl.style.display = "none";
-    placeholderEl.style.display = "block";
-    placeholderEl.textContent = "Kunde inte läsa QR-status.";
-    stateEl.textContent = "Fel vid statuspoll: " + (err?.message || String(err));
-  }
-}
-
-setInterval(pollClone, 1200);
-pollClone();
-</script>
-</body>
-</html>
-"""
-
-
-@app.get("/clone/qr-view/<job_id>")
-def clone_qr_view(job_id: str):
-    if not _is_clone_qr_to_site_enabled():
-        return (
-            "QR-spegel är avstängd. Sätt CLONE_QR_FROMPLAYWRIGHT_TO_SITE=y i config/env för att testa.",
-            403,
-        )
-    return render_template_string(CLONE_QR_HTML, job_id=job_id)
-
-
 @app.get("/api/clone/state/<job_id>")
 def api_clone_state(job_id: str):
     enabled = _is_clone_qr_to_site_enabled()
@@ -1942,7 +1849,6 @@ def api_run():
 
     body = asdict(job)
     if _is_clone_qr_to_site_enabled():
-        body["clone_qr_view_url"] = f"/clone/qr-view/{job_id}"
         body["clone_qr_state_url"] = f"/api/clone/state/{job_id}"
     return jsonify(body)
 
@@ -1961,26 +1867,15 @@ def api_cancel(job_id: str):
     return jsonify({"ok": ok})
 
 
-@app.post("/api/open-playwright")
-def api_open_playwright():
-    data = request.get_json(force=True) or {}
-    url = (data.get("url") or "").strip()
-    if not url.startswith(("http://", "https://")):
-        return jsonify({"error": "Ogiltig URL"}), 400
-
-    t = threading.Thread(target=_open_playwright_window, args=(url,), daemon=True)
-    t.start()
-    return jsonify({"ok": True, "message": "Öppnar i Playwright-fönster..."})
-
-
 def main():
     url = f"http://{APP_HOST}:{APP_PORT}/"
-    try:
-        webbrowser.open_new(url)
-    except Exception:
-        pass
+    if not _resolve_headless():
+        try:
+            webbrowser.open_new(url)
+        except Exception:
+            pass
 
-    print(f"Server kör på {url}")
+    print(f"Server kör på {url} (headless={_resolve_headless()})")
     print("Tryck Ctrl+C för att stoppa.")
     app.run(host=APP_HOST, port=APP_PORT, debug=False, threaded=True)
 

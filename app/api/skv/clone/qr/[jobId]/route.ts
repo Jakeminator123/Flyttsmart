@@ -1,22 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUpstreamUrl, buildUpstreamHeaders } from "../../proxy-helpers";
 
 export const runtime = "nodejs";
 
-const DEFAULT_PORT = 8767;
-
-function getServiceUrl(req: NextRequest): string {
-  const portParam = req.nextUrl.searchParams.get("port");
-  const port = portParam ? parseInt(portParam, 10) : undefined;
-  if (Number.isFinite(port)) {
-    return `http://127.0.0.1:${port}`;
-  }
-  const base = process.env.SKV_SERVICE_URL ?? `http://127.0.0.1:${DEFAULT_PORT}`;
-  return base.replace(/\/$/, "");
-}
-
 export async function GET(
   req: NextRequest,
-  context: { params: Promise<{ jobId: string }> }
+  context: { params: Promise<{ jobId: string }> },
 ) {
   let jobId: string;
   try {
@@ -31,12 +20,16 @@ export async function GET(
     return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
   }
 
-  const baseUrl = getServiceUrl(req);
+  const baseUrl = getUpstreamUrl(req);
   try {
-    const res = await fetch(`${baseUrl}/api/clone/qr/${encodeURIComponent(jobId)}`, {
-      cache: "no-store",
-      headers: { Accept: "image/png, image/*" },
-    });
+    const res = await fetch(
+      `${baseUrl}/api/clone/qr/${encodeURIComponent(jobId)}`,
+      {
+        cache: "no-store",
+        headers: buildUpstreamHeaders({ Accept: "image/png, image/*" }),
+        signal: AbortSignal.timeout(8000),
+      },
+    );
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -57,7 +50,7 @@ export async function GET(
     console.error("[SKV clone] qr proxy error:", error);
     return NextResponse.json(
       { ok: false, error: "SKV service unavailable" },
-      { status: 502 }
+      { status: 502 },
     );
   }
 }

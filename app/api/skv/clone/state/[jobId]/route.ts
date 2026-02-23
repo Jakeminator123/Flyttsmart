@@ -1,22 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUpstreamUrl, buildUpstreamHeaders } from "../../proxy-helpers";
 
 export const runtime = "nodejs";
 
-const DEFAULT_PORT = 8767;
-
-function getServiceUrl(req: NextRequest): string {
-  const portParam = req.nextUrl.searchParams.get("port");
-  const port = portParam ? parseInt(portParam, 10) : undefined;
-  if (Number.isFinite(port)) {
-    return `http://127.0.0.1:${port}`;
-  }
-  const base = process.env.SKV_SERVICE_URL ?? `http://127.0.0.1:${DEFAULT_PORT}`;
-  return base.replace(/\/$/, "");
-}
-
 export async function GET(
   req: NextRequest,
-  context: { params: Promise<{ jobId: string }> }
+  context: { params: Promise<{ jobId: string }> },
 ) {
   let jobId: string;
   try {
@@ -31,13 +20,16 @@ export async function GET(
     return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
   }
 
-  const baseUrl = getServiceUrl(req);
+  const baseUrl = getUpstreamUrl(req);
   try {
-    const res = await fetch(`${baseUrl}/api/clone/state/${encodeURIComponent(jobId)}`, {
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(8000),
-    });
+    const res = await fetch(
+      `${baseUrl}/api/clone/state/${encodeURIComponent(jobId)}`,
+      {
+        cache: "no-store",
+        headers: buildUpstreamHeaders({ Accept: "application/json" }),
+        signal: AbortSignal.timeout(8000),
+      },
+    );
 
     const contentType = res.headers.get("content-type") ?? "";
     let data: unknown;
@@ -54,10 +46,10 @@ export async function GET(
     return NextResponse.json(
       {
         ok: false,
-        error: "SKV-tjänsten svarar inte. Kontrollera att Python/Playwright körs (t.ex. via Starta SKV-int7).",
+        error: "SKV-tjänsten svarar inte. Kontrollera att Python/Playwright körs.",
         details: process.env.NODE_ENV === "development" ? msg : undefined,
       },
-      { status: 502 }
+      { status: 502 },
     );
   }
 }

@@ -113,7 +113,6 @@ def _write_job_file(job_id: str, flask_port: int | None = None) -> None:
     }
     if flask_port:
         data["flaskPort"] = flask_port
-        data["cloneQrViewUrl"] = f"http://127.0.0.1:{flask_port}/clone/qr-view/{job_id}"
         data["cloneQrStateUrl"] = f"http://127.0.0.1:{flask_port}/api/clone/state/{job_id}"
     try:
         with open(JOB_FILE, "w", encoding="utf-8") as f:

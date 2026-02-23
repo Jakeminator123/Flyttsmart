@@ -109,6 +109,7 @@ async function startRemote(
       url: DEFAULT_SKV_URL,
       timeout_seconds: DEFAULT_TIMEOUT,
       ...CLICK_CONFIG,
+      payload,
     }),
     signal: AbortSignal.timeout(15_000),
   });

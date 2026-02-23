@@ -1815,6 +1815,16 @@ def api_run():
     url = (data.get("url") or "").strip()
     timeout_seconds = float(data.get("timeout_seconds") or 120)
 
+    # Accept and persist form payload so the form filler can read it
+    payload = data.get("payload")
+    if payload and isinstance(payload, dict):
+        try:
+            os.makedirs(RUNTIME_DIR, exist_ok=True)
+            with open(DEFAULT_PAYLOAD_FILE, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"[api_run] Failed to write payload: {e}")
+
     def parse_click(key_after, key_selectors):
         after = data.get(key_after)
         sels = data.get(key_selectors)

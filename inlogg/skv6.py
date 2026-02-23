@@ -134,6 +134,10 @@ _jobs: Dict[str, JobStatus] = {}
 _cancel_flags: Dict[str, bool] = {}
 _jobs_lock = threading.Lock()
 
+JOB_CLEANUP_DELAY_SECONDS = 300
+MAX_CONCURRENT_JOBS = 3
+MAX_JOB_RUNTIME_SECONDS = 600
+
 
 def _set_job(job: JobStatus) -> None:
     with _jobs_lock:
@@ -156,6 +160,31 @@ def _cancel_job(job_id: str) -> bool:
 def _is_cancelled(job_id: str) -> bool:
     with _jobs_lock:
         return _cancel_flags.get(job_id, False)
+
+
+def _schedule_job_cleanup(job_id: str) -> None:
+    """Remove finished job data from memory after a delay to allow final state polling."""
+    def _cleanup():
+        time.sleep(JOB_CLEANUP_DELAY_SECONDS)
+        with _jobs_lock:
+            _jobs.pop(job_id, None)
+            _cancel_flags.pop(job_id, None)
+        with _log_lock:
+            _qr_captured.pop(job_id, None)
+            _qr_capture_last_time.pop(job_id, None)
+        try:
+            pf = os.path.join(RUNTIME_DIR, f"payload_{job_id}.json")
+            if os.path.isfile(pf):
+                os.remove(pf)
+        except Exception:
+            pass
+
+    threading.Thread(target=_cleanup, daemon=True, name=f"cleanup-{job_id}").start()
+
+
+def _count_active_jobs() -> int:
+    with _jobs_lock:
+        return sum(1 for j in _jobs.values() if j.state in ("queued", "running"))
 
 
 # ----------------------------
@@ -650,6 +679,7 @@ def _run_playwright_job(
     click_selectors_2: Optional[list[str]] = None,
     click_after_seconds_3: Optional[float] = None,
     click_selectors_3: Optional[list[str]] = None,
+    payload_file: Optional[str] = None,
 ) -> None:
     job = _get_job(job_id)
     if not job:
@@ -663,7 +693,8 @@ def _run_playwright_job(
     # New session: clear previous logs and captured data
     _clear_session_log(job_id)
     with _log_lock:
-        _qr_captured.clear()
+        _qr_captured.pop(job_id, None)
+        _qr_capture_last_time.pop(job_id, None)
 
     screenshot_file = os.path.join(RESULT_DIR, f"{job_id}.png")
 
@@ -1387,7 +1418,7 @@ def _run_playwright_job(
                     job.message = "Fyller flyttformulär..."
                     _set_job(job)
                     _log_session("Starting form filler", "FORM")
-                    payload_file = os.environ.get("SKV_PAYLOAD_FILE", DEFAULT_PAYLOAD_FILE)
+                    payload_file = payload_file or os.environ.get("SKV_PAYLOAD_FILE", DEFAULT_PAYLOAD_FILE)
                     allow_mockup = is_truthy(os.environ.get("SKV_ALLOW_MOCKUP_DATA", "y"))
                     run_flytt_form_filler(
                         flytt_page,
@@ -1433,6 +1464,11 @@ def _run_playwright_job(
             if trace_browser_windows:
                 _log_browser_windows(context, "Final browser snapshot", include_focus=True)
             _set_job(job)
+            try:
+                browser.close()
+            except Exception:
+                pass
+            _schedule_job_cleanup(job_id)
 
     except Exception as e:
         job.state = "error"
@@ -1440,6 +1476,7 @@ def _run_playwright_job(
         job.message = f"Fel: {e}"
         _log_session(f"Session error: {e}", "DONE")
         _set_job(job)
+        _schedule_job_cleanup(job_id)
 
 
 # ----------------------------
@@ -1810,16 +1847,28 @@ def api_clone_qr(job_id: str):
 
 @app.post("/api/run")
 def api_run():
+    active = _count_active_jobs()
+    if active >= MAX_CONCURRENT_JOBS:
+        return jsonify({
+            "error": f"Max {MAX_CONCURRENT_JOBS} samtidiga jobb. {active} körs just nu.",
+            "activeJobs": active,
+        }), 429
+
     data = request.get_json(force=True) or {}
 
     url = (data.get("url") or "").strip()
-    timeout_seconds = float(data.get("timeout_seconds") or 120)
+    timeout_seconds = min(float(data.get("timeout_seconds") or 300), MAX_JOB_RUNTIME_SECONDS)
 
-    # Accept and persist form payload so the form filler can read it
+    job_id = uuid.uuid4().hex[:12]
+
+    # Write payload to a per-job file so parallel jobs don't overwrite each other
     payload = data.get("payload")
+    job_payload_file = os.path.join(RUNTIME_DIR, f"payload_{job_id}.json")
     if payload and isinstance(payload, dict):
         try:
             os.makedirs(RUNTIME_DIR, exist_ok=True)
+            with open(job_payload_file, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
             with open(DEFAULT_PAYLOAD_FILE, "w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -1846,7 +1895,6 @@ def api_run():
     if not url.startswith(("http://", "https://")):
         return jsonify({"error": "URL måste börja med http:// eller https://"}), 400
 
-    job_id = uuid.uuid4().hex[:12]
     job = JobStatus(job_id=job_id, state="queued", message="Köad...")
     _set_job(job)
 
@@ -1862,6 +1910,7 @@ def api_run():
             "click_selectors_2": click_selectors_2,
             "click_after_seconds_3": click_after_3,
             "click_selectors_3": click_selectors_3,
+            "payload_file": job_payload_file if payload else None,
         },
         daemon=True,
     )

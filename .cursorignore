@@ -2,3 +2,25 @@ node_modules
 .next
 old
 tsconfig.tsbuildinfo
+
+# High: data/artifacts
+data
+inlogg/runtime
+inlogg/results
+
+# Medium: build and cache
+out
+build
+.vercel
+__pycache__
+
+# Low: noise
+Thumbs.db
+
+addressandring
+adressandring/sida_*
+adressandring/skrapning_sajt.py
+
+next-env.d.ts
+*.tsbuildinfo
+*.log

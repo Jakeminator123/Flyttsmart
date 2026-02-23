@@ -125,7 +125,7 @@ export function StepsSection() {
                     <div className="relative">
                       <div className="absolute -inset-4 rounded-3xl bg-primary/5 blur-2xl" />
                       <Image
-                        src="/images/glad_tjej.webp"
+                        src="/media/glad_tjej.webp"
                         alt="En glad tjej visar en QR-kod på sin telefon"
                         width={220}
                         height={320}

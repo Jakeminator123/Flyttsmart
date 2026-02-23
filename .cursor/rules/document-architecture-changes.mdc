@@ -1,0 +1,27 @@
+---
+description: Remind agent to document significant architectural and schematic changes
+alwaysApply: true
+---
+
+# Document Architecture Changes
+
+When making significant changes to the codebase — particularly involving:
+- New or changed data flows (e.g., form orchestrators, API chains)
+- Removed features or entire subsystems
+- New env-variable schemas or configuration patterns
+- Changes to the submit/persist pipeline
+
+Save a concise document in `docs/` covering:
+1. What changed and why
+2. Data flow diagrams (text-based)
+3. Env-variable tables
+4. What was preserved vs removed
+
+Use the naming convention `docs/CHANGELOG-YYYY-MM-DD-topic.md` for change logs
+and descriptive names like `docs/AUTOFILL-ORCHESTRATOR.md` for living architecture docs.
+
+Do NOT document every small fix. Only document when:
+- A subsystem is added, replaced, or removed
+- The data flow between components fundamentally changes
+- New env-variable schemas are introduced
+- Schema/interface changes affect multiple files

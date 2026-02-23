@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, type KeyboardEvent } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
   Shield,
   Lock,
-  QrCode,
   Home,
   CalendarDays,
   ListChecks,
@@ -17,10 +15,6 @@ import {
   Loader2,
   Sparkles,
   AlertCircle,
-  Smartphone,
-  Copy,
-  Check,
-  PlayCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,16 +40,17 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
-import { QrScanner } from "@/components/qr-scanner";
 import { ChecklistView, type ChecklistItem } from "@/components/checklist-view";
 import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
 import { useOpenClawMirror } from "@/hooks/use-openclaw-mirror";
+import { useAutofill } from "@/hooks/use-autofill";
+
+import type { SuggestionSource } from "@/lib/autofill/config";
 import { SkatteverketGuide } from "@/components/skatteverket-guide";
 import { BookmarkletButton } from "@/components/bookmarklet-button";
-import { BankIdQrMirror } from "@/components/bankid-qr-mirror";
 
 const STEPS = [
-  { id: 1, label: "Identifiering", icon: QrCode },
+  { id: 1, label: "Identifiering", icon: Shield },
   { id: 2, label: "Adresser", icon: Home },
   { id: 3, label: "Flyttdetaljer", icon: CalendarDays },
   { id: 4, label: "Checklista", icon: ListChecks },
@@ -86,13 +81,6 @@ interface FormData {
   hasChildren: boolean;
 }
 
-type SuggestionSource = "postal" | "ai" | "openclaw";
-
-interface FieldSuggestion {
-  value: string;
-  source: SuggestionSource;
-}
-
 const emptyForm: FormData = {
   firstName: "",
   lastName: "",
@@ -114,22 +102,6 @@ const emptyForm: FormData = {
   hasChildren: false,
 };
 
-const AUTOFILL_ENABLED =
-  (process.env.NEXT_PUBLIC_AUTOFILL_ENABLED ?? "true") === "true";
-const AUTOFILL_DEV_ONLY =
-  (process.env.NEXT_PUBLIC_AUTOFILL_DEV_ONLY ?? "true") === "true";
-const AUTOFILL_MODE = process.env.NEXT_PUBLIC_AUTOFILL_MODE ?? "manual";
-const SUGGESTION_PRIORITY: Record<SuggestionSource, number> = {
-  postal: 3,
-  ai: 2,
-  openclaw: 1,
-};
-const SUGGESTION_SOURCE_LABEL: Record<SuggestionSource, string> = {
-  postal: "Postnummer-uppslag",
-  ai: "AI-förslag",
-  openclaw: "Aida-förslag",
-};
-
 export default function AdressandringPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [agreed, setAgreed] = useState(false);
@@ -146,128 +118,15 @@ export default function AdressandringPage() {
     confidence: number;
     suggestions: string[];
   } | null>(null);
-  const [qrPrefilled, setQrPrefilled] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [mobileQrImage, setMobileQrImage] = useState<string | null>(null);
-  const [mobileQrLoading, setMobileQrLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [mobileQrUrl, setMobileQrUrl] = useState<string | null>(null);
-  const [autofillLoading, setAutofillLoading] = useState(false);
-  const [fieldSuggestions, setFieldSuggestions] = useState<
-    Partial<Record<keyof FormData, FieldSuggestion>>
-  >({});
-  const [bankIdQrOnlyVisible, setBankIdQrOnlyVisible] = useState(false);
-  const [cloneQrToSiteEnabled, setCloneQrToSiteEnabled] = useState(false);
-  const [skvInt7Starting, setSkvInt7Starting] = useState(false);
-  const [skvInt7Status, setSkvInt7Status] = useState<string | null>(null);
-  const [cloneQrStateUrl, setCloneQrStateUrl] = useState<string | null>(null);
-  const [cloneQrImageUrl, setCloneQrImageUrl] = useState<string | null>(null);
+  const [isDevMode, setIsDevMode] = useState(false);
 
-  const autofillActive =
-    AUTOFILL_ENABLED &&
-    (!AUTOFILL_DEV_ONLY || process.env.NODE_ENV === "development");
+  useEffect(() => {
+    setIsDevMode(window.location.hostname === "localhost");
+  }, []);
 
   // OpenClaw real-time form mirroring
   const { mirrorField, mirrorStepChange, mirrorSubmit, mirrorEvent } =
     useOpenClawMirror({ formType: "adressandring" });
-
-  const progressValue = (currentStep / STEPS.length) * 100;
-
-  // Detect mobile vs desktop
-  useEffect(() => {
-    const touch = navigator.maxTouchPoints > 0;
-    const narrow = window.matchMedia("(max-width: 768px)").matches;
-    setIsMobile(touch && narrow);
-  }, []);
-
-  useEffect(() => {
-    let alive = true;
-    async function loadSkvConfig() {
-      try {
-        const res = await fetch("/api/skv/config");
-        const data = await res.json();
-        if (alive) {
-          setBankIdQrOnlyVisible(Boolean(data?.bankIdQrOnlyVisible));
-          setCloneQrToSiteEnabled(Boolean(data?.cloneQrToSiteEnabled));
-        }
-      } catch {
-        if (alive) setBankIdQrOnlyVisible(false);
-      }
-    }
-    loadSkvConfig();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  // Auto-generate QR when entering step 5
-  useEffect(() => {
-    if (currentStep === 5 && !mobileQrImage && !mobileQrLoading && form.firstName) {
-      generateMobileQr();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep]);
-
-  // Check for QR prefill data on mount
-  useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem("qr_prefill");
-      if (stored) {
-        const data = JSON.parse(stored);
-        const nameParts = (data.name || "").split(" ");
-        const firstName = nameParts[0] || "";
-        const lastName = nameParts.slice(1).join(" ") || "";
-
-        // Parse address into parts
-        let street = "";
-        let postal = "";
-        let city = "";
-        if (data.address) {
-          const parts = data.address.split(",").map((s: string) => s.trim());
-          street = parts[0] || "";
-          const rest = parts[1] || "";
-          const postalMatch = rest.match(/^(\d{3}\s?\d{2})\s*(.*)/);
-          if (postalMatch) {
-            postal = postalMatch[1];
-            city = postalMatch[2];
-          } else {
-            city = rest;
-          }
-        }
-
-        setForm((prev) => {
-          const next = {
-            ...prev,
-            firstName,
-            lastName,
-            personalNumber: data.personalNumber || "",
-            email: data.email || "",
-            phone: data.phone || "",
-            fromStreet: street,
-            fromPostal: postal,
-            fromCity: city,
-            toStreet: data.toStreet || prev.toStreet,
-            toPostal: data.toPostal || prev.toPostal,
-            toCity: data.toCity || prev.toCity,
-            apartmentNumber: data.apartmentNumber || "",
-            propertyDesignation: data.propertyDesignation || "",
-            propertyOwner: data.propertyOwner || "",
-            moveDate: data.moveDate || prev.moveDate,
-          };
-          mirrorEvent(
-            "qr_scan",
-            next as unknown as Record<string, string | boolean | number>,
-            currentStep
-          );
-          return next;
-        });
-        setQrPrefilled(true);
-        sessionStorage.removeItem("qr_prefill");
-      }
-    } catch {
-      // ignore errors
-    }
-  }, [mirrorEvent, currentStep]);
 
   const updateForm = useCallback(
     (field: keyof FormData, value: string | boolean) => {
@@ -276,230 +135,41 @@ export default function AdressandringPage() {
         mirrorField(field, value, next as unknown as Record<string, string | boolean | number>);
         return next;
       });
-      setFieldSuggestions((prev) => {
-        if (!prev[field]) return prev;
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      });
     },
     [mirrorField]
   );
 
-  const queueSuggestion = useCallback(
-    (field: keyof FormData, rawValue: string, source: SuggestionSource) => {
-      if (!autofillActive) return;
-      const value = rawValue.trim();
-      if (!value) return;
+  const {
+    config: autofillConfig,
+    active: autofillActive,
+    autofillLoading,
+    queueSuggestion,
+    handleAutofill,
+    renderSuggestionBanner,
+  } = useAutofill<keyof FormData>({
+    form: form as unknown as Record<keyof FormData, string | boolean>,
+    currentStep,
+    updateForm,
+    mirrorEvent,
+  });
 
-      if (AUTOFILL_MODE === "auto") {
-        mirrorEvent(
-          "suggestion_shown",
-          { field, value, source, mode: "auto" },
-          currentStep
-        );
-        updateForm(field, value);
-        mirrorEvent(
-          "suggestion_accepted",
-          { field, value, source, mode: "auto" },
-          currentStep
-        );
-        return;
-      }
+  const progressValue = (currentStep / STEPS.length) * 100;
 
-      setFieldSuggestions((prev) => {
-        const existing = prev[field];
-        if (
-          existing &&
-          SUGGESTION_PRIORITY[existing.source] > SUGGESTION_PRIORITY[source]
-        ) {
-          return prev;
-        }
-        mirrorEvent(
-          "suggestion_shown",
-          { field, value, source, mode: "manual" },
-          currentStep
-        );
-        return { ...prev, [field]: { value, source } };
-      });
-    },
-    [autofillActive, currentStep, mirrorEvent, updateForm]
-  );
-
-  const acceptSuggestion = useCallback(
-    (field: keyof FormData) => {
-      const suggestion = fieldSuggestions[field];
-      if (!suggestion) return;
-      updateForm(field, suggestion.value);
-      mirrorEvent(
-        "suggestion_accepted",
-        { field, value: suggestion.value, source: suggestion.source },
-        currentStep
-      );
-      setFieldSuggestions((prev) => {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      });
-    },
-    [currentStep, fieldSuggestions, mirrorEvent, updateForm]
-  );
-
-  const dismissSuggestion = useCallback((field: keyof FormData) => {
-    setFieldSuggestions((prev) => {
-      if (!prev[field]) return prev;
-      const next = { ...prev };
-      delete next[field];
-      return next;
-    });
-  }, []);
-
-  const renderSuggestionBanner = (field: keyof FormData) => {
-    const suggestion = fieldSuggestions[field];
-    if (!suggestion || !autofillActive) return null;
-
-    return (
-      <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <span className="font-medium">Förslag ({SUGGESTION_SOURCE_LABEL[suggestion.source]}): </span>
-            <span>{suggestion.value}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => acceptSuggestion(field)}
-              className="rounded border border-red-400 bg-white px-2 py-0.5 font-medium text-red-700 hover:bg-red-100"
-            >
-              Acceptera
-            </button>
-            <button
-              type="button"
-              onClick={() => dismissSuggestion(field)}
-              className="rounded border border-red-300 bg-white px-2 py-0.5 text-red-600 hover:bg-red-100"
-            >
-              Avvisa
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Auto-lookup city from postal code via PAP API
-  const fromPostalAbortRef = useRef<AbortController | null>(null);
-  const toPostalAbortRef = useRef<AbortController | null>(null);
-
+  // Dev prefill from demo page (sessionStorage)
   useEffect(() => {
-    if (!autofillActive) return;
-    const postalCode = form.fromPostal.replace(/\s+/g, "");
-    if (postalCode.length !== 5 || !/^\d{5}$/.test(postalCode)) return;
-    if (form.fromCity && AUTOFILL_MODE !== "manual") return;
-
-    fromPostalAbortRef.current?.abort();
-    const controller = new AbortController();
-    fromPostalAbortRef.current = controller;
-
-    fetch(`/api/enrich/postal?postalCode=${postalCode}`, {
-      signal: controller.signal,
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.city) {
-          queueSuggestion("fromCity", data.city, "postal");
-        }
-      })
-      .catch(() => {});
-
-    return () => controller.abort();
-  }, [AUTOFILL_MODE, autofillActive, form.fromCity, form.fromPostal, queueSuggestion]);
-
-  useEffect(() => {
-    if (!autofillActive) return;
-    const postalCode = form.toPostal.replace(/\s+/g, "");
-    if (postalCode.length !== 5 || !/^\d{5}$/.test(postalCode)) return;
-    if (form.toCity && AUTOFILL_MODE !== "manual") return;
-
-    toPostalAbortRef.current?.abort();
-    const controller = new AbortController();
-    toPostalAbortRef.current = controller;
-
-    fetch(`/api/enrich/postal?postalCode=${postalCode}`, {
-      signal: controller.signal,
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.city) {
-          queueSuggestion("toCity", data.city, "postal");
-        }
-      })
-      .catch(() => {});
-
-    return () => controller.abort();
-  }, [AUTOFILL_MODE, autofillActive, form.toCity, form.toPostal, queueSuggestion]);
-
-  // Handle QR scan result
-  async function handleQrScan(rawData: string) {
+    if (typeof window === "undefined") return;
     try {
-      const res = await fetch("/api/qr/decode", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: rawData }),
-      });
-
-      if (!res.ok) throw new Error("Invalid QR");
-
-      const { data } = await res.json();
-      const nameParts = (data.name || "").split(" ");
-
-      let street = "",
-        postal = "",
-        city = "";
-      if (data.address) {
-        const parts = data.address.split(",").map((s: string) => s.trim());
-        street = parts[0] || "";
-        const rest = parts[1] || "";
-        const postalMatch = rest.match(/^(\d{3}\s?\d{2})\s*(.*)/);
-        if (postalMatch) {
-          postal = postalMatch[1];
-          city = postalMatch[2];
-        } else {
-          city = rest;
-        }
+      const raw = sessionStorage.getItem("adressandring-prefill");
+      if (!raw) return;
+      const prefill = JSON.parse(raw) as Partial<FormData>;
+      sessionStorage.removeItem("adressandring-prefill");
+      if (Object.keys(prefill).length > 0) {
+        setForm((prev) => ({ ...prev, ...prefill }));
       }
-
-      setForm((prev) => {
-        const next = {
-          ...prev,
-          firstName: nameParts[0] || prev.firstName,
-          lastName: nameParts.slice(1).join(" ") || prev.lastName,
-          personalNumber: data.personalNumber || prev.personalNumber,
-          email: data.email || prev.email,
-          phone: data.phone || prev.phone,
-          fromStreet: street || prev.fromStreet,
-          fromPostal: postal || prev.fromPostal,
-          fromCity: city || prev.fromCity,
-          toStreet: data.toStreet || prev.toStreet,
-          toPostal: data.toPostal || prev.toPostal,
-          toCity: data.toCity || prev.toCity,
-          apartmentNumber: data.apartmentNumber || prev.apartmentNumber,
-          propertyDesignation:
-            data.propertyDesignation || prev.propertyDesignation,
-          propertyOwner: data.propertyOwner || prev.propertyOwner,
-          moveDate: data.moveDate || prev.moveDate,
-        };
-        mirrorEvent(
-          "qr_scan",
-          next as unknown as Record<string, string | boolean | number>,
-          currentStep
-        );
-        return next;
-      });
-      setQrPrefilled(true);
     } catch {
-      // QR decoding failed, user can fill in manually
+      sessionStorage.removeItem("adressandring-prefill");
     }
-  }
+  }, []);
 
   // AI validate person data
   async function handleValidate() {
@@ -612,135 +282,11 @@ export default function AdressandringPage() {
     );
   }
 
-  // Generate QR code for mobile handoff
-  async function generateMobileQr() {
-    setMobileQrLoading(true);
-    try {
-      const res = await fetch("/api/qr/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: `${form.firstName} ${form.lastName}`.trim(),
-          personalNumber: form.personalNumber,
-          address: form.fromStreet
-            ? `${form.fromStreet}, ${form.fromPostal} ${form.fromCity}`
-            : undefined,
-          email: form.email,
-          phone: form.phone,
-          toStreet: form.toStreet,
-          toPostal: form.toPostal,
-          toCity: form.toCity,
-          apartmentNumber: form.apartmentNumber,
-          propertyDesignation: form.propertyDesignation,
-          propertyOwner: form.propertyOwner,
-          moveDate: form.moveDate,
-        }),
-      });
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-      const data = await res.json();
-      if (data.qrImage) {
-        setMobileQrImage(data.qrImage);
-      }
-      if (data.url) {
-        setMobileQrUrl(data.url);
-      }
-    } catch {
-      // QR generation failed silently
-    } finally {
-      setMobileQrLoading(false);
-    }
-  }
-
-  // Copy address to clipboard
-  async function copyNewAddress() {
-    const addr = [form.toStreet, `${form.toPostal} ${form.toCity}`]
-      .filter(Boolean)
-      .join(", ");
-    await navigator.clipboard.writeText(addr);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  // AI autofill – suggest missing fields based on what's already entered
-  async function handleAutofill() {
-    if (!autofillActive) return;
-    setAutofillLoading(true);
-    try {
-      const res = await fetch("/api/ai/autofill", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName: form.firstName,
-          lastName: form.lastName,
-          personalNumber: form.personalNumber,
-          fromStreet: form.fromStreet,
-          fromPostal: form.fromPostal,
-          fromCity: form.fromCity,
-          toStreet: form.toStreet,
-          toPostal: form.toPostal,
-          toCity: form.toCity,
-          apartmentNumber: form.apartmentNumber,
-          propertyDesignation: form.propertyDesignation,
-          propertyOwner: form.propertyOwner,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.suggestions) {
-        for (const [key, value] of Object.entries(data.suggestions)) {
-          if (typeof value !== "string" || !value.trim()) continue;
-          queueSuggestion(key as keyof FormData, value, "ai");
-        }
-      }
-    } catch {
-      // Autofill failed silently
-    } finally {
-      setAutofillLoading(false);
-    }
-  }
-
-  async function handleStartSkvInt7() {
-    setSkvInt7Starting(true);
-    setSkvInt7Status(null);
-    try {
-      const res = await fetch("/api/skv/int7/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ formData: form }),
-      });
-
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || "Kunde inte starta SKV-int7.");
-      }
-      if (data?.cloneQrEnabled && data?.cloneQrStateUrl) {
-        setCloneQrStateUrl(data.cloneQrStateUrl);
-        setCloneQrImageUrl(data.cloneQrImageUrl ?? null);
-        setSkvInt7Status("SKV-int7 startad. Skanna BankID-QR nedan.");
-      } else {
-        setSkvInt7Status("SKV-int7 är startad. Verifiera BankID i QR-vyn som öppnats.");
-      }
-    } catch {
-      setSkvInt7Status(
-        "Kunde inte starta SKV-int7. Kontrollera Python/Playwright och försök igen."
-      );
-    } finally {
-      setSkvInt7Starting(false);
-    }
-  }
-
-  function blockSkvInt7KeyboardTrigger(event: KeyboardEvent<HTMLButtonElement>) {
-    // SKV-int7 must only be started by explicit button click.
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  }
-
-  // Submit the move
   async function handleSubmit() {
-    mirrorSubmit(form as unknown as Record<string, string | boolean | number>);
     setSubmitting(true);
+    setSubmitError(null);
     try {
       const res = await fetch("/api/move", {
         method: "POST",
@@ -767,12 +313,16 @@ export default function AdressandringPage() {
       });
 
       const data = await res.json();
-      if (data.success) {
-        setMoveId(data.moveId);
-        setSubmitted(true);
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Kunde inte registrera flytten.");
       }
-    } catch {
-      // Handle error silently for now
+      setMoveId(data.moveId);
+      setSubmitted(true);
+      mirrorSubmit(form as unknown as Record<string, string | boolean | number>);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Ett oväntat fel uppstod. Försök igen."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -783,13 +333,6 @@ export default function AdressandringPage() {
       handleValidate();
     }
     if (currentStep === 3) {
-      if (!form.moveDate) {
-        setChecklistError(
-          "Ange ett inflyttningsdatum innan du går vidare."
-        );
-        return;
-      }
-      setChecklistError(null);
       generateChecklist();
     }
     if (currentStep < STEPS.length) {
@@ -894,112 +437,6 @@ export default function AdressandringPage() {
               }}
             />
 
-            {/* QR for mobile handoff (hidden when SKV BankID QR-only mode is enabled) */}
-            {!bankIdQrOnlyVisible ? (
-            <Card className="border-primary/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <QrCode className="h-4 w-4 text-primary" />
-                  Skicka till mobilen
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Skanna QR-koden med din mobil för att få guiden och alla
-                  uppgifter direkt i telefonen.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {mobileQrImage ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="rounded-xl border bg-white p-3 shadow-sm">
-                      <Image
-                        src={mobileQrImage}
-                        alt="QR-kod för Skatteverket"
-                        width={160}
-                        height={160}
-                        unoptimized
-                        className="h-40 w-40"
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Rikta kameran mot koden
-                    </p>
-                  </div>
-                ) : (
-                  <Button
-                    onClick={generateMobileQr}
-                    disabled={mobileQrLoading}
-                    variant="outline"
-                    className="w-full gap-2"
-                  >
-                    {mobileQrLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <QrCode className="h-4 w-4" />
-                    )}
-                    {mobileQrLoading ? "Genererar..." : "Visa QR-kod"}
-                  </Button>
-                )}
-
-                {/* Copy new address shortcut */}
-                {form.toStreet && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={copyNewAddress}
-                    className="w-full gap-2"
-                  >
-                    {copied ? (
-                      <Check className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                    {copied
-                      ? "Kopierad!"
-                      : `Kopiera: ${form.toStreet}, ${form.toPostal} ${form.toCity}`}
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-            ) : (
-              <Card className="border-primary/30 bg-primary/5">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">
-                    BankID QR-läge aktivt
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Data-QR döljs i dev-läge. Starta SKV-int7 för att visa BankID-QR och slutföra ifyllningen automatiskt.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    type="button"
-                    onKeyDown={blockSkvInt7KeyboardTrigger}
-                    onClick={handleStartSkvInt7}
-                    disabled={skvInt7Starting}
-                    className="w-full gap-2"
-                  >
-                    {skvInt7Starting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <PlayCircle className="h-4 w-4" />
-                    )}
-                    {skvInt7Starting ? "Startar SKV-int7..." : "Starta SKV-int7 (BankID)"}
-                  </Button>
-                  {skvInt7Status && (
-                    <p className="mt-2 text-xs text-muted-foreground">{skvInt7Status}</p>
-                  )}
-                  {cloneQrStateUrl && cloneQrImageUrl && (
-                    <div className="mt-3">
-                      <BankIdQrMirror
-                        cloneQrStateUrl={cloneQrStateUrl}
-                        cloneQrImageUrl={cloneQrImageUrl}
-                        onDismiss={() => { setCloneQrStateUrl(null); setCloneQrImageUrl(null); }}
-                      />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
           </div>
 
           <div className="mt-6 flex gap-3 justify-center">
@@ -1127,68 +564,21 @@ export default function AdressandringPage() {
                   <Badge variant="outline" className="text-primary">
                     Steg 1
                   </Badge>
-                  {qrPrefilled && (
-                    <Badge className="gap-1 bg-primary/10 text-primary">
-                      <QrCode className="h-3 w-3" />
-                      QR-ifylld
-                    </Badge>
-                  )}
                 </div>
                 <CardTitle className="font-heading text-xl">
                   Identifiering
                 </CardTitle>
                 <CardDescription>
-                  Skanna en QR-kod för att fylla i automatiskt, eller ange dina
-                  uppgifter manuellt.
+                  Ange dina personuppgifter nedan.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* QR Scanner on mobile, info card on desktop */}
-                {bankIdQrOnlyVisible ? (
-                  <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                      <PlayCircle className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        BankID QR-läge aktivt
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                        Data-QR på sajten är nedtonad i dev-läge för att undvika
-                        förväxling med BankID-QR i SKV-int7.
-                      </p>
-                    </div>
-                  </div>
-                ) : isMobile ? (
-                  <QrScanner
-                    onScan={handleQrScan}
-                    className="border-primary/20"
-                  />
-                ) : (
-                  <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                      <Smartphone className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Fortsätt till Skatteverket via mobilen
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                        Fyll i dina uppgifter nedan. I sista steget kan du
-                        generera en QR-kod att skanna med mobilen — dina
-                        uppgifter skickas till telefonen så du kan göra
-                        flyttanmälan hos Skatteverket direkt.
-                      </p>
-                    </div>
-                  </div>
-                )}
 
                 {/* Dev mode: prefill with test data */}
-                {typeof window !== "undefined" &&
-                  window.location.hostname === "localhost" && (
+                {isDevMode && (
                     <div className="rounded-lg border border-dashed border-yellow-400 bg-yellow-50 p-3">
                       <p className="text-xs font-semibold text-yellow-800 mb-2">
-                        Dev mode – Testa QR-förifyllning:
+                        Dev mode – Fyll med testdata:
                       </p>
                       <Button
                         type="button"
@@ -1222,21 +612,13 @@ export default function AdressandringPage() {
                             nextForm as unknown as Record<string, string | boolean | number>,
                             currentStep
                           );
-                          setQrPrefilled(true);
                         }}
                       >
                         <Sparkles className="h-3.5 w-3.5" />
-                        Fyll med testdata (simulera QR-scan)
+                        Fyll med testdata
                       </Button>
                     </div>
                   )}
-
-                <div className="relative">
-                  <Separator />
-                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs text-muted-foreground">
-                    {isMobile ? "eller fyll i manuellt" : "Fyll i dina uppgifter"}
-                  </span>
-                </div>
 
                 {/* Manual entry */}
                 <div className="grid gap-5 sm:grid-cols-2">
@@ -1361,15 +743,6 @@ export default function AdressandringPage() {
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <Home className="h-4 w-4 text-primary" />
                     Nuvarande adress
-                    {qrPrefilled && (
-                      <Badge
-                        variant="secondary"
-                        className="ml-1 gap-1 text-xs"
-                      >
-                        <QrCode className="h-3 w-3" />
-                        från QR
-                      </Badge>
-                    )}
                   </h3>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2 sm:col-span-2">
@@ -1495,7 +868,7 @@ export default function AdressandringPage() {
                   <Sparkles className="h-4 w-4 shrink-0 text-primary" />
                   <p className="flex-1 text-xs text-muted-foreground">
                     {autofillActive
-                      ? `Autofyll är aktiv (${AUTOFILL_MODE === "auto" ? "auto" : "manuell accept"}). Förslag visas ovanför fält.`
+                      ? `Autofyll är aktiv (${autofillConfig.mode === "auto" ? "auto" : "manuell accept"}). Förslag visas ovanför fält.`
                       : "Autofyll är avstängd i denna miljö."}
                   </p>
                   <Button
@@ -1793,113 +1166,6 @@ export default function AdressandringPage() {
 
                 <Separator />
 
-                {!isMobile && bankIdQrOnlyVisible && (
-                  <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-5">
-                    <p className="text-sm font-semibold text-foreground">
-                      SKV-int7 (BankID QR) i dev-läge
-                    </p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Data-QR är dold eftersom <code>SKV_SYNLIGT_SKV=y</code>.
-                      Starta SKV-int7 för att öppna BankID-QR och låta
-                      Playwright fylla Skatteverkets formulär med dessa uppgifter.
-                    </p>
-                    <Button
-                      type="button"
-                      onKeyDown={blockSkvInt7KeyboardTrigger}
-                      onClick={handleStartSkvInt7}
-                      disabled={skvInt7Starting}
-                      className="w-full gap-2"
-                    >
-                      {skvInt7Starting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <PlayCircle className="h-4 w-4" />
-                      )}
-                      {skvInt7Starting
-                        ? "Startar SKV-int7..."
-                        : "Starta SKV-int7 (BankID)"}
-                    </Button>
-                    {skvInt7Status && (
-                      <p className="text-xs text-muted-foreground">{skvInt7Status}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Mobile handoff via QR */}
-                {!isMobile && !bankIdQrOnlyVisible && (
-                  <div className="space-y-4 rounded-xl border border-primary/30 bg-primary/5 p-5">
-                    <div className="flex items-center gap-2">
-                      <Smartphone className="h-5 w-5 text-primary" />
-                      <p className="text-sm font-semibold text-foreground">
-                        Gör flyttanmälan via mobilen
-                      </p>
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Skanna QR-koden med din mobil för att få alla uppgifter
-                      skickade dit. Mobilen visar ett referenskort med din nya
-                      adress och flyttdatum, plus en direktlänk till
-                      Skatteverkets flyttanmälan.
-                    </p>
-
-                    {mobileQrLoading && !mobileQrImage && (
-                      <div className="flex items-center justify-center gap-2 py-6">
-                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        <span className="text-sm text-muted-foreground">
-                          Genererar QR-kod...
-                        </span>
-                      </div>
-                    )}
-
-                    {mobileQrImage && (
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="rounded-xl border bg-white p-3 shadow-sm">
-                          <Image
-                            src={mobileQrImage}
-                            alt="QR-kod för mobilen"
-                            width={192}
-                            height={192}
-                            unoptimized
-                            className="h-48 w-48"
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Öppna kameran på din telefon och rikta den mot koden
-                        </p>
-                      </div>
-                    )}
-
-                    {!mobileQrImage && !mobileQrLoading && (
-                      <Button
-                        onClick={generateMobileQr}
-                        variant="outline"
-                        className="w-full gap-2"
-                      >
-                        <QrCode className="h-4 w-4" />
-                        Visa QR-kod för mobilen
-                      </Button>
-                    )}
-
-                    {/* Dev mode: clickable test link */}
-                    {mobileQrUrl &&
-                      typeof window !== "undefined" &&
-                      window.location.hostname === "localhost" && (
-                        <div className="rounded-lg border border-dashed border-yellow-400 bg-yellow-50 p-3 text-xs">
-                          <p className="font-semibold text-yellow-800">
-                            Dev mode – Testa QR-flödet:
-                          </p>
-                          <a
-                            href={mobileQrUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-1 block truncate text-primary underline underline-offset-2"
-                          >
-                            {mobileQrUrl}
-                          </a>
-                        </div>
-                      )}
-                  </div>
-                )}
-
                 {/* Free service banner */}
                 <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 p-4">
                   <div>
@@ -1916,6 +1182,13 @@ export default function AdressandringPage() {
                 </div>
 
                 <Separator />
+
+                {submitError && (
+                  <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{submitError}</span>
+                  </div>
+                )}
 
                 <div className="flex items-start gap-3">
                   <Checkbox

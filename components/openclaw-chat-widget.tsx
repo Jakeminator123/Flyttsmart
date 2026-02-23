@@ -264,11 +264,14 @@ export function OpenClawChatWidget({
         </button>
       )}
 
-      {/* ── Minimized bar ─────────────���─────────────────── */}
+      {/* ── Minimized bar ──────────────────────────────── */}
       {open && minimized && (
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           onClick={handleRestore}
-          className="fixed bottom-5 left-5 z-50 flex items-center gap-2.5 rounded-full border border-border/60 bg-card px-4 py-2.5 shadow-lg transition-all duration-300 hover:shadow-xl"
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleRestore(); }}
+          className="fixed bottom-5 left-5 z-50 flex items-center gap-2.5 rounded-full border border-border/60 bg-card px-4 py-2.5 shadow-lg transition-all duration-300 hover:shadow-xl cursor-pointer"
         >
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10">
             <Bot className="h-4 w-4 text-primary" />
@@ -286,11 +289,11 @@ export function OpenClawChatWidget({
               handleClose();
             }}
             className="ml-1 rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Stäng chatt"
+            aria-label="Stäng chatt"
           >
             <X className="h-3.5 w-3.5" />
           </button>
-        </button>
+        </div>
       )}
 
       {/* ── Chat panel ──────────────────────────────────── */}

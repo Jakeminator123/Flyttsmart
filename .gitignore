@@ -49,3 +49,7 @@ __pycache__/
 # Scraped competitor reference sites
 /adressandring/sida_*/
 /adressandring/skrapning_sajt.py
+
+# Windows
+Thumbs.db
+Desktop.ini

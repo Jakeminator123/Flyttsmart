@@ -1,0 +1,482 @@
+/**
+ * Pre-enrichment: before Aida answers, we look up data from our APIs
+ * and inject the results into her context so she can give informed answers.
+ *
+ * Sources:
+ *  - PAP API (postnummer -> ort/kommun/lan/koordinater)
+ *  - Eniro API (person/adress-sok i Sverige)
+ *  - Personnummer-parsing (fodelsedatum, alder)
+ *  - Flyttdatum-analys (tidsfrister, prioriteringar)
+ */
+
+const PAP_API_KEY = process.env.PAP_API_KEY ?? "";
+const ENIRO_API_KEY = process.env.ENIRO_API_KEY ?? "";
+const NOMINATIM_ENABLED =
+  (process.env.NOMINATIM_ENABLED ?? "true").trim().toLowerCase() !== "false";
+const SCB_ENABLED =
+  (process.env.SCB_ENABLED ?? "false").trim().toLowerCase() === "y" ||
+  (process.env.SCB_ENABLED ?? "false").trim().toLowerCase() === "true";
+
+interface FormFields {
+  firstName?: string;
+  lastName?: string;
+  personalNumber?: string;
+  email?: string;
+  phone?: string;
+  fromStreet?: string;
+  fromPostal?: string;
+  fromCity?: string;
+  toStreet?: string;
+  toPostal?: string;
+  toCity?: string;
+  apartmentNumber?: string;
+  propertyDesignation?: string;
+  propertyOwner?: string;
+  moveDate?: string;
+  [key: string]: unknown;
+}
+
+interface EniroResult {
+  title?: string;
+  address?: string;
+  phoneNumber?: string;
+  city?: string;
+  zipCode?: string;
+}
+
+interface NominatimResult {
+  displayName: string;
+  lat: string;
+  lon: string;
+  type: string;
+  addressParts: {
+    road?: string;
+    suburb?: string;
+    city?: string;
+    municipality?: string;
+    county?: string;
+    postcode?: string;
+    country?: string;
+  };
+}
+
+interface ScbPopulation {
+  municipality: string;
+  population: number;
+  growth: number;
+  year: string;
+}
+
+interface EnrichmentResult {
+  postalLookups: Record<string, { city: string; municipality?: string; county?: string }>;
+  nominatimResults: NominatimResult[];
+  eniroResults: EniroResult[];
+  scbData: ScbPopulation | null;
+  personInsights: string[];
+  fieldHelp: string[];
+  moveDateInsights: string[];
+}
+
+async function lookupPostal(postalCode: string): Promise<{
+  city: string;
+  municipality?: string;
+  county?: string;
+} | null> {
+  const clean = postalCode.replace(/\s+/g, "");
+  if (!/^\d{5}$/.test(clean)) return null;
+
+  if (PAP_API_KEY) {
+    try {
+      const res = await fetch(
+        `https://api.papapi.se/lite/?query=${clean}&format=json&apikey=${PAP_API_KEY}`,
+        { signal: AbortSignal.timeout(3000) }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const item = data?.results?.[0];
+        if (item?.city) {
+          return {
+            city: item.city.trim(),
+            municipality: item.county?.trim(),
+            county: item.state?.trim(),
+          };
+        }
+      }
+    } catch { /* fall through */ }
+  }
+  return null;
+}
+
+async function nominatimLookup(
+  street: string,
+  city: string,
+  postalCode?: string
+): Promise<NominatimResult | null> {
+  if (!NOMINATIM_ENABLED) return null;
+  const q = [street, postalCode, city, "Sweden"].filter(Boolean).join(", ");
+  try {
+    const params = new URLSearchParams({
+      q,
+      format: "json",
+      addressdetails: "1",
+      countrycodes: "se",
+      limit: "1",
+    });
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+      {
+        signal: AbortSignal.timeout(4000),
+        headers: { "User-Agent": "Flytt.io/1.0 (flyttanmalan-assistent)" },
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const item = data[0];
+    const addr = item.address ?? {};
+    return {
+      displayName: item.display_name ?? "",
+      lat: String(item.lat ?? ""),
+      lon: String(item.lon ?? ""),
+      type: item.type ?? "",
+      addressParts: {
+        road: addr.road,
+        suburb: addr.suburb ?? addr.neighbourhood ?? addr.quarter,
+        city: addr.city ?? addr.town ?? addr.village,
+        municipality: addr.municipality ?? addr.county,
+        county: addr.state,
+        postcode: addr.postcode,
+        country: addr.country,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function eniroCompanySearch(
+  query: string,
+  geoArea?: string
+): Promise<EniroResult[]> {
+  if (!ENIRO_API_KEY || !query.trim()) return [];
+  try {
+    const params = new URLSearchParams({
+      profile: "APIGW",
+      key: ENIRO_API_KEY,
+      country: "se",
+      search_word: query,
+    });
+    if (geoArea) params.set("geo_area", geoArea);
+
+    const res = await fetch(
+      `https://api.eniro.com/cs/search/basic?${params.toString()}`,
+      { signal: AbortSignal.timeout(4000) }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const adverts = data?.adverts;
+    if (!Array.isArray(adverts)) return [];
+
+    return adverts.slice(0, 5).map((a: Record<string, unknown>) => ({
+      title: String(a.companyName ?? ""),
+      address: String(a.address ?? ""),
+      phoneNumber: String(a.phoneNumber ?? ""),
+      city: String(a.city ?? ""),
+      zipCode: String(a.zipCode ?? ""),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+const CITY_TO_MUNICIPALITY_CODE: Record<string, string> = {
+  stockholm: "0180", göteborg: "1480", goteborg: "1480", malmö: "1280",
+  malmo: "1280", uppsala: "0380", linköping: "0580", linkoping: "0580",
+  västerås: "1980", vasteras: "1980", örebro: "1880", orebro: "1880",
+  norrköping: "0581", norrkoping: "0581", helsingborg: "1283", jönköping: "0680",
+  jonkoping: "0680", umeå: "2480", umea: "2480", lund: "1281", borås: "1490",
+  boras: "1490", sundsvall: "2281", gävle: "2180", gavle: "2180",
+  halmstad: "1380", växjö: "0780", vaxjo: "0780", karlstad: "1780",
+  luleå: "2580", lulea: "2580", trollhättan: "1488", trollhattan: "1488",
+  östersund: "2380", ostersund: "2380", solna: "0184", huddinge: "0126",
+  nacka: "0182", täby: "0160", taby: "0160", sollentuna: "0163",
+  botkyrka: "0127", haninge: "0136", eskilstuna: "0484", södertälje: "0181",
+  sodertalje: "0181", järfälla: "0123", jarfalla: "0123", lidingö: "0186",
+  lidingo: "0186", kristianstad: "1290", kalmar: "0880", skellefteå: "2482",
+  skelleftea: "2482", karlskrona: "1080", nyköping: "0480", nykoping: "0480",
+  varberg: "1383", falun: "2081", uddevalla: "1485", motala: "0583",
+  landskrona: "1282", kiruna: "2584",
+};
+
+async function scbPopulationLookup(city: string): Promise<ScbPopulation | null> {
+  if (!SCB_ENABLED) return null;
+  const code = CITY_TO_MUNICIPALITY_CODE[city.toLowerCase().trim()];
+  if (!code) return null;
+
+  try {
+    const body = JSON.stringify({
+      query: [
+        { code: "Region", selection: { filter: "item", values: [code] } },
+        { code: "Civilstand", selection: { filter: "item", values: ["OG", "G", "SK", "\u00c4"] } },
+        { code: "Alder", selection: { filter: "item", values: ["tot"] } },
+        { code: "Kon", selection: { filter: "item", values: ["1", "2"] } },
+        { code: "Tid", selection: { filter: "item", values: ["2024"] } },
+      ],
+      response: { format: "json" },
+    });
+
+    const res = await fetch(
+      "https://api.scb.se/OV0104/v1/doris/sv/ssd/BE/BE0101/BE0101A/BefolkningNy",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const rows = data?.data;
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+
+    let totalPop = 0;
+    let totalGrowth = 0;
+    for (const row of rows) {
+      totalPop += parseInt(row.values?.[0] ?? "0", 10);
+      totalGrowth += parseInt(row.values?.[1] ?? "0", 10);
+    }
+
+    return {
+      municipality: city,
+      population: totalPop,
+      growth: totalGrowth,
+      year: "2024",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parsePersonalNumber(pnr: string): {
+  birthDate: string;
+  age: number;
+  valid: boolean;
+} | null {
+  const clean = pnr.replace(/[\s-]/g, "");
+  const match = clean.match(/^(\d{4})(\d{2})(\d{2})\d{4}$/);
+  if (!match) {
+    const short = clean.match(/^(\d{2})(\d{2})(\d{2})\d{4}$/);
+    if (!short) return null;
+    const year = parseInt(short[1], 10);
+    const fullYear = year > 30 ? 1900 + year : 2000 + year;
+    const month = short[2];
+    const day = short[3];
+    const birth = new Date(fullYear, parseInt(month, 10) - 1, parseInt(day, 10));
+    const age = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+    return { birthDate: `${fullYear}-${month}-${day}`, age, valid: age > 0 && age < 130 };
+  }
+  const [, y, m, d] = match;
+  const birth = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+  const age = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+  return { birthDate: `${y}-${m}-${d}`, age, valid: age > 0 && age < 130 };
+}
+
+function getMoveDateInsights(moveDate: string): string[] {
+  const insights: string[] = [];
+  const move = new Date(moveDate);
+  if (isNaN(move.getTime())) return insights;
+
+  const now = new Date();
+  const diffDays = Math.ceil((move.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    insights.push(`Flyttdatumet (${moveDate}) har redan passerat for ${Math.abs(diffDays)} dagar sedan.`);
+  } else if (diffDays === 0) {
+    insights.push("Flyttdatumet ar idag!");
+  } else if (diffDays <= 7) {
+    insights.push(`Flytten ar om bara ${diffDays} dagar. Prio: adressandring hos Skatteverket, eftersandning post, el pa nya adressen.`);
+  } else if (diffDays <= 30) {
+    insights.push(`Flytten ar om ${diffDays} dagar (~${Math.ceil(diffDays / 7)} veckor). Bra tid att boka bredband (tar 1-3 veckor) och stadning.`);
+  } else {
+    insights.push(`Flytten ar om ${diffDays} dagar (~${Math.ceil(diffDays / 30)} manader). God tid for planering.`);
+  }
+  return insights;
+}
+
+function getEmptyFieldHelp(fields: FormFields): string[] {
+  const help: string[] = [];
+  const empty = (v: unknown) => !v || (typeof v === "string" && !v.trim());
+
+  if (empty(fields.fromStreet) && empty(fields.fromPostal))
+    help.push("Nuvarande adress (fromStreet, fromPostal, fromCity) saknas.");
+  if (empty(fields.toStreet) && empty(fields.toPostal))
+    help.push("Ny adress (toStreet, toPostal, toCity) saknas helt.");
+  if (empty(fields.moveDate))
+    help.push("Flyttdatum (moveDate) saknas - kravs for checklista och tidsberakning.");
+  if (empty(fields.apartmentNumber) && fields.toStreet)
+    help.push("Lagenhetsnummer (apartmentNumber) saknas - behovs for lagenheter, inte villor.");
+  if (empty(fields.propertyDesignation))
+    help.push("Fastighetsbeteckning saknas - detta ar fastighetens juridiska id (t.ex. 'Rudan Mindre 10'). Hittas pa lantmateriet.se eller i kontraktet.");
+  if (empty(fields.propertyOwner))
+    help.push("Fastighetsagare saknas - hyresvardens, BRF:ens eller agandets namn.");
+
+  return help;
+}
+
+export async function enrichContext(
+  formContext: { fields?: FormFields; currentStep?: number } | null
+): Promise<string> {
+  if (!formContext?.fields) return "";
+
+  const fields = formContext.fields;
+  const result: EnrichmentResult = {
+    postalLookups: {},
+    nominatimResults: [],
+    eniroResults: [],
+    scbData: null,
+    personInsights: [],
+    fieldHelp: [],
+    moveDateInsights: [],
+  };
+
+  const lookups: Promise<void>[] = [];
+
+  if (fields.fromPostal) {
+    lookups.push(
+      lookupPostal(fields.fromPostal).then((r) => {
+        if (r) result.postalLookups[fields.fromPostal!] = r;
+      })
+    );
+  }
+  if (fields.toPostal && fields.toPostal !== fields.fromPostal) {
+    lookups.push(
+      lookupPostal(fields.toPostal).then((r) => {
+        if (r) result.postalLookups[fields.toPostal!] = r;
+      })
+    );
+  }
+
+  if (fields.toStreet && fields.toCity) {
+    lookups.push(
+      nominatimLookup(fields.toStreet, fields.toCity, fields.toPostal).then((r) => {
+        if (r) result.nominatimResults.push(r);
+      })
+    );
+  }
+  if (fields.fromStreet && fields.fromCity) {
+    lookups.push(
+      nominatimLookup(fields.fromStreet, fields.fromCity, fields.fromPostal).then((r) => {
+        if (r) result.nominatimResults.push(r);
+      })
+    );
+  }
+
+  if (fields.toCity) {
+    const searchTerms = ["matbutik", "vardcentral", "apotek"];
+    for (const term of searchTerms) {
+      lookups.push(
+        eniroCompanySearch(term, fields.toCity).then((r) => {
+          result.eniroResults.push(...r);
+        })
+      );
+    }
+
+    lookups.push(
+      scbPopulationLookup(fields.toCity).then((r) => {
+        result.scbData = r;
+      })
+    );
+  }
+
+  await Promise.all(lookups);
+
+  if (fields.personalNumber) {
+    const parsed = parsePersonalNumber(fields.personalNumber);
+    if (parsed?.valid) {
+      result.personInsights.push(
+        `Personnumret tillhor nagon fodd ${parsed.birthDate} (${parsed.age} ar).`
+      );
+    }
+  }
+
+  if (fields.moveDate) {
+    result.moveDateInsights = getMoveDateInsights(fields.moveDate);
+  }
+
+  result.fieldHelp = getEmptyFieldHelp(fields);
+
+  const sections: string[] = [];
+
+  if (Object.keys(result.postalLookups).length > 0) {
+    const lines = Object.entries(result.postalLookups).map(
+      ([postal, data]) =>
+        `  ${postal} → ${data.city}${data.municipality ? ` (${data.municipality}, ${data.county})` : ""}`
+    );
+    sections.push("## Postnummeruppslag (PAP API)\n" + lines.join("\n"));
+  }
+
+  if (result.nominatimResults.length > 0) {
+    const lines = result.nominatimResults.map((r) => {
+      const parts: string[] = [`  ${r.displayName}`];
+      parts.push(`    Koordinater: ${r.lat}, ${r.lon}`);
+      if (r.addressParts.suburb) parts.push(`    Stadsdel: ${r.addressParts.suburb}`);
+      if (r.addressParts.municipality) parts.push(`    Kommun: ${r.addressParts.municipality}`);
+      if (r.addressParts.county) parts.push(`    Lan: ${r.addressParts.county}`);
+      if (r.addressParts.postcode) parts.push(`    Postnummer: ${r.addressParts.postcode}`);
+      return parts.join("\n");
+    });
+    sections.push(
+      "## Adressvalidering (OpenStreetMap/Nominatim)\n" + lines.join("\n\n")
+    );
+  }
+
+  if (result.eniroResults.length > 0) {
+    const lines = result.eniroResults.map(
+      (r) =>
+        `  ${r.title}${r.address ? ` — ${r.address}` : ""}${r.city ? `, ${r.zipCode} ${r.city}` : ""}${r.phoneNumber ? ` (tel: ${r.phoneNumber})` : ""}`
+    );
+    sections.push(
+      "## Narheten (Eniro foretagssok, baserat pa toCity)\n" +
+      "Matbutiker, vardcentraler och apotek nara nya adressen:\n" +
+      lines.join("\n")
+    );
+  }
+
+  if (result.scbData) {
+    const s = result.scbData;
+    const growthStr = s.growth >= 0 ? `+${s.growth}` : String(s.growth);
+    sections.push(
+      `## Befolkningsdata (SCB, ${s.year})\n` +
+      `  ${s.municipality}: ${s.population.toLocaleString("sv-SE")} invanare (forandring: ${growthStr})`
+    );
+  }
+
+  if (result.personInsights.length > 0) {
+    sections.push("## Personinsikter\n" + result.personInsights.join("\n"));
+  }
+
+  if (result.moveDateInsights.length > 0) {
+    sections.push("## Flyttdatum-analys\n" + result.moveDateInsights.join("\n"));
+  }
+
+  if (result.fieldHelp.length > 0) {
+    sections.push(
+      "## Saknade falt (du kan hjalpa med)\n" + result.fieldHelp.join("\n")
+    );
+  }
+
+  if (sections.length === 0) return "";
+  return "\n\n## Uppslagna data (fran Flytt.io APIer)\n\n" + sections.join("\n\n");
+}
+
+export const FIELD_KNOWLEDGE = `
+## Faltforklaringar (anvand nar anvandaren fragar vad ett falt betyder)
+
+- **Fastighetsbeteckning**: Fastighetens unika juridiska id i Sverige. Format: "Omrade Nummer" t.ex. "Rudan Mindre 10" eller "Lunden 5:12". Hittas i kopeavtal, lagfartsbevis, eller pa lantmateriet.se. Behovs for Skatteverkets flyttanmalan om man flyttar till villa/radhus.
+- **Fastighetsagare**: Vem som ager fastigheten. For hyresratt: hyresvarden (t.ex. "Stockholmshem"). For BRF: foreningens namn (t.ex. "BRF Solsidan"). For villa: "Egen" eller agaren.
+- **Lagenhetsnummer**: 4-siffrigt nummer som identifierar lagenheten i fastigheten. Format: XXYY dar XX = vaningsplan, YY = dorrens position fran vanster. T.ex. "1302" = vaning 13, dorr 02. Hittas pa dorren, i hyreskontraktet, eller via fastighetsagaren. Behovs INTE for villor.
+- **Personnummer**: Svenskt personnummer i formatet YYYYMMDD-XXXX. De fyra sista siffrorna ar fodelsedistrikt + kon + kontrollsiffra. Behovs for folkbokforing.
+- **Postnummer**: 5 siffror (XXX XX). Kopplar till en ort via Postnord/PAP. Systemet slar automatiskt upp orten.
+- **Inflyttningsdatum**: Datumet du faktiskt flyttar in i din nya bostad. Skatteverket kraver anmalan senast en vecka efter inflytt. Checklistan baseras pa detta datum.
+`;

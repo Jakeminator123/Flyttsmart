@@ -11,7 +11,6 @@ import {
   MapPin,
   ArrowRight,
   Loader2,
-  QrCode,
   Sparkles,
   FileText,
   Lock,
@@ -30,7 +29,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Logo } from "@/components/logo";
 import { MoveTimeline, type MoveStatus } from "@/components/move-timeline";
 import { ChecklistView, type ChecklistItem } from "@/components/checklist-view";
-import { QrDisplay } from "@/components/qr-display";
 import { SkatteverketGuide } from "@/components/skatteverket-guide";
 import { BookmarkletButton } from "@/components/bookmarklet-button";
 import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
@@ -71,7 +69,6 @@ function DashboardContent() {
   const [data, setData] = useState<MoveData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [bankIdQrOnlyVisible, setBankIdQrOnlyVisible] = useState(false);
   const [skvInt7Starting, setSkvInt7Starting] = useState(false);
   const [skvInt7Status, setSkvInt7Status] = useState<string | null>(null);
   const [cloneQrStateUrl, setCloneQrStateUrl] = useState<string | null>(null);
@@ -100,23 +97,6 @@ function DashboardContent() {
     fetchMove();
   }, [moveId]);
 
-  useEffect(() => {
-    let alive = true;
-    async function loadSkvConfig() {
-      try {
-        const res = await fetch("/api/skv/config");
-        const cfg = await res.json();
-        if (alive) setBankIdQrOnlyVisible(Boolean(cfg?.bankIdQrOnlyVisible));
-      } catch {
-        if (alive) setBankIdQrOnlyVisible(false);
-      }
-    }
-    loadSkvConfig();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -140,27 +120,6 @@ function DashboardContent() {
 
   const { move, user, checklist } = data;
   const status = (move.status || "draft") as MoveStatus;
-
-  async function handleGenerateQr() {
-    const res = await fetch("/api/qr/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: user.name,
-        personalNumber: user.personalNumber,
-        address: `${move.toStreet}, ${move.toPostal} ${move.toCity}`,
-        toStreet: move.toStreet,
-        toPostal: move.toPostal,
-        toCity: move.toCity,
-        email: user.email,
-        phone: user.phone,
-        moveDate: move.moveDate,
-      }),
-    });
-
-    const result = await res.json();
-    return { qrImage: result.qrImage, url: result.url };
-  }
 
   async function handleStartSkvInt7() {
     if (!data) return;
@@ -299,7 +258,7 @@ function DashboardContent() {
 
         {/* Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="overview" className="gap-1.5 text-xs">
               <Home className="h-4 w-4" />
               <span className="hidden sm:inline">Översikt</span>
@@ -311,10 +270,6 @@ function DashboardContent() {
             <TabsTrigger value="skatteverket" className="gap-1.5 text-xs">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Skatteverket</span>
-            </TabsTrigger>
-            <TabsTrigger value="qr" className="gap-1.5 text-xs">
-              <QrCode className="h-4 w-4" />
-              <span className="hidden sm:inline">QR-kod</span>
             </TabsTrigger>
           </TabsList>
 
@@ -482,33 +437,6 @@ function DashboardContent() {
                 }}
               />
             </div>
-          </TabsContent>
-
-          {/* QR code */}
-          <TabsContent value="qr">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <QrCode className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base">Din QR-kod</CardTitle>
-                </div>
-                <CardDescription>
-                  Skapa en personlig QR-kod med dina uppgifter. Perfekt att spara
-                  eller dela.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {bankIdQrOnlyVisible ? (
-                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm text-muted-foreground">
-                    Data-QR är nedtonad i dev-läge eftersom <code>SKV_SYNLIGT_SKV=y</code>.
-                    Använd fliken <strong>Skatteverket</strong> för att starta SKV-int7 och
-                    verifiera BankID-QR.
-                  </div>
-                ) : (
-                  <QrDisplay onGenerate={handleGenerateQr} />
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </main>

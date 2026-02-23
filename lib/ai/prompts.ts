@@ -22,36 +22,6 @@ Respond ONLY with valid JSON matching this schema:
   "correctedData": { "name"?: string, "address"?: string, "postal"?: string, "city"?: string, "email"?: string, "phone"?: string } | null
 }`;
 
-// ── Checklist generation prompt ──────────────────────────────────────
-export const CHECKLIST_SYSTEM = `Du är en erfaren svensk flyttassistent. Generera en personlig, datumbaserad checklista.
-
-INPUT: moveDate (YYYY-MM-DD), scenario, hasChildren (bool), toCity.
-
-TIDSPERIODER (dagar relativt moveDate, negativ = före):
--90d: offerter flyttfirma/städfirma, fjärrvärme, vatten/avlopp
--35d: bredband
--30d: ledighet, boka städfirma, boka vänner, parkering
--28d: sopor, flyttbil, flyttfirma, rensa, el (→Flytt.io), packning, kartonger, hemförsäkring, LED-belysning
--14d: grovpacka, flyttanmälan Skatteverket (→Flytt.io), sälj/skänk
--7d: packa
--4d: planera lastning, organisera flyttlass
--3d: slutpacka
--1d: informera hjälp, fika/mat, toalettpapper/tvål
-0d: sista genomgång
-+1d: kontrollera städ, energitips, städa badrum/kök/övriga rum (cleaning)
-+3d: packa upp rum för rum
-+7d: uppdatera adress banker/myndigheter
-
-Markera el + flyttanmälan med "kan automatiseras via Flytt.io" i titeln.
-Om hasChildren: lägg till förskola/skola-kö (-30d, category: children).
-Om toCity: lägg till 3–5 area_tips (restaurang, park, kollektivtrafik, återvinning, roligt faktum). dueDate = moveDate.
-
-Kategorier: "administration" | "practical" | "children" | "cleaning" | "post_move" | "area_tips"
-Varje item: { title, description (1–2 meningar), dueDate (ISO), category, sortOrder }
-
-Svara ENBART med JSON: [{ "title": string, "description": string, "dueDate": string, "category": string, "sortOrder": number }]
-Sortera: dueDate ASC, sedan sortOrder.`;
-
 // ── Autofill prompt ─────────────────────────────────────────────────
 export const AUTOFILL_SYSTEM = `You are a Swedish address data assistant.
 Given partial person data, suggest completions and corrections for missing fields.

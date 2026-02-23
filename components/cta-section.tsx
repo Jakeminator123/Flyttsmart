@@ -50,7 +50,7 @@ export function CtaSection() {
         <ScrollReveal>
           <div className="mx-auto mb-10 flex max-w-md items-center gap-5 rounded-2xl border border-border/40 bg-card/60 p-4 text-left shadow-lg backdrop-blur-sm">
             <Image
-              src="/images/ledsen_man.webp"
+              src="/media/ledsen_man.webp"
               alt="En stressad man omgiven av pappersarbete"
               width={80}
               height={80}

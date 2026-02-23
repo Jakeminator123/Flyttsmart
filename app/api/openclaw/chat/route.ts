@@ -7,6 +7,7 @@ import {
   getOpenClawTokens,
 } from "@/lib/openclaw/server-config";
 import { extractOpenClawText } from "@/lib/openclaw/response";
+import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
 
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
@@ -19,22 +20,36 @@ const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
  */
 function buildSystemMessage(
   formContext?: Record<string, unknown> | null,
+  enrichedData?: string,
   siteAccess?: Record<string, unknown> | null
 ) {
   let base =
     "Du ar Aida, en hjalpsam svensk flyttassistent for Flytt.io. " +
     "Svara alltid pa svenska. Hjalp anvandaren med adressandring, flytt och relaterade fragor.\n\n" +
+    "## Formularforslag\n" +
     "Nar du vill foreslå att ett formularfalt fylls i, inkludera ett suggestion-block:\n" +
     "```suggestion\n{\"faltnamn\": \"varde\"}\n```\n" +
     "Tillatna faltnamn: firstName, lastName, personalNumber, fromStreet, fromPostal, fromCity, " +
     "toStreet, toPostal, toCity, apartmentNumber, propertyDesignation, propertyOwner, " +
     "email, phone, moveDate.\n" +
-    "Foreslå BARA falt du ar saker pa. Skriv en forklaring INNAN suggestion-blocket.";
+    "Foreslå BARA falt du ar saker pa. Skriv en forklaring INNAN suggestion-blocket.\n\n" +
+    FIELD_KNOWLEDGE + "\n\n" +
+    "## Proaktivt beteende\n" +
+    "- Om du ser saknade falt i kontexten, papminn anvandaren och forklara vad de betyder.\n" +
+    "- Om postnummer ar ifyllt och ort saknas, foreslå orten via suggestion-block (data finns i uppslagna data).\n" +
+    "- Om toCity ar ifyllt, erbjud lokala tips (kollektivtrafik, matbutiker, vardcentral).\n" +
+    "- Nar anvandaren fragar om jamforelser (el, bredband, forsakring, flyttfirma, stadning), " +
+    "ge konkreta tips med riktiga svenska foretag och prisintervall.\n" +
+    "- Nar anvandaren fragar vad ett falt ar, forklara tydligt med exempel och var man hittar uppgiften.";
 
   if (formContext) {
     base +=
-      "\n\nAnvandaren har foljande formularkontext just nu:\n" +
+      "\n\n## Formularkontext just nu\n" +
       JSON.stringify(formContext, null, 2);
+  }
+
+  if (enrichedData) {
+    base += enrichedData;
   }
 
   if (siteAccess) {
@@ -80,9 +95,11 @@ export async function POST(req: NextRequest) {
     const siteAccess = buildOpenClawSiteAccess(req);
     const chatUrl = `${GATEWAY_BASE_URL}/v1/chat/completions`;
 
+    const enrichedData = await enrichContext(formContext);
+
     // Build messages array in OpenAI format
     const openaiMessages = [
-      { role: "system", content: buildSystemMessage(formContext, siteAccess) },
+      { role: "system", content: buildSystemMessage(formContext, enrichedData, siteAccess) },
       ...messages.slice(-15).map((m: { role: string; content: string }) => ({
         role: m.role === "assistant" ? "assistant" : "user",
         content: m.content,

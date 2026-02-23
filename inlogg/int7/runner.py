@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 import sys
+import threading
 import time
 import uuid
 from datetime import datetime
@@ -19,6 +20,7 @@ INLOGG_DIR = os.path.dirname(MODULE_DIR)
 RUNTIME_DIR = os.path.join(INLOGG_DIR, "runtime")
 DEFAULT_PAYLOAD_FILE = os.path.join(RUNTIME_DIR, "skv_payload_latest.json")
 SESSION_LOG_FILE = os.path.join(INLOGG_DIR, "skv_int7_session_log.txt")
+JOB_FILE = os.path.join(RUNTIME_DIR, "skv_int7_job.json")
 
 os.makedirs(RUNTIME_DIR, exist_ok=True)
 
@@ -102,6 +104,54 @@ def _restore_env(previous: dict[str, Optional[str]]) -> None:
             os.environ[key] = old_value
 
 
+def _write_job_file(job_id: str, flask_port: int | None = None) -> None:
+    """Write current job info so the Next.js API can read it."""
+    data = {
+        "jobId": job_id,
+        "startedAt": datetime.now().isoformat(),
+        "pid": os.getpid(),
+    }
+    if flask_port:
+        data["flaskPort"] = flask_port
+        data["cloneQrViewUrl"] = f"http://127.0.0.1:{flask_port}/clone/qr-view/{job_id}"
+        data["cloneQrStateUrl"] = f"http://127.0.0.1:{flask_port}/api/clone/state/{job_id}"
+    try:
+        with open(JOB_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        _log("Failed writing job file", {"error": str(e)})
+
+
+def _port_in_use(port: int) -> bool:
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
+def _start_flask_server(preferred_port: int) -> int:
+    """Start skv6 Flask app in a daemon thread. Tries preferred_port, then 8769, 8770."""
+    port = preferred_port
+    for candidate in [preferred_port, 8769, 8770]:
+        if not _port_in_use(candidate):
+            port = candidate
+            if candidate != preferred_port:
+                _log(f"Port {preferred_port} upptagen, använder {port}", {})
+            break
+    else:
+        _log("Alla portar 8767-8770 upptagna, Flask kan inte starta", {})
+
+    def _run():
+        try:
+            skv6.app.run(host="127.0.0.1", port=port, debug=False, threaded=True)
+        except Exception as e:
+            _log("Flask server error", {"port": port, "error": str(e)})
+
+    t = threading.Thread(target=_run, daemon=True, name="skv6-flask")
+    t.start()
+    _log("Flask server startar", {"port": port})
+    return port
+
+
 def run_int7_flow(
     target_url: str,
     payload_file: str,
@@ -113,6 +163,10 @@ def run_int7_flow(
     _reset_log()
     _write_last_payload_snapshot(payload_file)
 
+    clone_enabled = skv6._is_clone_qr_to_site_enabled()
+    # Use 8768 for int7 when cloning QR to site, to avoid conflict with standalone skv6.py on 8767
+    flask_port = int(os.environ.get("SKV_SERVICE_PORT", "8768" if clone_enabled else "8767"))
+
     _log(
         "Starting skv_int7 flow",
         {
@@ -122,6 +176,7 @@ def run_int7_flow(
             "allow_mockup_data": allow_mockup_data,
             "allow_normal_browser_window": allow_normal_browser_window,
             "force_clone_fallback": force_clone_fallback,
+            "clone_qr_to_site": clone_enabled,
             "skv_synligt_skv": os.environ.get("SKV_SYNLIGT_SKV", ""),
         },
     )
@@ -129,9 +184,7 @@ def run_int7_flow(
     temp_env = {
         "SKV_PAYLOAD_FILE": payload_file,
         "SKV_ALLOW_MOCKUP_DATA": "y" if allow_mockup_data else "n",
-        # Prevent opening another default browser window by default for int7.
         "SKV_DISABLE_NORMAL_BROWSER_WINDOW": "n" if allow_normal_browser_window else "y",
-        # In dev + popup-constrained environments, clone fallback improves QR visibility.
         "SKV_FORCE_CLONE_TAB_FALLBACK": "y" if force_clone_fallback else "n",
     }
 
@@ -140,6 +193,13 @@ def run_int7_flow(
         job_id = uuid.uuid4().hex[:12]
         job = skv6.JobStatus(job_id=job_id, state="queued", message="Köad...")
         skv6._set_job(job)
+
+        if clone_enabled:
+            flask_port = _start_flask_server(flask_port)
+            time.sleep(0.3)
+            _write_job_file(job_id, flask_port=flask_port)
+        else:
+            _write_job_file(job_id)
 
         skv6._run_playwright_job(
             job_id=job_id,

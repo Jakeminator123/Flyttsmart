@@ -8,13 +8,34 @@ export const runtime = "nodejs";
 
 const INLOGG_DIR = path.join(process.cwd(), "inlogg");
 const RUNTIME_DIR = path.join(INLOGG_DIR, "runtime");
+const CONFIG_FILE = path.join(INLOGG_DIR, "config.txt");
 const PAYLOAD_FILE = path.join(RUNTIME_DIR, "skv_payload_latest.json");
 const PROCESS_FILE = path.join(RUNTIME_DIR, "skv_int7_process.json");
+const JOB_FILE = path.join(RUNTIME_DIR, "skv_int7_job.json");
 const PY_SCRIPT = path.join(INLOGG_DIR, "int7", "runner.py");
 
 function isTruthy(value: string | undefined): boolean {
   const normalized = (value ?? "").trim().toLowerCase();
   return ["1", "y", "yes", "true"].includes(normalized);
+}
+
+async function isCloneQrToSiteEnabled(): Promise<boolean> {
+  if (isTruthy(process.env.CLONE_QR_FROMPLAYWRIGHT_TO_SITE)) return true;
+  if (isTruthy(process.env.SKV_CLONE_QR_FROMPLAYWRIGHT_TO_SITE)) return true;
+  try {
+    const raw = await fs.readFile(CONFIG_FILE, "utf-8");
+    for (const line of raw.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const [key, ...rest] = trimmed.split("=");
+      if (key?.trim().toUpperCase() === "CLONE_QR_FROMPLAYWRIGHT_TO_SITE") {
+        return isTruthy(rest.join("=").trim());
+      }
+    }
+  } catch {
+    // config.txt missing or unreadable
+  }
+  return false;
 }
 
 function resolvePythonCommand() {
@@ -26,6 +47,32 @@ function resolvePythonCommand() {
   }
 
   return { command: "python3", extraArgs: [] as string[] };
+}
+
+const SKV_SERVICE_URL = (process.env.SKV_SERVICE_URL ?? "http://127.0.0.1:8767").replace(/\/$/, "");
+
+async function readJobFileWithRetry(
+  spawnedAfter: number,
+  maxAttempts = 25,
+  delayMs = 400,
+): Promise<{ jobId?: string; flaskPort?: number; cloneQrViewUrl?: string; cloneQrStateUrl?: string } | null> {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const stat = await fs.stat(JOB_FILE);
+      if (stat.mtimeMs < spawnedAfter) {
+        // Stale file from previous run – wait for runner to overwrite
+        await new Promise((r) => setTimeout(r, delayMs));
+        continue;
+      }
+      const raw = await fs.readFile(JOB_FILE, "utf-8");
+      const data = JSON.parse(raw);
+      if (data?.jobId) return data;
+    } catch {
+      // File not written yet
+    }
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+  return null;
 }
 
 function isProcessAlive(pid: number): boolean {
@@ -83,6 +130,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const spawnedAt = Date.now();
     await fs.writeFile(
       PROCESS_FILE,
       `${JSON.stringify({ pid: child.pid, startedAt: new Date().toISOString() }, null, 2)}\n`,
@@ -90,11 +138,29 @@ export async function POST(req: NextRequest) {
     );
     child.unref();
 
+    const cloneQrEnabled = await isCloneQrToSiteEnabled();
+    let cloneData: Record<string, unknown> = {};
+
+    if (cloneQrEnabled) {
+      const jobInfo = await readJobFileWithRetry(spawnedAt);
+      if (jobInfo?.jobId) {
+        const port = jobInfo.flaskPort ?? 8767;
+        const portQ = port !== 8767 ? `?port=${port}` : "";
+        cloneData = {
+          cloneQrEnabled: true,
+          jobId: jobInfo.jobId,
+          cloneQrStateUrl: `/api/skv/clone/state/${jobInfo.jobId}${portQ}`,
+          cloneQrImageUrl: `/api/skv/clone/qr/${jobInfo.jobId}${portQ}`,
+        };
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       started: true,
       payload,
       script: "int7/runner.py",
+      ...cloneData,
     });
   } catch (error) {
     console.error("[SKV int7] failed to start:", error);

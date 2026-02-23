@@ -34,6 +34,7 @@ import { QrDisplay } from "@/components/qr-display";
 import { SkatteverketGuide } from "@/components/skatteverket-guide";
 import { BookmarkletButton } from "@/components/bookmarklet-button";
 import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
+import { BankIdQrMirror } from "@/components/bankid-qr-mirror";
 
 interface MoveData {
   move: {
@@ -73,6 +74,8 @@ function DashboardContent() {
   const [bankIdQrOnlyVisible, setBankIdQrOnlyVisible] = useState(false);
   const [skvInt7Starting, setSkvInt7Starting] = useState(false);
   const [skvInt7Status, setSkvInt7Status] = useState<string | null>(null);
+  const [cloneQrStateUrl, setCloneQrStateUrl] = useState<string | null>(null);
+  const [cloneQrImageUrl, setCloneQrImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!moveId) {
@@ -190,7 +193,13 @@ function DashboardContent() {
       if (!res.ok || !responseBody?.ok) {
         throw new Error(responseBody?.error || "Kunde inte starta SKV-int7.");
       }
-      setSkvInt7Status("SKV-int7 startad. Verifiera BankID i QR-vyn.");
+      if (responseBody?.cloneQrEnabled && responseBody?.cloneQrStateUrl) {
+        setCloneQrStateUrl(responseBody.cloneQrStateUrl);
+        setCloneQrImageUrl(responseBody.cloneQrImageUrl ?? null);
+        setSkvInt7Status("SKV-int7 startad. Skanna BankID-QR nedan.");
+      } else {
+        setSkvInt7Status("SKV-int7 startad. Verifiera BankID i QR-vyn.");
+      }
     } catch {
       setSkvInt7Status(
         "Kunde inte starta SKV-int7. Kontrollera Python/Playwright och försök igen."
@@ -431,6 +440,15 @@ function DashboardContent() {
                   </Button>
                   {skvInt7Status && (
                     <p className="mt-2 text-xs text-muted-foreground">{skvInt7Status}</p>
+                  )}
+                  {cloneQrStateUrl && cloneQrImageUrl && (
+                    <div className="mt-3">
+                      <BankIdQrMirror
+                        cloneQrStateUrl={cloneQrStateUrl}
+                        cloneQrImageUrl={cloneQrImageUrl}
+                        onDismiss={() => { setCloneQrStateUrl(null); setCloneQrImageUrl(null); }}
+                      />
+                    </div>
                   )}
                 </CardContent>
               </Card>

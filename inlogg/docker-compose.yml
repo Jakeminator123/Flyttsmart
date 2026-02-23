@@ -1,0 +1,12 @@
+services:
+  skv-service:
+    build: .
+    ports:
+      - "8767:8767"
+    environment:
+      - PORT=8767
+      - CLONE_QR_FROMPLAYWRIGHT_TO_SITE=y
+    volumes:
+      - ./runtime:/app/runtime
+      - ./results:/app/results
+      - ./config.txt:/app/config.txt:ro

@@ -34,6 +34,7 @@ import { SkatteverketGuide } from "@/components/skatteverket-guide";
 import { BookmarkletButton } from "@/components/bookmarklet-button";
 import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
 import { useOpenClawMirror } from "@/hooks/use-openclaw-mirror";
+import { BankIdQrMirror } from "@/components/bankid-qr-mirror";
 
 const SKV_URL =
   "https://www7.skatteverket.se/portal/login?route=flyttanmalan";
@@ -66,6 +67,8 @@ function StartContent() {
   const [bankIdQrOnlyVisible, setBankIdQrOnlyVisible] = useState(false);
   const [skvInt7Starting, setSkvInt7Starting] = useState(false);
   const [skvInt7Status, setSkvInt7Status] = useState<string | null>(null);
+  const [cloneQrStateUrl, setCloneQrStateUrl] = useState<string | null>(null);
+  const [cloneQrImageUrl, setCloneQrImageUrl] = useState<string | null>(null);
 
   // OpenClaw real-time form mirroring
   const { mirrorEvent } = useOpenClawMirror({ formType: "start" });
@@ -202,7 +205,13 @@ function StartContent() {
       });
       const body = await res.json().catch(() => null);
       if (!res.ok || !body?.ok) throw new Error(body?.error || "SKV-int7 failed");
-      setSkvInt7Status("SKV-int7 startad. Verifiera BankID i QR-vyn.");
+      if (body?.cloneQrEnabled && body?.cloneQrStateUrl) {
+        setCloneQrStateUrl(body.cloneQrStateUrl);
+        setCloneQrImageUrl(body.cloneQrImageUrl ?? null);
+        setSkvInt7Status("SKV-int7 startad. Skanna BankID-QR nedan.");
+      } else {
+        setSkvInt7Status("SKV-int7 startad. Verifiera BankID i QR-vyn.");
+      }
     } catch {
       setSkvInt7Status("Kunde inte starta SKV-int7 från /start.");
     } finally {
@@ -438,6 +447,15 @@ function StartContent() {
                       </Button>
                       {skvInt7Status && (
                         <p className="mt-2 text-xs text-muted-foreground">{skvInt7Status}</p>
+                      )}
+                      {cloneQrStateUrl && cloneQrImageUrl && (
+                        <div className="mt-3">
+                          <BankIdQrMirror
+                            cloneQrStateUrl={cloneQrStateUrl}
+                            cloneQrImageUrl={cloneQrImageUrl}
+                            onDismiss={() => { setCloneQrStateUrl(null); setCloneQrImageUrl(null); }}
+                          />
+                        </div>
                       )}
                     </CardContent>
                   </Card>

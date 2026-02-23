@@ -52,6 +52,7 @@ import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
 import { useOpenClawMirror } from "@/hooks/use-openclaw-mirror";
 import { SkatteverketGuide } from "@/components/skatteverket-guide";
 import { BookmarkletButton } from "@/components/bookmarklet-button";
+import { BankIdQrMirror } from "@/components/bankid-qr-mirror";
 
 const STEPS = [
   { id: 1, label: "Identifiering", icon: QrCode },
@@ -156,8 +157,11 @@ export default function AdressandringPage() {
     Partial<Record<keyof FormData, FieldSuggestion>>
   >({});
   const [bankIdQrOnlyVisible, setBankIdQrOnlyVisible] = useState(false);
+  const [cloneQrToSiteEnabled, setCloneQrToSiteEnabled] = useState(false);
   const [skvInt7Starting, setSkvInt7Starting] = useState(false);
   const [skvInt7Status, setSkvInt7Status] = useState<string | null>(null);
+  const [cloneQrStateUrl, setCloneQrStateUrl] = useState<string | null>(null);
+  const [cloneQrImageUrl, setCloneQrImageUrl] = useState<string | null>(null);
 
   const autofillActive =
     AUTOFILL_ENABLED &&
@@ -184,6 +188,7 @@ export default function AdressandringPage() {
         const data = await res.json();
         if (alive) {
           setBankIdQrOnlyVisible(Boolean(data?.bankIdQrOnlyVisible));
+          setCloneQrToSiteEnabled(Boolean(data?.cloneQrToSiteEnabled));
         }
       } catch {
         if (alive) setBankIdQrOnlyVisible(false);
@@ -708,9 +713,13 @@ export default function AdressandringPage() {
       if (!res.ok || !data?.ok) {
         throw new Error(data?.error || "Kunde inte starta SKV-int7.");
       }
-      setSkvInt7Status(
-        "SKV-int7 är startad. Verifiera BankID i QR-vyn som öppnats."
-      );
+      if (data?.cloneQrEnabled && data?.cloneQrStateUrl) {
+        setCloneQrStateUrl(data.cloneQrStateUrl);
+        setCloneQrImageUrl(data.cloneQrImageUrl ?? null);
+        setSkvInt7Status("SKV-int7 startad. Skanna BankID-QR nedan.");
+      } else {
+        setSkvInt7Status("SKV-int7 är startad. Verifiera BankID i QR-vyn som öppnats.");
+      }
     } catch {
       setSkvInt7Status(
         "Kunde inte starta SKV-int7. Kontrollera Python/Playwright och försök igen."
@@ -978,6 +987,15 @@ export default function AdressandringPage() {
                   </Button>
                   {skvInt7Status && (
                     <p className="mt-2 text-xs text-muted-foreground">{skvInt7Status}</p>
+                  )}
+                  {cloneQrStateUrl && cloneQrImageUrl && (
+                    <div className="mt-3">
+                      <BankIdQrMirror
+                        cloneQrStateUrl={cloneQrStateUrl}
+                        cloneQrImageUrl={cloneQrImageUrl}
+                        onDismiss={() => { setCloneQrStateUrl(null); setCloneQrImageUrl(null); }}
+                      />
+                    </div>
                   )}
                 </CardContent>
               </Card>

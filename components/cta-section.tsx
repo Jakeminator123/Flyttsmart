@@ -1,18 +1,33 @@
 "use client"
 
+import { useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import dynamic from "next/dynamic"
 import { ArrowRight, MessageCircle, Shield, Clock, Lock, CheckCircle } from "lucide-react"
+import { motion, useScroll, useTransform } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ScrollReveal } from "@/components/scroll-reveal"
 
 const FloatingLines = dynamic(() => import("@/components/floating-lines"), {
   ssr: false,
 })
 
 const CTA_GRADIENT = ["#1B3BA2", "#4A80E0", "#D4A843"]
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
+  },
+}
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1 } },
+}
 
 const highlights = [
   { icon: Clock, text: "Klar på 2 minuter" },
@@ -22,17 +37,30 @@ const highlights = [
 ]
 
 export function CtaSection() {
+  const sectionRef = useRef<HTMLElement>(null)
+
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start end", "end start"],
+  })
+
+  const linesY = useTransform(scrollYProgress, [0, 1], ["8%", "-8%"])
+
   return (
     <section
+      ref={sectionRef}
       id="gor-adressandring"
       className="relative overflow-hidden py-28 lg:py-36"
     >
       <div className="section-divider absolute top-0 left-0 right-0" />
 
-      {/* Background mesh + FloatingLines */}
+      {/* Background mesh + FloatingLines with parallax */}
       <div className="hero-mesh opacity-50" />
       <div className="hero-mesh-accent opacity-30" />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.12]">
+      <motion.div
+        className="pointer-events-none absolute inset-0 -top-[10%] -bottom-[10%] opacity-[0.12]"
+        style={{ y: linesY }}
+      >
         <FloatingLines
           linesGradient={CTA_GRADIENT}
           enabledWaves={["bottom", "middle"]}
@@ -40,17 +68,24 @@ export function CtaSection() {
           lineDistance={[10, 6]}
           animationSpeed={0.4}
           interactive={false}
-          parallax={false}
+          parallax={true}
+          parallaxStrength={0.2}
         />
-      </div>
+      </motion.div>
       <div className="pointer-events-none absolute inset-0 dot-grid opacity-30" />
 
-      <div className="relative mx-auto max-w-4xl px-4 text-center lg:px-8">
-        {/* "Before" contrast – stressed mover */}
-        <ScrollReveal>
+      <motion.div
+        className="relative mx-auto max-w-4xl px-4 text-center lg:px-8"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-80px" }}
+        variants={stagger}
+      >
+        {/* "Before" contrast card */}
+        <motion.div variants={fadeUp}>
           <div className="mx-auto mb-10 flex max-w-md items-center gap-5 rounded-2xl border border-border/40 bg-card/60 p-4 text-left shadow-lg backdrop-blur-sm">
             <Image
-              src="/media/ledsen_man.webp"
+              src="/media/images/ledsen_man.webp"
               alt="En stressad man omgiven av pappersarbete"
               width={80}
               height={80}
@@ -65,28 +100,30 @@ export function CtaSection() {
               </p>
             </div>
           </div>
-        </ScrollReveal>
+        </motion.div>
 
-        <ScrollReveal delay={100}>
+        <motion.div variants={fadeUp}>
           <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary backdrop-blur-sm">
             Kom igång
           </Badge>
-        </ScrollReveal>
+        </motion.div>
 
-        <ScrollReveal delay={200}>
-          <h2 className="mt-5 font-heading text-4xl font-bold tracking-tight text-foreground text-balance sm:text-5xl lg:text-6xl">
-            Redo att flytta
-            <span className="text-gradient"> utan krångel?</span>
-          </h2>
-        </ScrollReveal>
+        <motion.h2
+          variants={fadeUp}
+          className="mt-5 font-heading text-4xl font-bold tracking-tight text-foreground text-balance sm:text-5xl lg:text-6xl"
+        >
+          Redo att flytta
+          <span className="text-gradient"> utan krångel?</span>
+        </motion.h2>
 
-        <ScrollReveal delay={300}>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-            Gör din flyttanmälan på 2 minuter – och få fördelar på köpet.
-          </p>
-        </ScrollReveal>
+        <motion.p
+          variants={fadeUp}
+          className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground"
+        >
+          Gör din flyttanmälan på 2 minuter – och få fördelar på köpet.
+        </motion.p>
 
-        <ScrollReveal delay={400}>
+        <motion.div variants={fadeUp}>
           <div className="glass mx-auto mt-12 max-w-lg rounded-2xl p-8 shadow-xl">
             <div className="grid w-full grid-cols-2 gap-4">
               {highlights.map((h) => (
@@ -124,8 +161,8 @@ export function CtaSection() {
               </Button>
             </div>
           </div>
-        </ScrollReveal>
-      </div>
+        </motion.div>
+      </motion.div>
     </section>
   )
 }

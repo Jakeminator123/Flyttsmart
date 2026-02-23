@@ -17,6 +17,10 @@ export async function GET(req: NextRequest) {
   const agentId = getOpenClawAgentId();
   const model = getOpenClawChatModel(agentId);
   const testTalEnabled = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
+  const mergeOcDid =
+    (process.env.NEXT_PUBLIC_MERGE_OC_DID ?? "").toLowerCase() === "y";
+  const didBridgeEnabled =
+    process.env.NEXT_PUBLIC_DID_BRIDGE_ENABLED === "true";
   const {
     gatewayToken,
     hooksToken,
@@ -35,6 +39,8 @@ export async function GET(req: NextRequest) {
     hasWebhookSecret: Boolean(webhookSecret),
     hasBypassSecret: Boolean(bypassSecret),
     testTalEnabled,
+    mergeOcDid,
+    didBridgeEnabled,
   };
 
   const warnings: string[] = [];

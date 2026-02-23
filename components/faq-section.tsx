@@ -7,7 +7,16 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
-import { ScrollReveal } from "@/components/scroll-reveal"
+import { motion } from "framer-motion"
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
+  },
+}
 
 const faqs = [
   {
@@ -44,14 +53,19 @@ export function FaqSection() {
     >
       <div className="section-divider absolute top-0 left-0 right-0" />
 
-      {/* Animated background orbs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div className="section-orb-accent -top-1/4 -right-1/4 h-125 w-125" />
         <div className="section-orb-2 -bottom-1/4 -left-1/3 h-125 w-125" />
       </div>
 
-      <div className="mx-auto max-w-3xl px-4 lg:px-8">
-        <ScrollReveal className="text-center">
+      <div className="relative mx-auto max-w-3xl px-4 lg:px-8">
+        <motion.div
+          className="text-center"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-80px" }}
+          variants={fadeUp}
+        >
           <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
             FAQ
           </Badge>
@@ -62,9 +76,15 @@ export function FaqSection() {
           <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
             Här hittar du svar på de vanligaste frågorna om Flytt.io.
           </p>
-        </ScrollReveal>
+        </motion.div>
 
-        <ScrollReveal delay={200} className="mt-12">
+        <motion.div
+          className="mt-12"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-40px" }}
+          variants={fadeUp}
+        >
           <Accordion type="single" collapsible className="space-y-3">
             {faqs.map((faq, i) => (
               <AccordionItem
@@ -89,7 +109,7 @@ export function FaqSection() {
               </AccordionItem>
             ))}
           </Accordion>
-        </ScrollReveal>
+        </motion.div>
       </div>
     </section>
   )

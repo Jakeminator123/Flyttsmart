@@ -1,12 +1,34 @@
 "use client"
 
+import { useRef } from "react"
 import Image from "next/image"
+import dynamic from "next/dynamic"
 import { Fingerprint, FileCheck, Gift, CheckCircle, ArrowRight } from "lucide-react"
 import Link from "next/link"
+import { motion, useScroll, useTransform } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { ScrollReveal } from "@/components/scroll-reveal"
+
+const FloatingLines = dynamic(() => import("@/components/floating-lines"), {
+  ssr: false,
+})
+
+const STEPS_GRADIENT = ["#1B3BA2", "#2E5FC7", "#4A80E0", "#6BA3F5"]
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
+  },
+}
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.12 } },
+}
 
 const steps = [
   {
@@ -48,21 +70,50 @@ const steps = [
 ]
 
 export function StepsSection() {
+  const sectionRef = useRef<HTMLElement>(null)
+
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start end", "end start"],
+  })
+
+  const linesY = useTransform(scrollYProgress, [0, 1], ["5%", "-5%"])
+
   return (
     <section
+      ref={sectionRef}
       id="hur-det-funkar"
       className="relative overflow-hidden bg-background py-28 lg:py-36"
     >
       <div className="section-divider absolute top-0 left-0 right-0" />
 
-      {/* Animated background orbs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="section-orb-1 -top-1/3 -right-1/4 h-150 w-150" />
-        <div className="section-orb-2 -bottom-1/3 -left-1/4 h-125 w-125" />
-      </div>
+      {/* FloatingLines background with parallax */}
+      <motion.div
+        className="pointer-events-none absolute inset-0 -top-[10%] -bottom-[10%] opacity-15"
+        style={{ y: linesY }}
+      >
+        <FloatingLines
+          linesGradient={STEPS_GRADIENT}
+          enabledWaves={["bottom", "middle", "top"]}
+          lineCount={[4, 6, 3]}
+          lineDistance={[8, 5, 10]}
+          animationSpeed={0.6}
+          interactive={false}
+          parallax={true}
+          parallaxStrength={0.15}
+        />
+      </motion.div>
 
-      <div className="mx-auto max-w-7xl px-4 lg:px-8">
-        <ScrollReveal className="text-center">
+      <div className="pointer-events-none absolute inset-0 dot-grid opacity-40" />
+
+      <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
+        <motion.div
+          className="text-center"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-80px" }}
+          variants={fadeUp}
+        >
           <div className="mx-auto max-w-2xl">
             <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
               Så funkar det
@@ -75,11 +126,17 @@ export function StepsSection() {
               Hela processen tar bara 2 minuter. Inget krångel, inga blanketter.
             </p>
           </div>
-        </ScrollReveal>
+        </motion.div>
 
         {/* Desktop: Tabs layout */}
-        <ScrollReveal delay={200} className="mt-16 hidden lg:block">
-          <Tabs defaultValue="uppgifter" className="gap-0">
+        <motion.div
+          className="mt-16 hidden lg:block"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-80px" }}
+          variants={fadeUp}
+        >
+          <Tabs defaultValue="bankid" className="gap-0">
             <TabsList className="mx-auto mb-10 grid h-auto w-full max-w-2xl grid-cols-4 rounded-2xl bg-muted/80 p-2 backdrop-blur-sm">
               {steps.map((step) => (
                 <TabsTrigger
@@ -95,7 +152,7 @@ export function StepsSection() {
             </TabsList>
             {steps.map((step) => (
               <TabsContent key={step.id} value={step.id}>
-                <div className="gradient-border flex items-start gap-12 rounded-2xl border border-border/50 bg-card p-10 lg:p-14">
+                <div className="gradient-border flex items-start gap-12 rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-10 lg:p-14">
                   <div className="flex-1">
                     <div className="flex items-center gap-4">
                       <span className="font-heading text-6xl font-bold text-primary/10">
@@ -125,7 +182,7 @@ export function StepsSection() {
                     <div className="relative">
                       <div className="absolute -inset-4 rounded-3xl bg-primary/5 blur-2xl" />
                       <Image
-                        src="/media/glad_tjej.webp"
+                        src="/media/images/glad_tjej.webp"
                         alt="En glad tjej visar en QR-kod på sin telefon"
                         width={220}
                         height={320}
@@ -137,13 +194,19 @@ export function StepsSection() {
               </TabsContent>
             ))}
           </Tabs>
-        </ScrollReveal>
+        </motion.div>
 
         {/* Mobile: Card grid */}
-        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:hidden">
-          {steps.map((step, i) => (
-            <ScrollReveal key={step.number} delay={i * 120}>
-              <div className="gradient-border group relative flex h-full flex-col rounded-2xl border border-border/50 bg-card p-6 transition-all duration-500 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-2">
+        <motion.div
+          className="mt-16 grid gap-6 sm:grid-cols-2 lg:hidden"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-40px" }}
+          variants={stagger}
+        >
+          {steps.map((step) => (
+            <motion.div key={step.number} variants={fadeUp}>
+              <div className="gradient-border group relative flex h-full flex-col rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-6 transition-all duration-500 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-2">
                 <div className="mb-4 flex items-center gap-3">
                   <span className="font-heading text-4xl font-bold text-primary/10 transition-colors duration-500 group-hover:text-primary/25">
                     {step.number}
@@ -159,19 +222,25 @@ export function StepsSection() {
                   {step.description}
                 </p>
               </div>
-            </ScrollReveal>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* CTA under steps */}
-        <ScrollReveal delay={400} className="mt-14 text-center">
+        <motion.div
+          className="mt-14 text-center"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeUp}
+        >
           <Button asChild size="lg" className="shimmer-btn rounded-full px-8 gap-2 shadow-lg shadow-primary/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5">
             <Link href="/adressandring">
               Starta din flyttanmälan
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
-        </ScrollReveal>
+        </motion.div>
       </div>
     </section>
   )

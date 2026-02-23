@@ -1,7 +1,9 @@
 "use client"
 
+import { useRef } from "react"
 import Image from "next/image"
 import { ShieldCheck, Lock, FileCheck, Fingerprint, Info } from "lucide-react"
+import { motion, useScroll, useTransform } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -13,7 +15,20 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { ScrollReveal } from "@/components/scroll-reveal"
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
+  },
+}
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.15 } },
+}
 
 const trustSignals = [
   {
@@ -34,19 +49,34 @@ const trustSignals = [
 ]
 
 export function TrustSection() {
+  const sectionRef = useRef<HTMLElement>(null)
+
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start end", "end start"],
+  })
+
+  const orbY = useTransform(scrollYProgress, [0, 1], ["10%", "-10%"])
+
   return (
-    <section id="sakerhet" className="relative overflow-hidden bg-background py-28 lg:py-36">
+    <section ref={sectionRef} id="sakerhet" className="relative overflow-hidden bg-background py-28 lg:py-36">
       <div className="section-divider absolute top-0 left-0 right-0" />
 
-      {/* Animated background orbs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      {/* Parallax background orbs */}
+      <motion.div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true" style={{ y: orbY }}>
         <div className="section-orb-2 -top-1/3 -left-1/4 h-150 w-150" />
         <div className="section-orb-1 -bottom-1/3 -right-1/3 h-125 w-125" />
-        <div className="absolute inset-0 dot-grid opacity-[0.05]" />
-      </div>
+      </motion.div>
+      <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.05]" />
 
-      <div className="mx-auto max-w-7xl px-4 lg:px-8">
-        <ScrollReveal className="text-center">
+      <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
+        <motion.div
+          className="text-center"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-80px" }}
+          variants={fadeUp}
+        >
           <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
             Tryggt val
           </Badge>
@@ -57,11 +87,17 @@ export function TrustSection() {
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
             Används av tusentals flyttare varje månad. Dina uppgifter hanteras tryggt och säkert.
           </p>
-        </ScrollReveal>
+        </motion.div>
 
-        <div className="mt-16 grid gap-6 sm:grid-cols-3">
-          {trustSignals.map((signal, i) => (
-            <ScrollReveal key={signal.title} delay={i * 150}>
+        <motion.div
+          className="mt-16 grid gap-6 sm:grid-cols-3"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-60px" }}
+          variants={stagger}
+        >
+          {trustSignals.map((signal) => (
+            <motion.div key={signal.title} variants={fadeUp}>
               <div className="gradient-border group flex h-full flex-col items-center rounded-2xl border border-border/50 bg-card p-9 text-center transition-all duration-500 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-2">
                 <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-all duration-500 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-xl group-hover:shadow-primary/25 group-hover:scale-110">
                   <signal.icon className="h-8 w-8" />
@@ -73,12 +109,18 @@ export function TrustSection() {
                   {signal.description}
                 </p>
               </div>
-            </ScrollReveal>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
-        {/* Payment section with image */}
-        <ScrollReveal delay={200} className="mt-16">
+        {/* Security image banner */}
+        <motion.div
+          className="mt-16"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-60px" }}
+          variants={fadeUp}
+        >
           <div className="gradient-border relative overflow-hidden rounded-2xl shadow-2xl shadow-primary/10">
             <Image
               src="/images/secure-form.jpg"
@@ -87,7 +129,6 @@ export function TrustSection() {
               height={480}
               className="h-64 w-full object-cover sm:h-80 lg:h-96"
             />
-            {/* Animated blue shimmer overlay */}
             <div className="pointer-events-none absolute inset-0 bg-linear-to-r from-primary/15 via-transparent to-primary/10 animate-pulse" />
             <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-primary/10 via-transparent to-primary/5 mix-blend-overlay" />
             <div className="absolute inset-0 bg-linear-to-t from-foreground/70 via-foreground/20 to-transparent" />
@@ -157,7 +198,7 @@ export function TrustSection() {
               </Dialog>
             </div>
           </div>
-        </ScrollReveal>
+        </motion.div>
       </div>
     </section>
   )

@@ -2,7 +2,7 @@ services:
   - type: web
     name: skv-playwright
     runtime: docker
-    plan: starter
+    plan: standard
     rootDir: inlogg
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health

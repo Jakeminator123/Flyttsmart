@@ -669,7 +669,17 @@ def _run_playwright_job(
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=_resolve_headless())
+            chromium_args = []
+            if _resolve_headless():
+                chromium_args = [
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--no-sandbox",
+                    "--single-process",
+                    "--disable-setuid-sandbox",
+                    "--disable-extensions",
+                ]
+            browser = p.chromium.launch(headless=_resolve_headless(), args=chromium_args)
             page = browser.new_page()
             context = page.context
             trace_browser_windows, trace_interval_seconds = _resolve_browser_trace_config()

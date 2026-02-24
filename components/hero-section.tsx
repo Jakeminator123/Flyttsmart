@@ -60,16 +60,13 @@ export function HeroSection() {
   const videoScale = useTransform(scrollYProgress, [0, 1], [1, prefersReducedMotion ? 1 : 1.08])
   const contentY = useTransform(scrollYProgress, [0, 1], ["0%", prefersReducedMotion ? "0%" : "12%"])
   const overlayOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0])
-  const headingRotateY = useTransform(springX, [-20, 20], [-5, 5])
-  const headingRotateX = useTransform(springY, [-16, 16], [5, -5])
-
   const handlePointerMove = (event: ReactMouseEvent<HTMLElement>) => {
     if (prefersReducedMotion || !sectionRef.current) return
     const rect = sectionRef.current.getBoundingClientRect()
     const offsetX = event.clientX - rect.left - rect.width / 2
     const offsetY = event.clientY - rect.top - rect.height / 2
-    pointerX.set((offsetX / rect.width) * 30)
-    pointerY.set((offsetY / rect.height) * 24)
+    pointerX.set((offsetX / rect.width) * 12)
+    pointerY.set((offsetY / rect.height) * 10)
   }
 
   const handlePointerLeave = () => {
@@ -88,15 +85,15 @@ export function HeroSection() {
     >
       {/* Cinemagraph background with parallax */}
       <motion.div
-        className="absolute inset-0 h-[120%] -top-[5%] md:-top-[8%] md:h-[125%]"
+        className="absolute inset-0 top-[2%] h-[116%] sm:top-[1%] md:top-0 md:h-[120%] lg:-top-[5%] lg:h-[125%]"
         style={{ y: videoY, scale: videoScale }}
       >
         <HeroCinemagraph className="relative h-full w-full" />
       </motion.div>
 
       {/* Minimal overlays for readability without killing the video */}
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-background/30 via-transparent to-background/72" />
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-r from-background/22 via-transparent to-transparent lg:from-background/30" />
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-background/42 via-background/10 to-background/74" />
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-r from-background/58 via-background/20 to-transparent lg:from-background/52" />
 
       {/* Kinetic wordmark */}
       <motion.div
@@ -121,10 +118,10 @@ export function HeroSection() {
         >
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -inset-x-3 -inset-y-4 -z-10 rounded-3xl bg-linear-to-br from-background/45 via-background/24 to-transparent backdrop-blur-[1.5px] lg:-inset-x-6"
+            className="pointer-events-none absolute -inset-x-3 -inset-y-4 -z-10 rounded-3xl bg-linear-to-br from-background/78 via-background/56 to-background/16 backdrop-blur-[1.5px] lg:-inset-x-6"
           />
           <motion.div variants={fadeUp}>
-            <Badge variant="outline" className="gap-2 rounded-full border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md">
+            <Badge variant="outline" className="gap-2 rounded-full border-foreground/15 bg-background/80 px-4 py-1.5 text-sm font-medium text-foreground backdrop-blur-md">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
@@ -135,16 +132,15 @@ export function HeroSection() {
 
           {/* 3D-interactive heading */}
           <motion.div
-            className="mt-6 sm:mt-8 transform-3d"
-            style={{ x: springX, y: springY, rotateX: headingRotateX, rotateY: headingRotateY, transformPerspective: 1200 }}
+            className="mt-6 sm:mt-8"
+            style={{ x: springX, y: springY }}
           >
             <TextReveal
               as="h1"
               splitBy="word"
               delay={0.3}
               staggerDelay={0.08}
-              lively
-              className="hero-title text-4xl font-bold leading-[1.08] tracking-tight text-white text-balance sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl"
+              className="hero-title text-4xl font-bold leading-[1.08] tracking-tight text-foreground text-balance sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl"
             >
               Flytta utan krångel.
             </TextReveal>
@@ -153,7 +149,6 @@ export function HeroSection() {
               splitBy="word"
               delay={0.7}
               staggerDelay={0.08}
-              lively
               className="hero-title mt-1 text-4xl font-bold leading-[1.08] tracking-tight text-gradient-hero sm:mt-2 sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl"
             >
               Klar på 2 minuter.
@@ -162,7 +157,7 @@ export function HeroSection() {
 
           <motion.p
             variants={fadeUp}
-            className="mt-6 max-w-xl text-base leading-relaxed text-white/70 text-pretty sm:mt-8 sm:text-lg lg:text-xl"
+            className="mt-6 max-w-xl text-base leading-relaxed text-foreground/80 text-pretty sm:mt-8 sm:text-lg lg:text-xl"
           >
             Vi gör din flyttanmälan till Skatteverket automatiskt – och hjälper
             dig komma igång på nya adressen med el, bredband och försäkring.
@@ -188,7 +183,7 @@ export function HeroSection() {
               asChild
               variant="ghost"
               size="lg"
-              className="rounded-full text-base text-white/60 hover:text-white"
+              className="rounded-full text-base text-foreground/70 hover:text-foreground"
             >
               <a href="#hur-det-funkar">
                 Så funkar det
@@ -204,7 +199,7 @@ export function HeroSection() {
                   <Tooltip key={item.label}>
                     <TooltipTrigger asChild>
                       <motion.div
-                        className="flex cursor-default items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs text-white/80 backdrop-blur-md transition-all duration-300 hover:bg-white/20 hover:-translate-y-0.5 sm:px-3.5 sm:py-2 sm:text-sm"
+                        className="flex cursor-default items-center gap-2 rounded-full border border-foreground/15 bg-background/72 px-3 py-1.5 text-xs text-foreground/85 backdrop-blur-md transition-all duration-300 hover:bg-background/90 hover:-translate-y-0.5 sm:px-3.5 sm:py-2 sm:text-sm"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 1.4 + i * 0.1, duration: 0.5 }}
@@ -243,7 +238,7 @@ export function HeroSection() {
         transition={{ delay: 2, duration: 1 }}
       >
         <motion.span
-          className="text-xs font-medium uppercase tracking-widest text-white/40"
+          className="text-xs font-medium uppercase tracking-widest text-foreground/45"
           animate={{ opacity: [0.3, 0.7, 0.3] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
@@ -253,7 +248,7 @@ export function HeroSection() {
           animate={{ y: [0, 8, 0] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         >
-          <div className="flex h-10 w-6 items-start justify-center rounded-full border-2 border-white/20 pt-2">
+          <div className="flex h-10 w-6 items-start justify-center rounded-full border-2 border-foreground/20 pt-2">
             <motion.div
               className="h-1.5 w-1.5 rounded-full bg-primary"
               animate={{ y: [0, 12, 0], opacity: [1, 0.3, 1] }}

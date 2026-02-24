@@ -20,11 +20,9 @@ fi
 mkdir -p "$AGENT_DIR"
 mkdir -p "$WORKSPACE_DIR"
 
-# Seed IDENTITY.md if not already present on the persistent volume
-if [ ! -f "$AGENT_DIR/IDENTITY.md" ]; then
-  cp /app/seed/IDENTITY.md "$AGENT_DIR/IDENTITY.md"
-  echo "[entrypoint] Seeded IDENTITY.md for aida-flyttagent"
-fi
+# Always overwrite IDENTITY.md from image so updates propagate on redeploy
+cp /app/seed/IDENTITY.md "$AGENT_DIR/IDENTITY.md"
+echo "[entrypoint] IDENTITY.md written for aida-flyttagent"
 
 # Seed workspace skills if present in image but not yet on volume
 if [ -d "/app/seed/workspace" ]; then

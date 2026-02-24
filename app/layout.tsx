@@ -34,8 +34,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="sv" suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable}`}>
-      <body className="font-sans antialiased">
+    <html
+      lang="sv"
+      suppressHydrationWarning
+      className={`${inter.variable} ${spaceGrotesk.variable}`}
+      style={{ position: "relative" }}
+    >
+      <body className="font-sans antialiased" style={{ position: "relative" }}>
         <SmoothScroll />
         <ScrollProgress />
         <CursorGlow />

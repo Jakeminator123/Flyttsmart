@@ -86,7 +86,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.8",
-    "eslint": "^10.0.2",
+    "eslint": "^9.39.3",
     "eslint-plugin-react-hooks": "^7.0.1",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",

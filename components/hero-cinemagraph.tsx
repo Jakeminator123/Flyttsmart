@@ -8,6 +8,7 @@ type Phase = "loading" | "intro" | "cinemagraph"
 
 const VIDEO_SRC = "/media/videos/hero.mp4"
 const STILL_FALLBACK = "/media/images/glad_familj.webp"
+const MEDIA_POSITION_CLASS = "object-cover object-[center_64%] sm:object-[center_60%] md:object-[center_55%] lg:object-[center_50%]"
 
 const ROBOT_ZONE = "polygon(0% 22%, 15% 22%, 15% 78%, 0% 78%)"
 const PEOPLE_ZONE = "polygon(14% 6%, 60% 6%, 60% 95%, 14% 95%)"
@@ -104,13 +105,13 @@ export function HeroCinemagraph({ className }: HeroCinemagraphProps) {
         fill
         priority
         fetchPriority="high"
-        className="object-cover object-center"
+        className={MEDIA_POSITION_CLASS}
       />
 
       {/* Base layer: plays once then freezes */}
       <video
         ref={baseRef}
-        className="absolute inset-0 z-2 h-full w-full object-cover object-center"
+        className={`absolute inset-0 z-2 h-full w-full ${MEDIA_POSITION_CLASS}`}
         src={VIDEO_SRC}
         muted
         playsInline
@@ -130,7 +131,7 @@ export function HeroCinemagraph({ className }: HeroCinemagraphProps) {
         >
           <video
             ref={robotLoopRef}
-            className="h-full w-full object-cover object-center"
+            className={`h-full w-full ${MEDIA_POSITION_CLASS}`}
             style={{ clipPath: ROBOT_ZONE }}
             src={VIDEO_SRC}
             muted
@@ -152,7 +153,7 @@ export function HeroCinemagraph({ className }: HeroCinemagraphProps) {
         >
           <video
             ref={peopleLoopRef}
-            className="h-full w-full object-cover object-center"
+            className={`h-full w-full ${MEDIA_POSITION_CLASS}`}
             style={{ clipPath: PEOPLE_ZONE }}
             src={VIDEO_SRC}
             muted

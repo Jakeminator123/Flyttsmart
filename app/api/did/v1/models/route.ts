@@ -13,6 +13,20 @@ function corsHeaders(origin: string | null) {
   };
 }
 
+function buildModelIds(): string[] {
+  const ids = new Set<string>();
+
+  if (CHAT_MODEL) ids.add(CHAT_MODEL);
+  if (AGENT_ID) ids.add(AGENT_ID);
+
+  if (CHAT_MODEL.startsWith("openclaw:")) {
+    const withoutPrefix = CHAT_MODEL.slice("openclaw:".length).trim();
+    if (withoutPrefix) ids.add(withoutPrefix);
+  }
+
+  return Array.from(ids);
+}
+
 export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, {
     status: 204,
@@ -21,17 +35,18 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const created = Math.floor(Date.now() / 1000);
+  const data = buildModelIds().map((id) => ({
+    id,
+    object: "model",
+    created,
+    owned_by: "flyttio",
+  }));
+
   return NextResponse.json(
     {
       object: "list",
-      data: [
-        {
-          id: CHAT_MODEL,
-          object: "model",
-          created: Math.floor(Date.now() / 1000),
-          owned_by: "flyttio",
-        },
-      ],
+      data,
     },
     { headers: corsHeaders(req.headers.get("origin")) },
   );

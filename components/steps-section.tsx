@@ -5,10 +5,12 @@ import Image from "next/image"
 import dynamic from "next/dynamic"
 import { Fingerprint, FileCheck, Gift, CheckCircle, ArrowRight } from "lucide-react"
 import Link from "next/link"
-import { motion, useScroll, useTransform } from "framer-motion"
+import { motion, useScroll, useTransform, useInView } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { TextReveal } from "@/components/text-reveal"
+import { MagneticButton } from "@/components/magnetic-button"
 
 const FloatingLines = dynamic(() => import("@/components/floating-lines"), {
   ssr: false,
@@ -17,17 +19,18 @@ const FloatingLines = dynamic(() => import("@/components/floating-lines"), {
 const STEPS_GRADIENT = ["#1B3BA2", "#2E5FC7", "#4A80E0", "#6BA3F5"]
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 30, filter: "blur(4px)" },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
+    filter: "blur(0px)",
+    transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] as const },
   },
 }
 
 const stagger = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.12 } },
+  visible: { transition: { staggerChildren: 0.15 } },
 }
 
 const steps = [
@@ -69,6 +72,23 @@ const steps = [
   },
 ]
 
+function AnimatedNumber({ number }: { number: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const isInView = useInView(ref, { once: true })
+
+  return (
+    <motion.span
+      ref={ref}
+      className="font-heading text-6xl font-bold text-primary/10"
+      initial={{ opacity: 0, scale: 0.5 }}
+      animate={isInView ? { opacity: 1, scale: 1 } : {}}
+      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+    >
+      {number}
+    </motion.span>
+  )
+}
+
 export function StepsSection() {
   const sectionRef = useRef<HTMLElement>(null)
 
@@ -84,6 +104,7 @@ export function StepsSection() {
       ref={sectionRef}
       id="hur-det-funkar"
       className="relative overflow-hidden bg-background py-28 lg:py-36"
+      style={{ position: "relative" }}
     >
       <div className="section-divider absolute top-0 left-0 right-0" />
 
@@ -107,26 +128,37 @@ export function StepsSection() {
       <div className="pointer-events-none absolute inset-0 dot-grid opacity-40" />
 
       <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
-        <motion.div
-          className="text-center"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-80px" }}
-          variants={fadeUp}
-        >
-          <div className="mx-auto max-w-2xl">
+        <div className="text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
             <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
               Så funkar det
             </Badge>
-            <h2 className="mt-5 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Så fungerar
-              <span className="text-gradient"> Flytt.io</span>
-            </h2>
-            <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
+          </motion.div>
+          <div className="mx-auto max-w-2xl">
+            <TextReveal
+              as="h2"
+              delay={0.1}
+              lively
+              className="mt-5 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl"
+            >
+              Så fungerar Flytt.io
+            </TextReveal>
+            <motion.p
+              className="mt-5 text-lg leading-relaxed text-muted-foreground"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.4, duration: 0.8 }}
+            >
               Hela processen tar bara 2 minuter. Inget krångel, inga blanketter.
-            </p>
+            </motion.p>
           </div>
-        </motion.div>
+        </div>
 
         {/* Desktop: Tabs layout */}
         <motion.div
@@ -152,13 +184,16 @@ export function StepsSection() {
             </TabsList>
             {steps.map((step) => (
               <TabsContent key={step.id} value={step.id}>
-                <div className="gradient-border flex items-start gap-12 rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-10 lg:p-14">
+                <motion.div
+                  className="gradient-border flex items-start gap-12 rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-10 lg:p-14"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                >
                   <div className="flex-1">
                     <div className="flex items-center gap-4">
-                      <span className="font-heading text-6xl font-bold text-primary/10">
-                        {step.number}
-                      </span>
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/25 glow">
+                      <AnimatedNumber number={step.number} />
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/25 glow icon-glow">
                         <step.icon className="h-7 w-7" />
                       </div>
                     </div>
@@ -170,11 +205,17 @@ export function StepsSection() {
                     </p>
                     <div className="mt-8 h-px w-full bg-linear-to-r from-border via-primary/20 to-transparent" />
                     <div className="mt-8 grid grid-cols-2 gap-4">
-                      {step.details.map((detail) => (
-                        <div key={detail} className="flex items-center gap-3 text-sm text-muted-foreground">
+                      {step.details.map((detail, i) => (
+                        <motion.div
+                          key={detail}
+                          className="flex items-center gap-3 text-sm text-muted-foreground"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.1 + i * 0.08, duration: 0.4 }}
+                        >
                           <div className="h-2 w-2 rounded-full bg-primary/60 shadow-sm shadow-primary/40" />
                           {detail}
-                        </div>
+                        </motion.div>
                       ))}
                     </div>
                   </div>
@@ -186,11 +227,11 @@ export function StepsSection() {
                         alt="En glad tjej visar en QR-kod på sin telefon"
                         width={220}
                         height={320}
-                        className="relative h-72 w-auto rounded-2xl object-cover shadow-lg"
+                        className="person-image-drift relative h-72 w-auto rounded-2xl object-cover shadow-lg"
                       />
                     </div>
                   </div>
-                </div>
+                </motion.div>
               </TabsContent>
             ))}
           </Tabs>
@@ -204,9 +245,9 @@ export function StepsSection() {
           viewport={{ once: true, margin: "-40px" }}
           variants={stagger}
         >
-          {steps.map((step) => (
+          {steps.map((step, i) => (
             <motion.div key={step.number} variants={fadeUp}>
-              <div className="gradient-border group relative flex h-full flex-col rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-6 transition-all duration-500 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-2">
+              <div className="gradient-border card-hover group relative flex h-full flex-col rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-6">
                 <div className="mb-4 flex items-center gap-3">
                   <span className="font-heading text-4xl font-bold text-primary/10 transition-colors duration-500 group-hover:text-primary/25">
                     {step.number}
@@ -221,6 +262,13 @@ export function StepsSection() {
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   {step.description}
                 </p>
+                {/* Progress connector for mobile */}
+                {i < steps.length - 1 && (
+                  <div className="mt-4 flex items-center gap-2 text-xs text-primary/40">
+                    <div className="h-px flex-1 bg-linear-to-r from-primary/20 to-transparent" />
+                    <ArrowRight className="h-3 w-3" />
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}
@@ -234,12 +282,14 @@ export function StepsSection() {
           viewport={{ once: true }}
           variants={fadeUp}
         >
-          <Button asChild size="lg" className="shimmer-btn rounded-full px-8 gap-2 shadow-lg shadow-primary/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5">
-            <Link href="/adressandring">
-              Starta din flyttanmälan
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
+          <MagneticButton strength={0.15}>
+            <Button asChild size="lg" className="shimmer-btn rounded-full px-8 gap-2 shadow-lg shadow-primary/20 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5">
+              <Link href="/adressandring">
+                Starta din flyttanmälan
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </MagneticButton>
         </motion.div>
       </div>
     </section>

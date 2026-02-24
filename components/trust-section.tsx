@@ -2,7 +2,7 @@
 
 import { useRef } from "react"
 import Image from "next/image"
-import { ShieldCheck, Lock, FileCheck, Fingerprint, Info } from "lucide-react"
+import { ShieldCheck, Lock, FileCheck, Fingerprint, Info, Zap, Clock, Users } from "lucide-react"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -15,13 +15,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { TextReveal } from "@/components/text-reveal"
+import { AnimatedCounter } from "@/components/animated-counter"
+import { Marquee } from "@/components/marquee"
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 30, filter: "blur(4px)" },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
+    filter: "blur(0px)",
+    transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] as const },
   },
 }
 
@@ -48,6 +52,16 @@ const trustSignals = [
   },
 ]
 
+const marqueeItems = [
+  { icon: ShieldCheck, text: "Bankgiro-trygg" },
+  { icon: Lock, text: "SSL-krypterat" },
+  { icon: Fingerprint, text: "BankID-verifierat" },
+  { icon: Users, text: "12 000+ användare" },
+  { icon: Zap, text: "Klar på 2 min" },
+  { icon: Clock, text: "Tillgänglig 24/7" },
+  { icon: FileCheck, text: "GDPR-kompatibel" },
+]
+
 export function TrustSection() {
   const sectionRef = useRef<HTMLElement>(null)
 
@@ -59,10 +73,14 @@ export function TrustSection() {
   const orbY = useTransform(scrollYProgress, [0, 1], ["10%", "-10%"])
 
   return (
-    <section ref={sectionRef} id="sakerhet" className="relative overflow-hidden bg-background py-28 lg:py-36">
+    <section
+      ref={sectionRef}
+      id="sakerhet"
+      className="relative overflow-hidden bg-background py-28 lg:py-36"
+      style={{ position: "relative" }}
+    >
       <div className="section-divider absolute top-0 left-0 right-0" />
 
-      {/* Parallax background orbs */}
       <motion.div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true" style={{ y: orbY }}>
         <div className="section-orb-2 -top-1/3 -left-1/4 h-150 w-150" />
         <div className="section-orb-1 -bottom-1/3 -right-1/3 h-125 w-125" />
@@ -70,27 +88,76 @@ export function TrustSection() {
       <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.05]" />
 
       <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
+        {/* Header */}
+        <div className="text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
+              Tryggt val
+            </Badge>
+          </motion.div>
+          <TextReveal
+            as="h2"
+            delay={0.1}
+            lively
+            className="mt-5 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl"
+          >
+            Säkerheten du förtjänar
+          </TextReveal>
+          <motion.p
+            className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4, duration: 0.8 }}
+          >
+            Används av tusentals flyttare varje månad. Dina uppgifter hanteras tryggt och säkert.
+          </motion.p>
+        </div>
+
+        {/* Stats row */}
         <motion.div
-          className="text-center"
+          className="mx-auto mt-14 flex max-w-2xl items-center justify-center gap-8 sm:gap-16"
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-80px" }}
+          viewport={{ once: true, margin: "-60px" }}
           variants={fadeUp}
         >
-          <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
-            Tryggt val
-          </Badge>
-          <h2 className="mt-5 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Säkerheten du
-            <span className="text-gradient"> förtjänar</span>
-          </h2>
-          <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-            Används av tusentals flyttare varje månad. Dina uppgifter hanteras tryggt och säkert.
-          </p>
+          <div className="text-center">
+            <AnimatedCounter target={12000} suffix="+" className="font-heading text-3xl font-bold text-primary lg:text-4xl" />
+            <p className="mt-1 text-sm text-muted-foreground">Flyttanmälningar</p>
+          </div>
+          <div className="hidden h-12 w-px bg-border sm:block" />
+          <div className="text-center">
+            <AnimatedCounter target={99} suffix="%" className="font-heading text-3xl font-bold text-primary lg:text-4xl" />
+            <p className="mt-1 text-sm text-muted-foreground">Nöjdhet</p>
+          </div>
+          <div className="hidden h-12 w-px bg-border sm:block" />
+          <div className="text-center">
+            <AnimatedCounter target={2} suffix=" min" className="font-heading text-3xl font-bold text-primary lg:text-4xl" duration={1} />
+            <p className="mt-1 text-sm text-muted-foreground">Genomsnitt</p>
+          </div>
         </motion.div>
 
+        {/* Trust signal marquee */}
+        <div className="mt-14">
+          <Marquee speed={30} className="py-4">
+            {marqueeItems.map((item) => (
+              <div key={item.text} className="flex items-center gap-2.5 rounded-full border border-border/50 bg-card/80 px-5 py-2.5 text-sm font-medium text-muted-foreground backdrop-blur-sm">
+                <item.icon className="h-4 w-4 text-primary" />
+                {item.text}
+              </div>
+            ))}
+          </Marquee>
+        </div>
+
+        {/* Trust cards */}
         <motion.div
-          className="mt-16 grid gap-6 sm:grid-cols-3"
+          className="mt-14 grid gap-6 sm:grid-cols-3"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-60px" }}
@@ -98,7 +165,7 @@ export function TrustSection() {
         >
           {trustSignals.map((signal) => (
             <motion.div key={signal.title} variants={fadeUp}>
-              <div className="gradient-border group flex h-full flex-col items-center rounded-2xl border border-border/50 bg-card p-9 text-center transition-all duration-500 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-2">
+              <div className="gradient-border card-hover group flex h-full flex-col items-center rounded-2xl border border-border/50 bg-card p-9 text-center">
                 <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-all duration-500 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-xl group-hover:shadow-primary/25 group-hover:scale-110">
                   <signal.icon className="h-8 w-8" />
                 </div>
@@ -113,13 +180,13 @@ export function TrustSection() {
           ))}
         </motion.div>
 
-        {/* Security image banner */}
+        {/* Security banner */}
         <motion.div
           className="mt-16"
-          initial="hidden"
-          whileInView="visible"
+          initial={{ opacity: 0, y: 40, scale: 0.97 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
           viewport={{ once: true, margin: "-60px" }}
-          variants={fadeUp}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         >
           <div className="gradient-border relative overflow-hidden rounded-2xl shadow-2xl shadow-primary/10">
             <Image
@@ -129,8 +196,7 @@ export function TrustSection() {
               height={480}
               className="h-64 w-full object-cover sm:h-80 lg:h-96"
             />
-            <div className="pointer-events-none absolute inset-0 bg-linear-to-r from-primary/15 via-transparent to-primary/10 animate-pulse" />
-            <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-primary/10 via-transparent to-primary/5 mix-blend-overlay" />
+            <div className="pointer-events-none absolute inset-0 bg-linear-to-r from-primary/15 via-transparent to-primary/10" />
             <div className="absolute inset-0 bg-linear-to-t from-foreground/70 via-foreground/20 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6 flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">
@@ -152,7 +218,7 @@ export function TrustSection() {
                 <DialogTrigger asChild>
                   <Button variant="secondary" size="sm" className="glass gap-1.5 rounded-full text-card-foreground">
                     <Info className="h-3.5 w-3.5" />
-                    Läs mer om säkerhet
+                    Läs mer
                   </Button>
                 </DialogTrigger>
                 <DialogContent>

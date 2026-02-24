@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { ScrollReveal } from "@/components/scroll-reveal"
 import { Logo } from "@/components/logo"
-import { Mail, MapPin } from "lucide-react"
+import { Mail, MapPin, ArrowUpRight } from "lucide-react"
 
 export function SiteFooter() {
   return (
@@ -18,6 +18,7 @@ export function SiteFooter() {
         <div className="section-orb-1 -bottom-1/4 left-1/4 h-100 w-100" />
         <div className="section-orb-2 -top-1/4 -right-1/4 h-75 w-75" />
       </div>
+      <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.015]" />
 
       <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
         <ScrollReveal>
@@ -35,9 +36,10 @@ export function SiteFooter() {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <a href="mailto:info@flytt.io" className="flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-primary">
+                      <a href="mailto:info@flytt.io" className="group flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-primary">
                         <Mail className="h-4 w-4" />
                         info@flytt.io
+                        <ArrowUpRight className="h-3 w-3 opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                       </a>
                     </TooltipTrigger>
                     <TooltipContent>Skicka oss ett mejl</TooltipContent>
@@ -60,7 +62,7 @@ export function SiteFooter() {
                   <li>
                     <Link
                       href="/adressandring"
-                      className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       Adressändring
                     </Link>
@@ -68,7 +70,7 @@ export function SiteFooter() {
                   <li>
                     <a
                       href="#hur-det-funkar"
-                      className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       Så funkar det
                     </a>
@@ -76,7 +78,7 @@ export function SiteFooter() {
                   <li>
                     <a
                       href="#faq"
-                      className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       Vanliga frågor
                     </a>
@@ -92,7 +94,7 @@ export function SiteFooter() {
                   <li>
                     <Link
                       href="/anvandarvillkor"
-                      className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       Användarvillkor
                     </Link>
@@ -100,7 +102,7 @@ export function SiteFooter() {
                   <li>
                     <Link
                       href="/integritetspolicy"
-                      className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       Integritetspolicy
                     </Link>
@@ -108,7 +110,7 @@ export function SiteFooter() {
                   <li>
                     <Link
                       href="/cookiepolicy"
-                      className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       Cookies
                     </Link>
@@ -124,7 +126,7 @@ export function SiteFooter() {
                   <li>
                     <Link
                       href="/om"
-                      className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       Om Flytt.io
                     </Link>
@@ -132,7 +134,7 @@ export function SiteFooter() {
                   <li>
                     <a
                       href="mailto:info@flytt.io"
-                      className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       Kontakta oss
                     </a>

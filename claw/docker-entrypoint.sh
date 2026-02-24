@@ -44,7 +44,12 @@ cat > "$CONFIG_FILE" <<EOF
     },
     "controlUi": {
       "enabled": true,
-      "dangerouslyDisableDeviceAuth": true
+      "dangerouslyDisableDeviceAuth": true,
+      "allowedOrigins": [
+        "https://openclaw-aida.onrender.com",
+        "https://flyttanu.vercel.app",
+        "http://localhost:3000"
+      ]
     },
     "http": {
       "endpoints": {

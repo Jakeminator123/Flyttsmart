@@ -3,6 +3,9 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, Space_Grotesk } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { DidOpenClawBridgeWidget } from '@/components/did-openclaw-bridge-widget'
+import { SmoothScroll } from '@/components/smooth-scroll'
+import { CursorGlow } from '@/components/cursor-glow'
+import { ScrollProgress } from '@/components/scroll-progress'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
@@ -33,6 +36,9 @@ export default function RootLayout({
   return (
     <html lang="sv" suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <body className="font-sans antialiased">
+        <SmoothScroll />
+        <ScrollProgress />
+        <CursorGlow />
         {children}
         <DidOpenClawBridgeWidget />
         <Analytics />

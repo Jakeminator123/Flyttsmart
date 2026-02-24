@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -31,15 +31,12 @@ export function HeroVisual() {
   const [showNotification, setShowNotification] = useState(false)
 
   useEffect(() => {
-    // Animate progress bar
     const timer = setTimeout(() => setProgress(62), 600)
 
-    // Stagger checklist items
     const itemTimers = CHECKLIST.map((_, i) =>
       setTimeout(() => setVisibleItems(i + 1), 900 + i * 200),
     )
 
-    // Show notification card
     const notifTimer = setTimeout(() => setShowNotification(true), 2200)
 
     return () => {
@@ -52,18 +49,26 @@ export function HeroVisual() {
   return (
     <div className="relative w-full">
       {/* Floating decorative elements */}
-      <div className="absolute -top-4 -right-4 z-20 animate-float">
+      <motion.div
+        className="absolute -top-4 -right-4 z-20"
+        animate={{ y: [0, -10, 0] }}
+        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+      >
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 backdrop-blur-sm border border-primary/20 shadow-lg">
           <Package className="h-6 w-6 text-primary" />
         </div>
-      </div>
-      <div className="absolute -bottom-3 -left-3 z-20 animate-float-delayed">
+      </motion.div>
+      <motion.div
+        className="absolute -bottom-3 -left-3 z-20"
+        animate={{ y: [0, -8, 0] }}
+        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+      >
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 backdrop-blur-sm border border-accent/20 shadow-lg">
           <Home className="h-5 w-5 text-accent-foreground" />
         </div>
-      </div>
+      </motion.div>
 
-      {/* Main card – the "app preview" */}
+      {/* Main card */}
       <Card className="relative overflow-hidden border-border/50 bg-card/80 backdrop-blur-md shadow-2xl shadow-primary/10">
         {/* Header bar */}
         <div className="flex items-center gap-3 border-b border-border/50 bg-muted/30 px-5 py-3.5">
@@ -116,15 +121,29 @@ export function HeroVisual() {
             <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
           </div>
 
-          {/* Progress section */}
+          {/* Animated progress section */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-foreground">
                 Adressändring
               </span>
-              <span className="text-xs font-bold text-primary">{progress}%</span>
+              <motion.span
+                className="text-xs font-bold text-primary tabular-nums"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                {progress}%
+              </motion.span>
             </div>
-            <Progress value={progress} className="h-2" />
+            <div className="h-2 w-full overflow-hidden rounded-full bg-primary/20">
+              <motion.div
+                className="h-full rounded-full bg-primary"
+                initial={{ width: "0%" }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
+              />
+            </div>
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               <Truck className="h-3 w-3" />
               <span>3 av 5 myndigheter klara</span>
@@ -176,12 +195,11 @@ export function HeroVisual() {
       </Card>
 
       {/* Floating notification card */}
-      <div
-        className={`absolute -bottom-6 -right-6 z-10 w-56 transition-all duration-700 ease-out ${
-          showNotification
-            ? "translate-y-0 opacity-100"
-            : "translate-y-4 opacity-0"
-        }`}
+      <motion.div
+        className="absolute -bottom-6 -right-6 z-10 w-56"
+        initial={{ y: 16, opacity: 0 }}
+        animate={showNotification ? { y: 0, opacity: 1 } : {}}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       >
         <Card className="glass border-border/40 shadow-xl">
           <CardContent className="flex items-center gap-3 p-3">
@@ -201,7 +219,7 @@ export function HeroVisual() {
             <CheckCircle2 className="h-5 w-5 shrink-0 text-chart-5" />
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
     </div>
   )
 }

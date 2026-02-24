@@ -15,6 +15,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { parseOpenClawResponse } from "@/lib/openclaw/response";
 
+const MERGE_OC_DID =
+  process.env.NEXT_PUBLIC_MERGE_OC_DID?.toLowerCase() === "y";
+
 // ─── Types ─────────────────────────────────────────────
 
 interface Message {
@@ -68,6 +71,24 @@ function getSessionId(): string {
 // ─── Component ─────────────────────────────────────────
 
 export function OpenClawChatWidget({
+  formType,
+  formData,
+  currentStep,
+  onSuggestion,
+}: OpenClawChatWidgetProps) {
+  if (MERGE_OC_DID) return null;
+
+  return (
+    <OpenClawChatWidgetInner
+      formType={formType}
+      formData={formData}
+      currentStep={currentStep}
+      onSuggestion={onSuggestion}
+    />
+  );
+}
+
+function OpenClawChatWidgetInner({
   formType,
   formData,
   currentStep,

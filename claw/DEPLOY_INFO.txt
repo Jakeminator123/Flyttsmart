@@ -83,9 +83,11 @@ Other app-critical vars:
 
 D-ID related vars:
 - NEXT_PUBLIC_DID_BRIDGE_ENABLED=true
-- NEXT_PUBLIC_DID_AGENT_SHARE_URL=<D-ID share URL>
+- NEXT_PUBLIC_DID_CLIENT_KEY=<D-ID client key from Studio Embed>
+- NEXT_PUBLIC_DID_AGENT_ID=<D-ID agent ID, e.g. v2_agt_THZNQGpC>
 - DID_BRIDGE_SECRET=<optional>
 - TEST_TAL=y or n
+- NEXT_PUBLIC_MERGE_OC_DID=y or n (when y, hides text chat, DID avatar is primary)
 
 
 5) Known Behavior (Important)

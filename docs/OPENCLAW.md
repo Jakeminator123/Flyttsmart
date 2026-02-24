@@ -56,12 +56,12 @@ The `siteAccess` object that the webhook + chat proxies forward looks like this:
 
 ```json
 {
-  "baseUrl": "https://flyttsmart.vercel.app",
+  "baseUrl": "https://flyttanu.vercel.app",
   "bypassHeader": "x-vercel-protection-bypass",
   "bypassToken": "<VERCEL_AUTOMATION_BYPASS_SECRET>",
-  "accessEndpoint": "https://flyttsmart.vercel.app/api/openclaw/access",
+  "accessEndpoint": "https://flyttanu.vercel.app/api/openclaw/access",
   "defaultRedirectPath": "/adressandring",
-  "bypassCookieUrl": "https://flyttsmart.vercel.app/api/openclaw/access?token=<OPENCLAW_AGENT_TOKEN>&redirect=%2Fadressandring"
+  "bypassCookieUrl": "https://flyttanu.vercel.app/api/openclaw/access?token=<OPENCLAW_AGENT_TOKEN>&redirect=%2Fadressandring"
 }
 ```
 

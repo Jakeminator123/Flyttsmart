@@ -50,10 +50,10 @@ Aida far tre typer av realtidsdata fran sajten:
 ### 3. `siteAccess` (Vercel deployment protection bypass)
 ```json
 {
-  "baseUrl": "https://flyttsmart.vercel.app",
+  "baseUrl": "https://flyttanu.vercel.app",
   "bypassHeader": "x-vercel-protection-bypass",
   "bypassToken": "<secret>",
-  "bypassCookieUrl": "https://flyttsmart.vercel.app?x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=<secret>"
+  "bypassCookieUrl": "https://flyttanu.vercel.app?x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=<secret>"
 }
 ```
 

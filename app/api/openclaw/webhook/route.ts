@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
         message: hookMessage,
         name: "FormMirror",
         agentId: AGENT_ID,
-        sessionKey: `hook:flyttsmart:${sessionId}`,
+        sessionKey: `hook:flyttanu:${sessionId}`,
         wakeMode: "now",
         deliver: false,
       }),

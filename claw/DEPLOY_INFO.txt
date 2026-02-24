@@ -61,7 +61,7 @@ Notes:
   PORT -> OPENCLAW_GATEWAY_PORT -> 18789
 
 
-4) Vercel Environment Variables (flyttsmart project)
+4) Vercel Environment Variables (flyttanu project)
 ----------------------------------------------------
 Required OpenClaw vars:
 - OPENCLAW_GATEWAY_URL=https://openclaw-aida.onrender.com
@@ -120,7 +120,7 @@ Render checks:
    - [gateway] listening on ws://0.0.0.0:10000
 
 Vercel checks:
-1) GET https://flyttsmart.vercel.app/api/openclaw/health?debug=1
+1) GET https://flyttanu.vercel.app/api/openclaw/health?debug=1
    Expect:
    - gatewayUrl = https://openclaw-aida.onrender.com
    - agentId = aida-flyttagent
@@ -174,4 +174,4 @@ Fix:
 - Redeploy Render after changing entrypoint/config defaults.
 - Redeploy Vercel after changing build-time NEXT_PUBLIC_* vars.
 - If local and cloud behavior differ, verify linked Vercel project first:
-  this setup must target project "flyttsmart" (not legacy project names).
+  this setup must target project "flyttanu" (not legacy project names).

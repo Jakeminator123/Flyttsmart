@@ -169,39 +169,27 @@ Fix:
 - Avoid exposing NEXT_PUBLIC_* secrets (client-visible).
 
 
-10) D-ID Custom LLM Integration (2026-02-24)
-----------------------------------------------
+10) D-ID + OpenClaw Integration (updated 2026-02-24)
+-----------------------------------------------------
 The D-ID avatar "AIda" (agent v2_agt_THZNQGpC) uses OpenClaw as its brain
-via the Custom LLM feature. D-ID sends conversation messages to our endpoint,
-which proxies to OpenClaw with form context enrichment.
+via a client-side relay pattern with @d-id/client-sdk.
 
 Architecture:
-  D-ID Avatar (WebRTC) -> Vercel endpoint -> OpenClaw Gateway (Render)
+  User voice -> Web Speech API (sv-SE) -> /api/did/chat -> OpenClaw
+  OpenClaw response -> agentManager.speak() -> D-ID avatar speaks
 
-Vercel endpoint: /api/did/v1/chat/completions
-  - Accepts compressed request bodies (gzip, brotli, deflate)
-  - Returns SSE streaming in OpenAI Chat Completions chunk format
-  - Validates auth via x-api-key header (matched against DID_BRIDGE_SECRET)
-  - Enriches with form context from session store
-  - Models endpoint at /api/did/v1/chat/completions/models (for D-ID Studio)
+Key widget: components/did-openclaw-bridge-widget.tsx
+  - Uses @d-id/client-sdk (not the old embed script)
+  - Web Speech API for Swedish STT (bypasses D-ID's broken STT)
+  - speak() mode: avatar says text without going through D-ID's LLM
+  - Text input as fallback for browsers without Web Speech API
 
-D-ID agent config (set via API, not Studio UI):
-  - llm.provider = "custom"
-  - llm.custom.url = https://flyttanu.vercel.app/api/did/v1/chat/completions
-  - llm.custom.key = <DID_BRIDGE_SECRET value>
-  - llm.custom.streaming = true
-  - llm.custom.max_messages = 20
+D-ID agent config:
+  - llm.provider = "openai" (fallback, not actively used)
+  - llm.model = "gpt-4.1-nano"
+  - presenter.voice = "sv-SE-SofieNeural"
 
-To reconfigure the D-ID agent via API:
-  PATCH https://api.d-id.com/agents/v2_agt_THZNQGpC
-  Authorization: Bearer <D-ID session token from Studio network tab>
-  Body: {"llm":{"provider":"custom","custom":{"type":"basic",
-    "url":"https://flyttanu.vercel.app/api/did/v1/chat/completions",
-    "key":"<DID_BRIDGE_SECRET>","streaming":true,"max_messages":20}}}
-
-Note: D-ID Studio UI has a bug where the Custom LLM model dropdown
-stays empty even though the /models endpoint returns valid data.
-Use the API (PATCH) to configure Custom LLM instead.
+See docs/DID-OPENCLAW-INTEGRATION.md for full documentation.
 
 
 11) Operational Notes

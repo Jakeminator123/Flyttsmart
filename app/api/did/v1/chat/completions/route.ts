@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { brotliDecompressSync, gunzipSync, inflateSync } from "node:zlib";
 import {
   buildOpenClawSiteAccess,
   getOpenClawAgentId,
@@ -101,6 +102,33 @@ function normalizeMessages(raw: unknown): IncomingMessage[] {
   return normalized;
 }
 
+async function parseRequestBody(req: NextRequest): Promise<Record<string, unknown>> {
+  const contentEncoding = (req.headers.get("content-encoding") ?? "")
+    .toLowerCase()
+    .trim();
+
+  if (!contentEncoding || contentEncoding === "identity") {
+    const body = await req.json();
+    return body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  }
+
+  const compressed = Buffer.from(await req.arrayBuffer());
+  let decoded = compressed;
+
+  if (contentEncoding.includes("br")) {
+    decoded = brotliDecompressSync(compressed);
+  } else if (contentEncoding.includes("gzip")) {
+    decoded = gunzipSync(compressed);
+  } else if (contentEncoding.includes("deflate")) {
+    decoded = inflateSync(compressed);
+  } else {
+    throw new Error(`Unsupported content-encoding: ${contentEncoding}`);
+  }
+
+  const parsed = JSON.parse(decoded.toString("utf8"));
+  return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+}
+
 function validateDidAuth(req: NextRequest): boolean {
   if (!DID_BRIDGE_SECRET) return true;
 
@@ -131,7 +159,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = (await req.json()) as Record<string, unknown>;
+    let body: Record<string, unknown>;
+    try {
+      body = await parseRequestBody(req);
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid or unsupported request body encoding" },
+        { status: 400, headers },
+      );
+    }
 
     const messages = normalizeMessages(body.messages);
     const wantsStream = body.stream !== false;

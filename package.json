@@ -12,6 +12,7 @@
     "openclaw:doctor": "node scripts/openclaw-doctor.cjs"
   },
   "dependencies": {
+    "@d-id/client-sdk": "^1.1.50",
     "@hookform/resolvers": "^3.10.0",
     "@libsql/client": "^0.17.0",
     "@radix-ui/react-accordion": "1.2.2",

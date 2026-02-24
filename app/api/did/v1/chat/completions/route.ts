@@ -15,6 +15,11 @@ const AGENT_ID = getOpenClawAgentId();
 const CHAT_MODEL = getOpenClawChatModel(AGENT_ID);
 const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
 
+interface IncomingMessage {
+  role: string;
+  content: string;
+}
+
 function buildSystemPrompt(
   formCtx: Record<string, string> | null,
   enrichedData: string | null,
@@ -55,6 +60,48 @@ function corsHeaders(origin: string | null) {
   };
 }
 
+function extractTextContent(content: unknown): string {
+  if (typeof content === "string") {
+    return content.trim();
+  }
+
+  if (Array.isArray(content)) {
+    const parts: string[] = [];
+    for (const part of content) {
+      if (!part || typeof part !== "object") continue;
+      const asAny = part as Record<string, unknown>;
+      const type = typeof asAny.type === "string" ? asAny.type : "";
+      const text = typeof asAny.text === "string" ? asAny.text : "";
+      if ((type === "text" || type === "input_text" || !type) && text.trim()) {
+        parts.push(text.trim());
+      }
+    }
+    return parts.join("\n").trim();
+  }
+
+  if (content && typeof content === "object") {
+    const text = (content as Record<string, unknown>).text;
+    if (typeof text === "string") return text.trim();
+  }
+
+  return "";
+}
+
+function normalizeMessages(raw: unknown): IncomingMessage[] {
+  if (!Array.isArray(raw)) return [];
+
+  const normalized: IncomingMessage[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const asAny = item as Record<string, unknown>;
+    const role = typeof asAny.role === "string" ? asAny.role : "";
+    const content = extractTextContent(asAny.content);
+    if (!role || !content) continue;
+    normalized.push({ role, content });
+  }
+  return normalized;
+}
+
 export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, {
     status: 204,
@@ -67,7 +114,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const messages: Array<{ role: string; content: string }> = body.messages ?? [];
+    const messages = normalizeMessages((body as { messages?: unknown }).messages);
     const sessionId = (typeof body.user === "string" && body.user) || `did-${crypto.randomUUID()}`;
 
     const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");

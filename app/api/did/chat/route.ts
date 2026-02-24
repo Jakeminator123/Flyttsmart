@@ -8,6 +8,13 @@ import {
 } from "@/lib/openclaw/server-config";
 import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
+import {
+  pruneExpiredSessions,
+  pushMessage,
+  getHistory,
+  updateFormField,
+  getFormContext,
+} from "@/lib/did/session-store";
 
 const DID_BRIDGE_SECRET = process.env.DID_BRIDGE_SECRET ?? "";
 const TEST_TAL_ENABLED = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
@@ -16,61 +23,6 @@ const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
 const CHAT_MODEL = getOpenClawChatModel(AGENT_ID);
 const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
-
-// ─── In-memory per-session conversation store ───────────
-// Keeps the last N messages so the DID bridge has conversation continuity.
-const SESSION_HISTORY = new Map<
-  string,
-  Array<{ role: string; content: string; ts: number }>
->();
-const MAX_HISTORY = 20;
-const SESSION_TTL_MS = 30 * 60 * 1000; // 30 min
-
-function pruneExpiredSessions() {
-  const now = Date.now();
-  for (const [id, msgs] of SESSION_HISTORY) {
-    const newest = msgs.at(-1)?.ts ?? 0;
-    if (now - newest > SESSION_TTL_MS) {
-      SESSION_HISTORY.delete(id);
-      SESSION_FORM_CTX.delete(id);
-    }
-  }
-}
-
-function pushMessage(
-  sessionId: string,
-  role: string,
-  content: string,
-) {
-  if (!SESSION_HISTORY.has(sessionId)) SESSION_HISTORY.set(sessionId, []);
-  const history = SESSION_HISTORY.get(sessionId)!;
-  history.push({ role, content, ts: Date.now() });
-  if (history.length > MAX_HISTORY) history.splice(0, history.length - MAX_HISTORY);
-}
-
-function getHistory(sessionId: string) {
-  return (SESSION_HISTORY.get(sessionId) ?? []).map(({ role, content }) => ({
-    role,
-    content,
-  }));
-}
-
-// ─── Per-session form context aggregator ────────────────
-// Field blur events build up a picture of the form state.
-const SESSION_FORM_CTX = new Map<
-  string,
-  Record<string, string>
->();
-
-function updateFormField(sessionId: string, field: string, value: string) {
-  if (!SESSION_FORM_CTX.has(sessionId)) SESSION_FORM_CTX.set(sessionId, {});
-  SESSION_FORM_CTX.get(sessionId)![field] = value;
-}
-
-function getFormContext(sessionId: string): Record<string, string> | null {
-  const ctx = SESSION_FORM_CTX.get(sessionId);
-  return ctx && Object.keys(ctx).length > 0 ? ctx : null;
-}
 
 // ─── Helpers ────────────────────────────────────────────
 

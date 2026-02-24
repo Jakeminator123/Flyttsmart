@@ -8,13 +8,12 @@ import {
 } from "@/lib/openclaw/server-config";
 import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
+import { getFormContext } from "@/lib/did/session-store";
 
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
 const CHAT_MODEL = getOpenClawChatModel(AGENT_ID);
 const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
-
-const SESSION_FORM_CTX = new Map<string, Record<string, string>>();
 
 function buildSystemPrompt(
   formCtx: Record<string, string> | null,
@@ -78,7 +77,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const formCtx = SESSION_FORM_CTX.get(sessionId) ?? null;
+    const formCtx = getFormContext(sessionId);
     const enrichedData = formCtx ? await enrichContext({ fields: formCtx }) : null;
     const siteAccess = buildOpenClawSiteAccess(req);
 

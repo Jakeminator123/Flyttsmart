@@ -179,9 +179,20 @@ export async function POST(req: NextRequest) {
 
     const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
     if (!lastUserMsg?.content?.trim()) {
+      const fallback = "Förlåt, jag hörde inte riktigt. Kan du upprepa eller skriva i chatten?";
+      if (wantsStream) {
+        return syntheticSseResponse(fallback, headers);
+      }
       return NextResponse.json(
-        { error: "No user message found in messages array" },
-        { status: 400, headers },
+        {
+          id: `chatcmpl-${crypto.randomUUID()}`,
+          object: "chat.completion",
+          created: Math.floor(Date.now() / 1000),
+          model: CHAT_MODEL,
+          choices: [{ index: 0, message: { role: "assistant", content: fallback }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        },
+        { headers },
       );
     }
 

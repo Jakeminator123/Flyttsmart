@@ -156,6 +156,8 @@ export function DidOpenClawBridgeWidget() {
       data-monitor="true"
       data-orientation="horizontal"
       data-position="right"
+      data-stt-language="sv-SE"
+      data-language="sv-SE"
       strategy="lazyOnload"
     />
   );

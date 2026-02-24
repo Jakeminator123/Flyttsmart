@@ -87,20 +87,17 @@ async function sendChatMessage(
   return data.reply || data.content || data.text || "Inget svar.";
 }
 
-function getSpeechRecognition(): (new () => SpeechRecognition) | null {
+function getSpeechRecognition(): (new () => any) | null {
   if (typeof window === "undefined") return null;
-  return (
-    (window as any).SpeechRecognition ??
-    (window as any).webkitSpeechRecognition ??
-    null
-  );
+  const w = window as any;
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
 export function DidOpenClawBridgeWidget() {
   const sessionIdRef = useRef("");
   const agentRef = useRef<any>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
   const lastFieldValuesRef = useRef<Map<string, string>>(new Map());
   const lastFieldTimesRef = useRef<Map<string, number>>(new Map());
 
@@ -211,7 +208,7 @@ export function DidOpenClawBridgeWidget() {
 
     recognition.onstart = () => setListening(true);
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: any) => {
       const result = event.results[event.results.length - 1];
       const text = result[0].transcript;
       setTranscript(text);
@@ -221,7 +218,7 @@ export function DidOpenClawBridgeWidget() {
       }
     };
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event: any) => {
       if (event.error !== "no-speech" && event.error !== "aborted") {
         console.error("[STT] error:", event.error);
       }

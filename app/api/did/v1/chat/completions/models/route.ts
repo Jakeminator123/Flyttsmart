@@ -32,6 +32,12 @@ export async function GET(req: NextRequest) {
       object: "list",
       data: [
         {
+          id: "aida-flyttagent",
+          object: "model",
+          created: Math.floor(Date.now() / 1000),
+          owned_by: "openclaw",
+        },
+        {
           id: CHAT_MODEL,
           object: "model",
           created: Math.floor(Date.now() / 1000),

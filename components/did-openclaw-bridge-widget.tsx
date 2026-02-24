@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
+import { parseOpenClawResponse } from "@/lib/openclaw/response";
 
 const DID_CLIENT_KEY = process.env.NEXT_PUBLIC_DID_CLIENT_KEY ?? "";
 const DID_AGENT_ID = process.env.NEXT_PUBLIC_DID_AGENT_ID ?? "";
@@ -60,6 +61,41 @@ function collectFormContext(): Record<string, string> {
   return ctx;
 }
 
+function applySuggestions(suggestions: Record<string, string>): string[] {
+  const applied: string[] = [];
+  for (const [field, value] of Object.entries(suggestions)) {
+    const el = document.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      `[name="${field}"], #${field}`
+    );
+    if (!el) continue;
+
+    const nativeSetter = Object.getOwnPropertyDescriptor(
+      el instanceof HTMLSelectElement ? HTMLSelectElement.prototype :
+      el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype :
+      HTMLInputElement.prototype,
+      "value"
+    )?.set;
+
+    if (nativeSetter) {
+      nativeSetter.call(el, value);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    } else {
+      el.value = value;
+    }
+    applied.push(field);
+  }
+  return applied;
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  firstName: "Förnamn", lastName: "Efternamn", personalNumber: "Personnummer",
+  fromStreet: "Nuvarande gata", fromPostal: "Nuvarande postnr", fromCity: "Nuvarande ort",
+  toStreet: "Ny gata", toPostal: "Nytt postnr", toCity: "Ny ort",
+  apartmentNumber: "Lgh-nr", propertyDesignation: "Fastighetsbeteckning",
+  propertyOwner: "Fastighetsägare", email: "E-post", phone: "Telefon", moveDate: "Flyttdatum",
+};
+
 type ConnectionState = "idle" | "connecting" | "connected" | "disconnected" | "error";
 
 async function sendChatMessage(
@@ -109,6 +145,7 @@ export function DidOpenClawBridgeWidget() {
   const [transcript, setTranscript] = useState("");
   const [lastReply, setLastReply] = useState("");
   const [textInput, setTextInput] = useState("");
+  const [appliedFields, setAppliedFields] = useState<string[]>([]);
   const [sttSupported, setSttSupported] = useState(false);
 
   useEffect(() => {
@@ -172,14 +209,23 @@ export function DidOpenClawBridgeWidget() {
     setTranscript(text);
     setThinking(true);
     setLastReply("");
+    setAppliedFields([]);
 
     try {
-      const reply = await sendChatMessage(sessionIdRef.current, text);
-      setLastReply(reply);
+      const rawReply = await sendChatMessage(sessionIdRef.current, text);
+      const { text: visibleText, suggestions } = parseOpenClawResponse(rawReply);
+      const displayText = visibleText || rawReply;
+
+      setLastReply(displayText);
+
+      if (suggestions && Object.keys(suggestions).length > 0) {
+        const filled = applySuggestions(suggestions);
+        setAppliedFields(filled);
+      }
 
       if (agentRef.current && connectionState === "connected") {
         try {
-          await agentRef.current.speak({ type: "text", input: reply });
+          await agentRef.current.speak({ type: "text", input: displayText });
         } catch {
           // speak() may fail if agent isn't fully ready
         }
@@ -404,6 +450,16 @@ export function DidOpenClawBridgeWidget() {
           <p className="text-xs text-foreground">
             <span className="font-medium">Aida:</span> {lastReply}
           </p>
+        )}
+        {appliedFields.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {appliedFields.map((f) => (
+              <span key={f} className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                {FIELD_LABELS[f] || f}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 

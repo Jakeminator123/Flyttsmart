@@ -1,0 +1,59 @@
+---
+description: D-ID avatar + OpenClaw integration architecture and conventions
+globs: components/did-openclaw-bridge-widget.tsx,app/api/did/**,lib/did/**,lib/openclaw/**
+alwaysApply: false
+---
+
+# D-ID + OpenClaw Architecture
+
+The D-ID avatar "AIda" uses OpenClaw as its brain via a client-side relay pattern.
+
+## Data flow
+
+```
+User voice -> Web Speech API (sv-SE) -> transcribed text
+  -> POST /api/did/chat -> OpenClaw Gateway on Render
+  -> response text -> agentManager.speak() -> D-ID avatar speaks
+```
+
+## Key components
+
+- `components/did-openclaw-bridge-widget.tsx` — Main widget: D-ID Client SDK, Web Speech API, form tracking, suggestion parsing
+- `app/api/did/chat/route.ts` — Backend proxy: form events + chat to OpenClaw
+- `lib/openclaw/server-config.ts` — Token/URL resolution (OPENCLAW_GATEWAY_TOKEN, OPENCLAW_GATEWAY_URL)
+- `lib/openclaw/response.ts` — Parse suggestion blocks from OpenClaw responses
+- `lib/did/session-store.ts` — In-memory session history + form context
+
+## Widget uses speak() mode (not chat())
+
+The widget calls `agentManager.speak(text)` which makes the avatar say text directly.
+It does NOT use `agentManager.chat()` which would go through D-ID's LLM pipeline.
+This means D-ID's LLM config (provider/model) is irrelevant — OpenClaw is the brain.
+
+## Suggestion blocks
+
+OpenClaw returns field suggestions as fenced code blocks:
+```
+Some text explanation
+` ``suggestion
+{"toCity": "Malmö", "toPostal": "21111"}
+` ``
+```
+The widget parses these with `parseOpenClawResponse()` and applies values
+to matching form fields via `applySuggestions()`.
+
+## Auth chain
+
+- Widget -> Vercel: same-origin (no auth)
+- Vercel -> OpenClaw: Bearer token (OPENCLAW_GATEWAY_TOKEN)
+- OpenClaw -> OpenAI: Bearer token (OPENAI_API_KEY on Render)
+
+## Important env vars
+
+- OPENCLAW_GATEWAY_URL, OPENCLAW_GATEWAY_TOKEN, OPENCLAW_AGENT_ID (Vercel)
+- NEXT_PUBLIC_DID_CLIENT_KEY, NEXT_PUBLIC_DID_AGENT_ID (Vercel, build-time)
+- OPENAI_API_KEY, OPENCLAW_GATEWAY_TOKEN, OPENCLAW_GATEWAY_PORT (Render)
+
+## Full docs
+
+See `docs/DID-OPENCLAW-INTEGRATION.md` and `claw/DEPLOY_INFO.txt`

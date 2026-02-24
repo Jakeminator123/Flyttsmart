@@ -14,21 +14,8 @@ export const metadata: Metadata = {
     'Flytt.io gör din flyttanmälan enkel och gratis. Vi hjälper dig med Skatteverket automatiskt – och ger dig fördelar på nya adressen med el, bredband och försäkring.',
   generator: 'Flytta.nu',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/favicon.png',
+    apple: '/apple-touch-icon.png',
   },
 }
 

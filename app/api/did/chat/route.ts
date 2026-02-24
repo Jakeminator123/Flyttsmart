@@ -30,7 +30,10 @@ function pruneExpiredSessions() {
   const now = Date.now();
   for (const [id, msgs] of SESSION_HISTORY) {
     const newest = msgs.at(-1)?.ts ?? 0;
-    if (now - newest > SESSION_TTL_MS) SESSION_HISTORY.delete(id);
+    if (now - newest > SESSION_TTL_MS) {
+      SESSION_HISTORY.delete(id);
+      SESSION_FORM_CTX.delete(id);
+    }
   }
 }
 

@@ -8,80 +8,60 @@ interface LogoProps {
   variant?: "full" | "icon"
 }
 
-export function Logo({ className, size = "md", variant = "full" }: LogoProps) {
-  const iconSizes = {
-    sm: "h-8 w-8",
-    md: "h-10 w-10",
-    lg: "h-13 w-13",
-  }
+const iconSizes = {
+  sm: "h-8 w-5",
+  md: "h-10 w-6",
+  lg: "h-13 w-8",
+}
 
-  const textSizes = {
-    sm: "text-base",
-    md: "text-xl",
-    lg: "text-2xl",
-  }
+const textSizes = {
+  sm: "text-base",
+  md: "text-xl",
+  lg: "text-2xl",
+}
 
+function FlameIcon({ className }: { className?: string }) {
   return (
-    <span className={cn("group inline-flex items-center gap-2.5", className)}>
+    <svg
+      viewBox="70 35 100 220"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M97 142L92 147 86 158 86 161 84 166 84 174 85 175 85 178 88 184 94 192 113 211 121 222 125 231 125 236 126 237 125 245 130 240 134 231 134 228 135 227 135 216 134 215 134 212 133 211 132 206 125 193 105 166 99 154 99 151 98 150 98 142Z"
+        fill="#FD3C73"
+      />
+      <path
+        d="M99 43L91 51 86 60 84 62 82 66 82 68 80 71 79 77 78 78 78 82 77 83 77 93 78 94 78 99 79 100 80 105 87 117 91 121 91 122 119 150 119 151 129 162 137 174 142 185 142 188 144 193 144 204 143 205 143 209 142 211 144 210 151 202 156 193 156 191 158 187 158 184 159 183 159 176 160 175 158 158 157 157 156 151 154 148 154 146 147 132 137 117 117 91 112 82 110 80 108 75 106 73 106 71 102 64 101 58 100 57 100 53 99 52Z"
+        fill="#FD3C73"
+      />
+    </svg>
+  )
+}
+
+export function Logo({ className, size = "md", variant = "full" }: LogoProps) {
+  return (
+    <span className={cn("group inline-flex items-center gap-2", className)}>
       <span
         className={cn(
-          "relative flex items-center justify-center rounded-xl bg-linear-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-primary/35 group-hover:-translate-y-0.5",
+          "relative flex shrink-0 items-center justify-center transition-transform duration-300 group-hover:-translate-y-0.5",
           iconSizes[size],
         )}
       >
-        <svg
-          viewBox="0 0 32 32"
-          fill="none"
-          className="h-[62%] w-[62%]"
-          aria-hidden="true"
-        >
-          {/* House body */}
-          <path
-            d="M6 14v11a2 2 0 002 2h5v-6a1 1 0 011-1h4a1 1 0 011 1v6h5a2 2 0 002-2V14"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="transition-all duration-300"
-          />
-          {/* House roof */}
-          <path
-            d="M3 15L16 5l13 10"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          {/* Moving arrow – slides right on hover */}
-          <g className="transition-transform duration-500 ease-out group-hover:translate-x-1">
-            <path
-              d="M20 8h6"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-            <path
-              d="M23 5l3 3-3 3"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </g>
-        </svg>
-
-        {/* Subtle shine overlay */}
-        <span className="absolute inset-0 rounded-xl bg-linear-to-tr from-white/0 via-white/20 to-white/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+        <FlameIcon className="h-full w-full" />
       </span>
 
       {variant === "full" && (
         <span
           className={cn(
-            "font-heading font-bold tracking-tight text-foreground transition-colors duration-300",
+            "font-heading font-bold tracking-tight transition-colors duration-300",
             textSizes[size],
           )}
+          style={{ color: "#5C7FF3" }}
         >
-          Flytt<span className="text-gradient">.io</span>
+          flytt<span style={{ color: "#5C7FF3" }}>.io</span>
         </span>
       )}
     </span>

@@ -11,6 +11,7 @@ import { HeroVisual } from "@/components/hero-visual"
 import { TextReveal } from "@/components/text-reveal"
 import { MagneticButton } from "@/components/magnetic-button"
 import { HeroCinemagraph } from "@/components/hero-cinemagraph"
+import { HeroWaveElectrons } from "@/components/hero-wave-electrons"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30, filter: "blur(6px)" },
@@ -94,6 +95,11 @@ export function HeroSection() {
       {/* Minimal overlays for readability without killing the video */}
       <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-background/42 via-background/10 to-background/74" />
       <div className="pointer-events-none absolute inset-0 bg-linear-to-r from-background/58 via-background/20 to-transparent lg:from-background/52" />
+
+      {/* Animated wave pattern with electron dots */}
+      <div className="pointer-events-none absolute inset-0 z-1" aria-hidden="true">
+        <HeroWaveElectrons className="h-full w-full" />
+      </div>
 
       {/* Kinetic wordmark */}
       <motion.div

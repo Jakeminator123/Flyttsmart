@@ -61,18 +61,20 @@ export function HeroCinemagraph({ className }: HeroCinemagraphProps) {
   const isMobile = useIsMobile()
   const viewportWidth = useViewportWidth()
   const objectPositionY = viewportWidth < 640 ? 74 : viewportWidth < 768 ? 70 : viewportWidth < 1024 ? 64 : 60
-  const topGuardHeight = viewportWidth < 640 ? "16%" : viewportWidth < 1024 ? "13%" : "11%"
+  const topGuardHeight = viewportWidth < 640 ? "20%" : viewportWidth < 1024 ? "17%" : "15%"
   const mediaObjectPosition = `50% ${objectPositionY}%`
 
   const handleCanPlay = useCallback(() => {
     if (phase === "loading") {
       setPhase("intro")
       baseRef.current?.play().catch(() => {})
+      window.dispatchEvent(new CustomEvent("hero-intro-start"))
     }
   }, [phase])
 
   const handleIntroEnd = useCallback(() => {
     setPhase("cinemagraph")
+    window.dispatchEvent(new CustomEvent("hero-intro-end"))
     const robot = robotLoopRef.current
     const people = peopleLoopRef.current
     if (robot) {
@@ -205,6 +207,7 @@ export function HeroCinemagraph({ className }: HeroCinemagraphProps) {
         fill
         priority
         fetchPriority="high"
+        sizes="100vw"
         className="object-cover"
         style={{ objectPosition: mediaObjectPosition }}
       />
@@ -274,7 +277,7 @@ export function HeroCinemagraph({ className }: HeroCinemagraphProps) {
 
       {/* Hard cap to hide source label at top across viewports */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-5" style={{ height: topGuardHeight }}>
-        <div className="h-full w-full bg-linear-to-b from-background/92 via-background/64 to-transparent" />
+        <div className="h-full w-full bg-linear-to-b from-background via-background/80 to-transparent" />
       </div>
 
       {/* Cover Sora watermark area after intro settles */}

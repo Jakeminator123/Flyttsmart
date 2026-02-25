@@ -16,6 +16,8 @@ const NOMINATIM_ENABLED =
 const SCB_ENABLED =
   (process.env.SCB_ENABLED ?? "false").trim().toLowerCase() === "y" ||
   (process.env.SCB_ENABLED ?? "false").trim().toLowerCase() === "true";
+const SCB_YEAR = (process.env.SCB_YEAR ?? "2024").trim();
+const SCB_TABLE_ID = (process.env.SCB_TABLE_ID ?? "TAB638").trim();
 
 interface FormFields {
   firstName?: string;
@@ -75,7 +77,11 @@ interface EnrichmentResult {
   personInsights: string[];
   fieldHelp: string[];
   moveDateInsights: string[];
+  comparisonOpportunities: string[];
 }
+
+const SCB_CACHE = new Map<string, { data: ScbPopulation; ts: number }>();
+const SCB_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 async function lookupPostal(postalCode: string): Promise<{
   city: string;
@@ -213,46 +219,67 @@ async function scbPopulationLookup(city: string): Promise<ScbPopulation | null> 
   const code = CITY_TO_MUNICIPALITY_CODE[city.toLowerCase().trim()];
   if (!code) return null;
 
-  try {
+  const cacheKey = `${code}:${SCB_YEAR}:${SCB_TABLE_ID}`;
+  const cached = SCB_CACHE.get(cacheKey);
+  if (cached && Date.now() - cached.ts < SCB_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const fetchMetricSum = async (
+    contentsCode: "BE0101N1" | "BE0101N2"
+  ): Promise<number | null> => {
     const body = JSON.stringify({
-      query: [
-        { code: "Region", selection: { filter: "item", values: [code] } },
-        { code: "Civilstand", selection: { filter: "item", values: ["OG", "G", "SK", "\u00c4"] } },
-        { code: "Alder", selection: { filter: "item", values: ["tot"] } },
-        { code: "Kon", selection: { filter: "item", values: ["1", "2"] } },
-        { code: "Tid", selection: { filter: "item", values: ["2024"] } },
+      selection: [
+        { variableCode: "ContentsCode", valueCodes: [contentsCode] },
+        { variableCode: "Tid", valueCodes: [SCB_YEAR] },
+        { variableCode: "Region", valueCodes: [code] },
+        { variableCode: "Civilstand", valueCodes: ["OG", "G", "SK", "ÄNKL"] },
+        { variableCode: "Alder", valueCodes: ["tot"] },
+        { variableCode: "Kon", valueCodes: ["1", "2"] },
       ],
-      response: { format: "json" },
     });
 
     const res = await fetch(
-      "https://api.scb.se/OV0104/v1/doris/sv/ssd/BE/BE0101/BE0101A/BefolkningNy",
+      `https://statistikdatabasen.scb.se/api/v2/tables/${encodeURIComponent(
+        SCB_TABLE_ID
+      )}/data?lang=sv&outputFormat=json-stat2`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(5500),
       }
     );
     if (!res.ok) return null;
 
     const data = await res.json();
-    const rows = data?.data;
-    if (!Array.isArray(rows) || rows.length === 0) return null;
+    const values = Array.isArray((data as any)?.value) ? (data as any).value : [];
+    if (values.length === 0) return null;
 
-    let totalPop = 0;
-    let totalGrowth = 0;
-    for (const row of rows) {
-      totalPop += parseInt(row.values?.[0] ?? "0", 10);
-      totalGrowth += parseInt(row.values?.[1] ?? "0", 10);
+    let total = 0;
+    for (const raw of values) {
+      const value = typeof raw === "number" ? raw : Number.parseFloat(String(raw));
+      if (Number.isFinite(value)) total += value;
     }
+    return Math.round(total);
+  };
 
-    return {
+  try {
+    const [population, growth] = await Promise.all([
+      fetchMetricSum("BE0101N1"),
+      fetchMetricSum("BE0101N2"),
+    ]);
+    if (population === null) return null;
+
+    const normalized: ScbPopulation = {
       municipality: city,
-      population: totalPop,
-      growth: totalGrowth,
-      year: "2024",
+      population,
+      growth: growth ?? 0,
+      year: SCB_YEAR,
     };
+
+    SCB_CACHE.set(cacheKey, { data: normalized, ts: Date.now() });
+    return normalized;
   } catch {
     return null;
   }
@@ -304,6 +331,57 @@ function getMoveDateInsights(moveDate: string): string[] {
   return insights;
 }
 
+function getComparisonOpportunities(fields: FormFields): string[] {
+  const ideas: string[] = [];
+  const toCity = typeof fields.toCity === "string" ? fields.toCity.trim() : "";
+  const hasToAddress = Boolean(fields.toStreet && fields.toPostal && toCity);
+  const moveDate = typeof fields.moveDate === "string" ? fields.moveDate.trim() : "";
+
+  if (hasToAddress) {
+    ideas.push(
+      `Bredband: erbjuda jamforelse for ${toCity} nu. Installation kan ta 1-3 veckor.`
+    );
+    ideas.push(
+      `El: foresla elavtal for ${toCity} innan inflyttning for att undvika dyrt tillsvidarepris.`
+    );
+    ideas.push(
+      `Hemforsakring: ge 2-3 alternativ och rekommendera start senast inflyttningsdatum.`
+    );
+  }
+
+  if (moveDate) {
+    const move = new Date(moveDate);
+    if (!isNaN(move.getTime())) {
+      const now = new Date();
+      const diffDays = Math.ceil(
+        (move.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      if (diffDays <= 14) {
+        ideas.push(
+          "Tidspress: prioritera flyttfirma och stadning med snabb tillgang."
+        );
+      } else if (diffDays <= 45) {
+        ideas.push(
+          "God timing: jamfor flyttfirma, forsakring och bredband i samma steg."
+        );
+      } else if (diffDays > 45) {
+        ideas.push(
+          "Lang framforhallning: trigga mjuk uppfoljning med stegvis jamforelse over tid."
+        );
+      }
+    }
+  }
+
+  if (toCity) {
+    ideas.push(
+      `Ge lokalt anpassad checklista for ${toCity}: vardcentral, matbutiker, pendling och praktiska flytttips.`
+    );
+  }
+
+  return ideas;
+}
+
 function getEmptyFieldHelp(fields: FormFields): string[] {
   const help: string[] = [];
   const empty = (v: unknown) => !v || (typeof v === "string" && !v.trim());
@@ -338,6 +416,7 @@ export async function enrichContext(
     personInsights: [],
     fieldHelp: [],
     moveDateInsights: [],
+    comparisonOpportunities: [],
   };
 
   const lookups: Promise<void>[] = [];
@@ -404,6 +483,7 @@ export async function enrichContext(
     result.moveDateInsights = getMoveDateInsights(fields.moveDate);
   }
 
+  result.comparisonOpportunities = getComparisonOpportunities(fields);
   result.fieldHelp = getEmptyFieldHelp(fields);
 
   const sections: string[] = [];
@@ -463,6 +543,13 @@ export async function enrichContext(
   if (result.fieldHelp.length > 0) {
     sections.push(
       "## Saknade falt (du kan hjalpa med)\n" + result.fieldHelp.join("\n")
+    );
+  }
+
+  if (result.comparisonOpportunities.length > 0) {
+    sections.push(
+      "## Proaktiv jamforelse (nasta basta steg)\n" +
+        result.comparisonOpportunities.join("\n")
     );
   }
 

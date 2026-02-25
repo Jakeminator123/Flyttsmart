@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { motion, type Variants } from "framer-motion"
+import { useEffect, useState } from "react"
 
 interface LogoProps {
   className?: string
@@ -133,8 +134,25 @@ export function Logo({
   variant = "full",
   animate = false,
 }: LogoProps) {
+  const [spinning, setSpinning] = useState(false)
+
+  useEffect(() => {
+    if (!animate) return
+    const onIntroStart = () => setSpinning(true)
+    window.addEventListener("hero-intro-start", onIntroStart)
+    return () => window.removeEventListener("hero-intro-start", onIntroStart)
+  }, [animate])
+
   return (
-    <span className={cn("group inline-flex items-center gap-2", className)}>
+    <span
+      className={cn(
+        "group inline-flex items-center gap-2",
+        animate && "logo-3d",
+        spinning && "logo-spinning",
+        className,
+      )}
+      onAnimationEnd={() => setSpinning(false)}
+    >
       <span
         className={cn(
           "relative flex shrink-0 items-center justify-center transition-transform duration-300 group-hover:-translate-y-0.5",

@@ -8,6 +8,7 @@ import {
 } from "@/lib/openclaw/server-config";
 import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
+import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
 import {
   pruneExpiredSessions,
   pushMessage,
@@ -92,8 +93,19 @@ function buildSystemMessage(
     "Du ar Aida, en hjalpsam svensk flyttassistent for Flytt.io. " +
     "Svara alltid pa svenska, kort och tydligt. Hjalp anvandaren med flytt, adressandring och checklistor.\n\n" +
     "Du pratar med anvandaren via en rost-avatar. Holl svaren korta och naturliga " +
-    "– max 2-3 meningar. Undvik markdown-formatering, lankar och kodblock. " +
+    "– max 2-3 meningar. Undvik markdown-formatering, lankar och kodblock, " +
+    "forutom suggestion-block nar du fyller formularfalt. " +
     "Svara som om du talar, inte skriver.\n\n" +
+    "## Formularforslag (viktigt)\n" +
+    "Nar anvandaren ber dig fylla i ett falt, ska du foresla varden via suggestion-block.\n" +
+    "Svara med en kort forklaring + exakt detta format:\n" +
+    "```suggestion\n" +
+    "{\"firstName\":\"Jakob\"}\n" +
+    "```\n" +
+    "Tillatna faltnamn: firstName, lastName, personalNumber, fromStreet, fromPostal, fromCity, " +
+    "toStreet, toPostal, toCity, apartmentNumber, propertyDesignation, propertyOwner, email, phone, moveDate.\n" +
+    "Om anvandaren skriver naturligt sprak (t.ex. 'fyll i Jakob i fornamn'), mappa till korrekt faltnamn " +
+    "(fornamn -> firstName) och returnera suggestion-block. Svara inte att du saknar mojlighet om faltet finns i listan.\n\n" +
     "## Faltkunskap\n" + FIELD_KNOWLEDGE + "\n\n" +
     "## Proaktivt beteende\n" +
     "- Om du ser saknade falt i kontexten, paminn anvandaren.\n" +
@@ -253,6 +265,42 @@ export async function POST(req: NextRequest) {
           content: UNLOCK_GREETING,
           text: UNLOCK_GREETING,
           unlocked: true,
+        },
+        { headers: corsHeaders },
+      );
+    }
+
+    // ── Deterministic autofill fallback ───────────────
+    // Handles direct commands like "fyll i Jakob i fornamn"
+    // even if the model forgets to emit suggestion blocks.
+    const directSuggestion = parseDirectSuggestion(userMessage);
+    if (directSuggestion) {
+      updateFormField(sessionId, directSuggestion.field, directSuggestion.value);
+      const suggestionBlock = JSON.stringify(
+        { [directSuggestion.field]: directSuggestion.value },
+        null,
+        0,
+      );
+      const directReply =
+        `Absolut, jag fyller i ${directSuggestion.label}.\n` +
+        `\`\`\`suggestion\n${suggestionBlock}\n\`\`\``;
+
+      pushMessage(sessionId, "user", userMessage);
+      pushMessage(sessionId, "assistant", directReply);
+
+      return NextResponse.json(
+        {
+          role: "assistant",
+          provider: "did-local-autofill",
+          agentId: AGENT_ID,
+          sessionId,
+          reply: directReply,
+          content: directReply,
+          text: directReply,
+          directSuggestion: {
+            field: directSuggestion.field,
+            value: directSuggestion.value,
+          },
         },
         { headers: corsHeaders },
       );

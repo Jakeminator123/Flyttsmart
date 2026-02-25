@@ -99,6 +99,15 @@ export function buildOpenClawSiteAccess(req: NextRequest) {
 
   const baseUrl = req.nextUrl.origin;
   const accessEndpoint = `${baseUrl}/api/openclaw/access`;
+  const assistantTools = {
+    postalLookupEndpoint: `${baseUrl}/api/enrich/postal`,
+    postalLookupExample: `${baseUrl}/api/enrich/postal?postalCode=41119`,
+    healthDebugEndpoint: `${baseUrl}/api/openclaw/health?debug=1`,
+    notes: [
+      "postalLookupEndpoint: resolve city/municipality from 5-digit postal code",
+      "SCB data is injected server-side in chat context when SCB_ENABLED=true",
+    ],
+  };
 
   return {
     baseUrl,
@@ -109,5 +118,6 @@ export function buildOpenClawSiteAccess(req: NextRequest) {
     bypassCookieUrl: `${accessEndpoint}?token=${encodeURIComponent(
       accessToken
     )}&redirect=${encodeURIComponent(DEFAULT_REDIRECT_PATH)}`,
+    assistantTools,
   };
 }

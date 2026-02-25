@@ -74,7 +74,7 @@ export function Header() {
               : "opacity-0 -translate-x-6"
           )}
         >
-          <Logo size="sm" animate={mounted} />
+          <Logo size="md" animate={mounted} />
         </Link>
 
         {/* Nav links */}

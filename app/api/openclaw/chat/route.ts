@@ -8,6 +8,7 @@ import {
 } from "@/lib/openclaw/server-config";
 import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
+import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
 
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
@@ -40,7 +41,12 @@ function buildSystemMessage(
     "- Om toCity ar ifyllt, erbjud lokala tips (kollektivtrafik, matbutiker, vardcentral).\n" +
     "- Nar anvandaren fragar om jamforelser (el, bredband, forsakring, flyttfirma, stadning), " +
     "ge konkreta tips med riktiga svenska foretag och prisintervall.\n" +
-    "- Nar anvandaren fragar vad ett falt ar, forklara tydligt med exempel och var man hittar uppgiften.";
+    "- Nar anvandaren fragar vad ett falt ar, forklara tydligt med exempel och var man hittar uppgiften.\n\n" +
+    "## Tillgangliga datakallor i denna session\n" +
+    "- PAP: postnummer till ort/kommun\n" +
+    "- Nominatim: adressvalidering och geodata\n" +
+    "- Eniro: foretagslistor nara destinationen\n" +
+    "- SCB: befolkningsdata per kommun";
 
   if (formContext) {
     base +=
@@ -71,6 +77,43 @@ export async function POST(req: NextRequest) {
         { error: "sessionId and messages array are required" },
         { status: 400 }
       );
+    }
+
+    // Deterministic fallback for direct autofill commands.
+    // This gives OpenClaw chat the same reliable field-fill behavior as DID chat.
+    const latestUserMessage = [...messages]
+      .reverse()
+      .find(
+        (m: { role?: unknown; content?: unknown }) =>
+          m &&
+          m.role !== "assistant" &&
+          typeof m.content === "string" &&
+          m.content.trim()
+      ) as { content: string } | undefined;
+
+    const directSuggestion = latestUserMessage
+      ? parseDirectSuggestion(latestUserMessage.content)
+      : null;
+
+    if (directSuggestion) {
+      const suggestionBlock = JSON.stringify(
+        { [directSuggestion.field]: directSuggestion.value },
+        null,
+        0
+      );
+      const directReply =
+        `Absolut, jag föreslår ${directSuggestion.label} direkt.\n` +
+        `\`\`\`suggestion\n${suggestionBlock}\n\`\`\``;
+
+      return NextResponse.json({
+        role: "assistant",
+        content: directReply,
+        provider: "openclaw-local-autofill",
+        directSuggestion: {
+          field: directSuggestion.field,
+          value: directSuggestion.value,
+        },
+      });
     }
 
     // If no agent URL is configured, return a helpful fallback

@@ -277,6 +277,34 @@ html.lenis, html.lenis body {
 }
 
 /* ────────────────────────────────────────
+   Logo 3D rotation
+   ──────────────────────────────────────── */
+@keyframes logo-spin-3d {
+  0%   { transform: perspective(800px) rotateY(0deg); }
+  100% { transform: perspective(800px) rotateY(360deg); }
+}
+
+.logo-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: drop-shadow(0 1px 3px oklch(0 0 0 / 0.12));
+}
+
+.logo-3d:hover {
+  transform: perspective(800px) rotateY(8deg) rotateX(-2deg);
+  filter: drop-shadow(2px 2px 8px oklch(0.50 0.24 264 / 0.25));
+}
+
+.logo-spinning {
+  animation: logo-spin-3d 30s linear;
+}
+
+.logo-spinning:hover {
+  transform: none;
+}
+
+/* ────────────────────────────────────────
    Hero animated mesh gradient
    ──────────────────────────────────────── */
 @keyframes mesh-move-1 {
@@ -732,7 +760,11 @@ html.lenis, html.lenis body {
   .lively-word,
   .person-image-drift,
   .person-image-drift-alt,
-  .hero-wordmark {
+  .hero-wordmark,
+  .logo-spinning {
     animation: none;
+  }
+  .logo-3d:hover {
+    transform: none;
   }
 }

@@ -17,6 +17,11 @@ export async function GET(req: NextRequest) {
   const agentId = getOpenClawAgentId();
   const model = getOpenClawChatModel(agentId);
   const testTalEnabled = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
+  const scbEnabled =
+    (process.env.SCB_ENABLED ?? "").toLowerCase() === "y" ||
+    (process.env.SCB_ENABLED ?? "").toLowerCase() === "true";
+  const scbYear = process.env.SCB_YEAR ?? "2024";
+  const scbTableId = process.env.SCB_TABLE_ID ?? "TAB638";
   const mergeOcDid =
     (process.env.NEXT_PUBLIC_MERGE_OC_DID ?? "").toLowerCase() === "y";
   const didBridgeEnabled =
@@ -39,6 +44,9 @@ export async function GET(req: NextRequest) {
     hasWebhookSecret: Boolean(webhookSecret),
     hasBypassSecret: Boolean(bypassSecret),
     testTalEnabled,
+    scbEnabled,
+    scbYear,
+    scbTableId,
     mergeOcDid,
     didBridgeEnabled,
   };

@@ -245,16 +245,48 @@ export function DidOpenClawBridgeWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking, interimTranscript]);
 
+  const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const loadDidSdk = useCallback(async () => {
     if (sdkModuleRef.current) return sdkModuleRef.current;
     sdkModuleRef.current = await import("@d-id/client-sdk");
     return sdkModuleRef.current;
   }, []);
 
-  const connectAgent = useCallback(async () => {
-    if (agentRef.current || connectInFlightRef.current || !DID_CLIENT_KEY || !DID_AGENT_ID) return;
+  const resetIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      if (agentRef.current && connectionState === "connected") {
+        void agentRef.current.disconnect().catch(() => {});
+        srcObjectRef.current = null;
+        connectInFlightRef.current = false;
+        setConnectionState("idle");
+      }
+    }, IDLE_TIMEOUT_MS);
+  }, [connectionState]);
+
+  const connectStream = useCallback(async () => {
+    if (!agentRef.current || connectInFlightRef.current) return;
+    if (connectionState === "connected") return;
     connectInFlightRef.current = true;
     setConnectionState("connecting");
+
+    try {
+      await agentRef.current.connect();
+      setConnectionState("connected");
+      resetIdleTimer();
+    } catch (err) {
+      console.error("[DID SDK] connect error:", err);
+      setConnectionState("error");
+    } finally {
+      connectInFlightRef.current = false;
+    }
+  }, [connectionState, resetIdleTimer]);
+
+  const initAgent = useCallback(async () => {
+    if (agentRef.current || connectInFlightRef.current || !DID_CLIENT_KEY || !DID_AGENT_ID) return;
+    connectInFlightRef.current = true;
 
     try {
       const did = await loadDidSdk();
@@ -267,7 +299,7 @@ export function DidOpenClawBridgeWidget() {
         },
         onConnectionStateChange(state: string) {
           if (state === "connected") setConnectionState("connected");
-          else if (state === "disconnected" || state === "closed") setConnectionState("disconnected");
+          else if (state === "disconnected" || state === "closed") setConnectionState("idle");
           else if (state === "failed") setConnectionState("error");
         },
         onVideoStateChange(state: string) {
@@ -296,10 +328,17 @@ export function DidOpenClawBridgeWidget() {
         streamOptions,
       });
       agentRef.current = agent;
-      await agent.connect();
-      setConnectionState("connected");
+
+      const idleVideo = agent.agent?.presenter?.idle_video;
+      if (idleVideo && videoRef.current) {
+        videoRef.current.srcObject = null;
+        videoRef.current.src = idleVideo;
+        void videoRef.current.play().catch(() => {});
+      }
+
+      setConnectionState("idle");
     } catch (err) {
-      console.error("[DID SDK] connect error:", err);
+      console.error("[DID SDK] init error:", err);
       setConnectionState("error");
     } finally {
       connectInFlightRef.current = false;
@@ -307,6 +346,7 @@ export function DidOpenClawBridgeWidget() {
   }, [loadDidSdk, syncVideoPlayback]);
 
   const disconnectAgent = useCallback(async () => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     try {
       await agentRef.current?.disconnect();
     } catch { /* ignore */ }
@@ -319,10 +359,7 @@ export function DidOpenClawBridgeWidget() {
   useEffect(() => {
     if (!DID_BRIDGE_ENABLED || !DID_CLIENT_KEY || !DID_AGENT_ID) return;
 
-    const warmup = () => {
-      void loadDidSdk();
-      void connectAgent();
-    };
+    const warmup = () => { void initAgent(); };
 
     const idleWindow = window as Window & {
       requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
@@ -345,7 +382,7 @@ export function DidOpenClawBridgeWidget() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [connectAgent, loadDidSdk]);
+  }, [initAgent]);
 
   useEffect(() => {
     return () => { void disconnectAgent(); };
@@ -416,17 +453,15 @@ export function DidOpenClawBridgeWidget() {
 
       if (displayText.trim()) {
         if (agentRef.current && connectionState === "connected") {
+          resetIdleTimer();
           void agentRef.current
             .speak({ type: "text", input: displayText })
             .catch(() => {
               pendingSpeakRef.current = displayText;
-              if (!agentRef.current) {
-                void connectAgent();
-              }
             });
         } else {
           pendingSpeakRef.current = displayText;
-          void connectAgent();
+          void connectStream();
         }
       }
     } catch (err) {

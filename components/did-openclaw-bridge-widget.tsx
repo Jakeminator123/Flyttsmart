@@ -652,7 +652,7 @@ export function DidOpenClawBridgeWidget() {
   }
 
   return (
-    <div className="fixed bottom-3 right-3 z-50 flex w-[calc(100vw-1.5rem)] max-w-[430px] flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/95 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 zoom-in-95 duration-300 sm:bottom-5 sm:right-5 max-h-[min(82vh,680px)]">
+    <div className="fixed bottom-3 right-3 z-50 flex w-[calc(100vw-1.5rem)] max-w-[430px] flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/95 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 zoom-in-95 duration-300 sm:bottom-5 sm:right-5 max-h-[min(90vh,720px)]">
       <div className="flex items-center justify-between border-b border-border/50 bg-linear-to-r from-primary/15 via-primary/5 to-transparent px-4 py-3">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/15 text-primary">
@@ -676,25 +676,31 @@ export function DidOpenClawBridgeWidget() {
         </button>
       </div>
 
-      <div className="relative aspect-video bg-linear-to-b from-gray-900 to-black">
+      <div className="relative h-[180px] shrink-0 bg-linear-to-b from-gray-900 to-black sm:h-[200px]">
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted={connectionState !== "connected"}
+          onLoadedMetadata={(e) => void (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
           className="h-full w-full object-cover"
         />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/45 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/45 to-transparent" />
         {connectionState !== "connected" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 text-center text-xs text-white/90 backdrop-blur-sm">
-            <span className={cn("h-2.5 w-2.5 rounded-full", stateDotClass)} />
-            <span>
-              {connectionState === "connecting"
-                ? "Kopplar upp avataren..."
-                : connectionState === "error"
-                  ? "Kunde inte ansluta till Aida"
-                  : "Förbereder Aida..."}
-            </span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-linear-to-b from-gray-800/90 to-gray-900/95 text-center text-white/90">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/80"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={cn("h-2 w-2 rounded-full", stateDotClass)} />
+              <span className="text-xs font-medium">
+                {connectionState === "connecting"
+                  ? "Kopplar upp avataren..."
+                  : connectionState === "error"
+                    ? "Kunde inte ansluta till Aida"
+                    : "Forbereder Aida..."}
+              </span>
+            </div>
           </div>
         )}
       </div>

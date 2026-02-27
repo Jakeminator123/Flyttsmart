@@ -28,13 +28,15 @@ Widget receives reply -> agentManager.speak(reply)
 D-ID Avatar speaks + animates (TTS: sv-SE-SofieNeural)
 ```
 
-## Architecture (current, 2026-02-24)
+## Architecture (current, 2026-02-25)
 
 The widget uses the "client-side relay" pattern:
 - **STT**: Web Speech API (`sv-SE`) in the browser
 - **Brain**: OpenClaw Gateway on Render (via `/api/did/chat`)
 - **Avatar**: D-ID Client SDK (`@d-id/client-sdk`) with `speak()` mode
 - **TTS**: Microsoft `sv-SE-SofieNeural` (configured on D-ID agent)
+- **Stream**: `streamWarmup: true` + `compatibilityMode: "auto"` for immediate idle video
+- **Idle**: `onVideoStateChange("STOP")` switches to `idle_video` (no black screen)
 
 D-ID agent config is `provider: "openai"` with `gpt-4.1-nano` but
 the LLM pipeline is never used (we bypass it with `speak()`).

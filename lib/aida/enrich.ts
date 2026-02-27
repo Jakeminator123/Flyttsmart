@@ -331,11 +331,49 @@ function getMoveDateInsights(moveDate: string): string[] {
   return insights;
 }
 
+import { postalToElArea } from "@/lib/comparison/elarea";
+
+const WEB_SEARCH_COMPARE_ENABLED =
+  (process.env.WEB_SEARCH_COMPARE ?? "").trim().toLowerCase() === "y";
+
+const LIVE_TASK_KEYS = [
+  "electricity_contract",
+  "broadband_order_install",
+  "home_insurance",
+  "movers_or_trailer",
+  "cleaning_service",
+];
+const STUB_TASK_KEYS = [
+  "storage_gap",
+  "broadband_tech_check",
+  "mail_forwarding",
+];
+
 function getComparisonOpportunities(fields: FormFields): string[] {
   const ideas: string[] = [];
   const toCity = typeof fields.toCity === "string" ? fields.toCity.trim() : "";
-  const hasToAddress = Boolean(fields.toStreet && fields.toPostal && toCity);
+  const toPostal = typeof fields.toPostal === "string" ? fields.toPostal.trim() : "";
+  const hasToAddress = Boolean(fields.toStreet && toPostal && toCity);
   const moveDate = typeof fields.moveDate === "string" ? fields.moveDate.trim() : "";
+
+  const elAreaInfo = toPostal ? postalToElArea(toPostal) : null;
+  if (elAreaInfo) {
+    ideas.push(
+      `Elnatsomrade: ${elAreaInfo.area} (${elAreaInfo.label}, ${elAreaInfo.city}). ` +
+      `Nämn detta nar el diskuteras.`
+    );
+  }
+
+  if (WEB_SEARCH_COMPARE_ENABLED && hasToAddress) {
+    const qs = `toPostal=${encodeURIComponent(toPostal)}&toCity=${encodeURIComponent(toCity)}${moveDate ? `&moveDate=${encodeURIComponent(moveDate)}` : ""}`;
+    ideas.push(
+      `JAMFORELSE-API TILLGANGLIGT (live web search): ` +
+      `Erbjud att hamta data nar anvandaren fragar om el, bredband, forsakring, flyttfirma eller stadning. ` +
+      `Aktiva endpoints: ` +
+      LIVE_TASK_KEYS.map((k) => `GET /api/compare/${k}?${qs}`).join(", ") +
+      `. Stubbade (hints only): ${STUB_TASK_KEYS.join(", ")}.`
+    );
+  }
 
   if (hasToAddress) {
     ideas.push(

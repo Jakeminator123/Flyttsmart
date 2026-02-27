@@ -6,6 +6,8 @@
 # next.js
 /.next/
 /out/
+/new_front/
+/hus.glb
 
 # production
 /build

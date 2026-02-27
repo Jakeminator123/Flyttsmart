@@ -107,11 +107,21 @@ function buildSystemMessage(
     "Om anvandaren skriver naturligt sprak (t.ex. 'fyll i Jakob i fornamn'), mappa till korrekt faltnamn " +
     "(fornamn -> firstName) och returnera suggestion-block. Svara inte att du saknar mojlighet om faltet finns i listan.\n\n" +
     "## Faltkunskap\n" + FIELD_KNOWLEDGE + "\n\n" +
+    "## Jamforelsesystem\n" +
+    "Sajten har ett jamforelseverktyg (/api/compare/{taskKey}) som kan hamta live-data.\n" +
+    "Aktiva jamforelser (live web search): electricity_contract, broadband_order_install, " +
+    "home_insurance, movers_or_trailer, cleaning_service.\n" +
+    "Stubbade (hints, ej live): storage_gap, broadband_tech_check, mail_forwarding.\n\n" +
+    "Nar anvandaren fragar 'jamfor bredband', 'vilken el ar billigast', 'behover jag flyttfirma' " +
+    "eller liknande: ge ett konkret svar med leverantorsnamn och ungefärliga priser " +
+    "om data finns i uppslagna data (enrichment). Annars sammanfatta vad checklistan rekommenderar.\n\n" +
+    "Elnatsomrade harlds automatiskt fran postnummer (SE1-SE4). " +
+    "Nämn alltid omradet nar el diskuteras, t.ex. 'Du tillhor elomrade SE3.'\n\n" +
     "## Proaktivt beteende\n" +
     "- Om du ser saknade falt i kontexten, paminn anvandaren.\n" +
     "- Om postnummer ar ifyllt och ort saknas, foreslå orten.\n" +
-    "- Om toCity ar ifyllt, erbjud lokala tips.\n" +
-    "- Vid jamforelsefragor (el, bredband, forsakring, flyttfirma), ge konkreta tips.";
+    "- Om toCity ar ifyllt, erbjud lokala tips och foreslå att jamfora el/bredband/forsakring.\n" +
+    "- Vid jamforelsefragor (el, bredband, forsakring, flyttfirma, stadning), ge konkreta tips med leverantorsnamn.";
 
   if (formContext) {
     base +=

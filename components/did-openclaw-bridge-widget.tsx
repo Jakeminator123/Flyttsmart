@@ -160,6 +160,7 @@ export function DidOpenClawBridgeWidget() {
   const sdkModuleRef = useRef<any>(null);
   const connectInFlightRef = useRef(false);
   const pendingSpeakRef = useRef<string | null>(null);
+  const srcObjectRef = useRef<MediaStream | null>(null);
   const lastFieldValuesRef = useRef<Map<string, string>>(new Map());
   const lastFieldTimesRef = useRef<Map<string, number>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -180,6 +181,27 @@ export function DidOpenClawBridgeWidget() {
         "Hej! Jag är Aida. Jag kan guida dig i formuläret, svara på frågor om flytten och föreslå fält att fylla i.",
     },
   ]);
+
+  const syncVideoPlayback = useCallback(() => {
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
+
+    if (srcObjectRef.current) {
+      if (videoEl.srcObject !== srcObjectRef.current) {
+        videoEl.src = "";
+        videoEl.srcObject = srcObjectRef.current;
+      }
+      void videoEl.play().catch(() => {});
+      return;
+    }
+
+    const idleVideo = agentRef.current?.agent?.presenter?.idle_video;
+    if (idleVideo && videoEl.src !== idleVideo) {
+      videoEl.srcObject = null;
+      videoEl.src = idleVideo;
+      void videoEl.play().catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     sessionIdRef.current = getDidSessionId();
@@ -207,12 +229,8 @@ export function DidOpenClawBridgeWidget() {
 
       const callbacks = {
         onSrcObjectReady(value: MediaStream) {
-          if (videoRef.current) {
-            videoRef.current.srcObject = value;
-            void videoRef.current.play().catch(() => {
-              // Autoplay can be blocked before user gesture. It's fine.
-            });
-          }
+          srcObjectRef.current = value;
+          syncVideoPlayback();
         },
         onConnectionStateChange(state: string) {
           if (state === "connected") setConnectionState("connected");
@@ -220,11 +238,30 @@ export function DidOpenClawBridgeWidget() {
           else if (state === "failed") setConnectionState("error");
         },
         onVideoStateChange(state: string) {
-          setSpeaking(state === "speaking");
+          if (state === "STOP") {
+            setSpeaking(false);
+            if (videoRef.current && agentRef.current?.agent?.presenter?.idle_video) {
+              videoRef.current.srcObject = null;
+              videoRef.current.src = agentRef.current.agent.presenter.idle_video;
+              void videoRef.current.play().catch(() => {});
+            }
+          } else {
+            setSpeaking(state === "speaking");
+            syncVideoPlayback();
+          }
         },
       };
 
-      const agent = await did.createAgentManager(DID_AGENT_ID, { auth, callbacks });
+      const streamOptions = {
+        compatibilityMode: "auto" as const,
+        streamWarmup: true,
+      };
+
+      const agent = await did.createAgentManager(DID_AGENT_ID, {
+        auth,
+        callbacks,
+        streamOptions,
+      });
       agentRef.current = agent;
       await agent.connect();
       setConnectionState("connected");
@@ -234,13 +271,14 @@ export function DidOpenClawBridgeWidget() {
     } finally {
       connectInFlightRef.current = false;
     }
-  }, [loadDidSdk]);
+  }, [loadDidSdk, syncVideoPlayback]);
 
   const disconnectAgent = useCallback(async () => {
     try {
       await agentRef.current?.disconnect();
     } catch { /* ignore */ }
     agentRef.current = null;
+    srcObjectRef.current = null;
     connectInFlightRef.current = false;
     setConnectionState("idle");
   }, []);
@@ -279,6 +317,11 @@ export function DidOpenClawBridgeWidget() {
   useEffect(() => {
     return () => { void disconnectAgent(); };
   }, [disconnectAgent]);
+
+  useEffect(() => {
+    if (!open) return;
+    syncVideoPlayback();
+  }, [open, connectionState, speaking, syncVideoPlayback]);
 
   useEffect(() => {
     if (connectionState !== "connected") return;
@@ -409,13 +452,11 @@ export function DidOpenClawBridgeWidget() {
 
   const handleOpen = useCallback(() => {
     setOpen(true);
-    if (videoRef.current?.srcObject) {
-      void videoRef.current.play().catch(() => {
-        // Browser may still block autoplay; stream is already prepared.
-      });
-    }
+    window.requestAnimationFrame(() => {
+      syncVideoPlayback();
+    });
     void connectAgent();
-  }, [connectAgent]);
+  }, [connectAgent, syncVideoPlayback]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -567,11 +608,12 @@ export function DidOpenClawBridgeWidget() {
         </button>
       </div>
 
-      <div className="relative aspect-video bg-black">
+      <div className="relative aspect-video bg-linear-to-b from-gray-900 to-black">
         <video
           ref={videoRef}
           autoPlay
           playsInline
+          muted={connectionState !== "connected"}
           className="h-full w-full object-cover"
         />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/45 to-transparent" />

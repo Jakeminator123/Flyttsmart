@@ -99,13 +99,35 @@ export function buildOpenClawSiteAccess(req: NextRequest) {
 
   const baseUrl = req.nextUrl.origin;
   const accessEndpoint = `${baseUrl}/api/openclaw/access`;
+  const compareEnabled =
+    (process.env.WEB_SEARCH_COMPARE ?? "").trim().toLowerCase() === "y";
+  const compareLiveKeys = [
+    "electricity_contract",
+    "broadband_order_install",
+    "home_insurance",
+    "movers_or_trailer",
+    "cleaning_service",
+  ];
+  const compareStubKeys = [
+    "storage_gap",
+    "broadband_tech_check",
+    "mail_forwarding",
+  ];
   const assistantTools = {
     postalLookupEndpoint: `${baseUrl}/api/enrich/postal`,
     postalLookupExample: `${baseUrl}/api/enrich/postal?postalCode=41119`,
     healthDebugEndpoint: `${baseUrl}/api/openclaw/health?debug=1`,
+    compareEndpoint: `${baseUrl}/api/compare/{taskKey}`,
+    compareLiveKeys: compareEnabled ? compareLiveKeys : [],
+    compareStubKeys,
+    compareSupportedKeys: [...compareLiveKeys, ...compareStubKeys],
+    compareExample: `${baseUrl}/api/compare/electricity_contract?toPostal=41119&toCity=Goteborg`,
     notes: [
       "postalLookupEndpoint: resolve city/municipality from 5-digit postal code",
       "SCB data is injected server-side in chat context when SCB_ENABLED=true",
+      `compareEndpoint: GET /api/compare/{taskKey}?toPostal=X&toCity=Y — live keys: ${compareLiveKeys.join(", ")}`,
+      `compareStubKeys return static hints only: ${compareStubKeys.join(", ")}`,
+      "elnatsomrade (SE1-SE4) is derived from postal code and included in compare results",
     ],
   };
 

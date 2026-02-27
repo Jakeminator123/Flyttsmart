@@ -479,16 +479,16 @@ export async function enrichContext(
     );
   }
 
-  if (fields.toStreet && fields.toCity) {
+  if (fields.toStreet) {
     lookups.push(
-      nominatimLookup(fields.toStreet, fields.toCity, fields.toPostal).then((r) => {
+      nominatimLookup(fields.toStreet, fields.toCity ?? "", fields.toPostal).then((r) => {
         if (r) result.nominatimResults.push(r);
       })
     );
   }
-  if (fields.fromStreet && fields.fromCity) {
+  if (fields.fromStreet) {
     lookups.push(
-      nominatimLookup(fields.fromStreet, fields.fromCity, fields.fromPostal).then((r) => {
+      nominatimLookup(fields.fromStreet, fields.fromCity ?? "", fields.fromPostal).then((r) => {
         if (r) result.nominatimResults.push(r);
       })
     );
@@ -599,21 +599,31 @@ export async function enrichContext(
   const resolvedFields: Record<string, string> = {};
   const autoFilled: string[] = [];
 
-  if (!fields.toPostal && fields.toStreet && fields.toCity) {
+  if (!fields.toPostal && fields.toStreet) {
     const toNom = result.nominatimResults.find((r) => r.addressParts.postcode);
     if (toNom?.addressParts.postcode) {
       resolvedFields.toPostal = toNom.addressParts.postcode.replace(/\s+/g, "");
       autoFilled.push(`toPostal=${resolvedFields.toPostal} (fran Nominatim)`);
     }
+    if (!fields.toCity && toNom?.addressParts.city) {
+      resolvedFields.toCity = toNom.addressParts.city;
+      autoFilled.push(`toCity=${toNom.addressParts.city} (fran Nominatim)`);
+    }
   }
 
-  if (!fields.fromPostal && fields.fromStreet && fields.fromCity) {
+  if (!fields.fromPostal && fields.fromStreet) {
     const fromNom = result.nominatimResults.find(
-      (r) => r.addressParts.postcode && r.displayName.toLowerCase().includes(fields.fromCity!.toLowerCase()),
+      (r) =>
+        r.addressParts.postcode &&
+        (!fields.fromCity || r.displayName.toLowerCase().includes(fields.fromCity.toLowerCase())),
     );
     if (fromNom?.addressParts.postcode) {
       resolvedFields.fromPostal = fromNom.addressParts.postcode.replace(/\s+/g, "");
       autoFilled.push(`fromPostal=${resolvedFields.fromPostal} (fran Nominatim)`);
+    }
+    if (!fields.fromCity && fromNom?.addressParts.city) {
+      resolvedFields.fromCity = fromNom.addressParts.city;
+      autoFilled.push(`fromCity=${fromNom.addressParts.city} (fran Nominatim)`);
     }
   }
 
@@ -635,16 +645,35 @@ export async function enrichContext(
     }
   }
 
+  const postalFollowups: Promise<void>[] = [];
+
   if (resolvedFields.toPostal && !fields.toPostal) {
-    const newLookup = await lookupPostal(resolvedFields.toPostal);
-    if (newLookup) {
-      result.postalLookups[resolvedFields.toPostal] = newLookup;
-      if (!fields.toCity && !resolvedFields.toCity && newLookup.city) {
-        resolvedFields.toCity = newLookup.city;
-        autoFilled.push(`toCity=${newLookup.city} (fran PAP via auto-postal)`);
-      }
-    }
+    postalFollowups.push(
+      lookupPostal(resolvedFields.toPostal).then((newLookup) => {
+        if (!newLookup) return;
+        result.postalLookups[resolvedFields.toPostal] = newLookup;
+        if (!fields.toCity && !resolvedFields.toCity && newLookup.city) {
+          resolvedFields.toCity = newLookup.city;
+          autoFilled.push(`toCity=${newLookup.city} (fran PAP via auto-postal)`);
+        }
+      }),
+    );
   }
+
+  if (resolvedFields.fromPostal && !fields.fromPostal) {
+    postalFollowups.push(
+      lookupPostal(resolvedFields.fromPostal).then((newLookup) => {
+        if (!newLookup) return;
+        result.postalLookups[resolvedFields.fromPostal] = newLookup;
+        if (!fields.fromCity && !resolvedFields.fromCity && newLookup.city) {
+          resolvedFields.fromCity = newLookup.city;
+          autoFilled.push(`fromCity=${newLookup.city} (fran PAP via auto-postal)`);
+        }
+      }),
+    );
+  }
+
+  await Promise.all(postalFollowups);
 
   if (autoFilled.length > 0) {
     sections.push(

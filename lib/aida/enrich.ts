@@ -440,10 +440,15 @@ function getEmptyFieldHelp(fields: FormFields): string[] {
   return help;
 }
 
+export interface EnrichResult {
+  text: string;
+  resolvedFields: Record<string, string>;
+}
+
 export async function enrichContext(
   formContext: { fields?: FormFields; currentStep?: number } | null
-): Promise<string> {
-  if (!formContext?.fields) return "";
+): Promise<EnrichResult> {
+  if (!formContext?.fields) return { text: "", resolvedFields: {} };
 
   const fields = formContext.fields;
   const result: EnrichmentResult = {
@@ -591,8 +596,24 @@ export async function enrichContext(
     );
   }
 
-  if (sections.length === 0) return "";
-  return "\n\n## Uppslagna data (fran Flytt.io APIer)\n\n" + sections.join("\n\n");
+  const resolvedFields: Record<string, string> = {};
+
+  if (!fields.toPostal && fields.toStreet && fields.toCity) {
+    const toNom = result.nominatimResults.find((r) => r.addressParts.postcode);
+    if (toNom?.addressParts.postcode) {
+      resolvedFields.toPostal = toNom.addressParts.postcode.replace(/\s+/g, "");
+      sections.push(
+        `## Auto-uppslaget postnummer\nNy adress "${fields.toStreet}, ${fields.toCity}" → postnummer ${resolvedFields.toPostal}. ` +
+        `Anvand detta som toPostal i suggestion-block och jamforelser.`,
+      );
+    }
+  }
+
+  if (sections.length === 0) return { text: "", resolvedFields };
+  return {
+    text: "\n\n## Uppslagna data (fran Flytt.io APIer)\n\n" + sections.join("\n\n"),
+    resolvedFields,
+  };
 }
 
 export const FIELD_KNOWLEDGE = `

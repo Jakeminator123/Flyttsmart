@@ -234,7 +234,13 @@ function buildSystemMessage(
     "- Om du ser saknade falt i kontexten, paminn anvandaren.\n" +
     "- Om postnummer ar ifyllt och ort saknas, foreslå orten.\n" +
     "- Om toCity ar ifyllt, erbjud lokala tips och foreslå att jamfora el/bredband/forsakring.\n" +
-    "- Vid jamforelsefragor (el, bredband, forsakring, flyttfirma, stadning), ge konkreta tips med leverantorsnamn.";
+    "- Vid jamforelsefragor (el, bredband, forsakring, flyttfirma, stadning), ge konkreta tips med leverantorsnamn.\n" +
+    "- Om gatuadress och stad finns men postnummer saknas, har systemet AUTOMATISKT slagit upp postnumret " +
+    "via Nominatim/OpenStreetMap. Resultatet finns i 'Auto-uppslaget postnummer' nedan. " +
+    "Anvand det direkt — fraga INTE anvandaren om postnumret om det redan ar uppslaget.\n" +
+    "- Nar du har postnummer (fran formularet ELLER auto-uppslaget), kor jamforelser direkt utan att fraga.\n" +
+    "- Om anvandaren ber dig 'kolla upp' eller 'lista ut' nagot som redan finns i uppslagna data, " +
+    "anvand den informationen direkt istallet for att be anvandaren repetera.";
 
   if (formContext) {
     base +=
@@ -455,13 +461,21 @@ export async function POST(req: NextRequest) {
 
     pushMessage(sessionId, "user", userMessage);
 
-    const formCtx = getFormContext(sessionId);
-    const comparisonTasks = detectComparisonTasks(userMessage);
+    let formCtx = getFormContext(sessionId);
+    const enrichResult = formCtx ? await enrichContext({ fields: formCtx }) : null;
+    const enrichedText = enrichResult?.text || null;
 
-    const [enrichedData, comparisonData] = await Promise.all([
-      formCtx ? enrichContext({ fields: formCtx }) : Promise.resolve(null),
-      prefetchComparisons(comparisonTasks, formCtx),
-    ]);
+    if (enrichResult?.resolvedFields) {
+      for (const [k, v] of Object.entries(enrichResult.resolvedFields)) {
+        if (v) updateFormField(sessionId, k, v);
+      }
+      if (Object.keys(enrichResult.resolvedFields).length > 0) {
+        formCtx = getFormContext(sessionId);
+      }
+    }
+
+    const comparisonTasks = detectComparisonTasks(userMessage);
+    const comparisonData = await prefetchComparisons(comparisonTasks, formCtx);
     const siteAccess = buildOpenClawSiteAccess(req);
 
     const unlocked = isUnlocked(sessionId)
@@ -470,7 +484,7 @@ export async function POST(req: NextRequest) {
 
     const history = getHistory(sessionId);
     const openaiMessages = [
-      { role: "system", content: buildSystemMessage(formCtx, enrichedData, siteAccess, unlocked) + comparisonData },
+      { role: "system", content: buildSystemMessage(formCtx, enrichedText, siteAccess, unlocked) + comparisonData },
       ...history,
     ];
 
@@ -505,12 +519,12 @@ export async function POST(req: NextRequest) {
     let reply =
       extractOpenClawText(gatewayJson) ?? "Aida kunde inte generera ett svar.";
 
-    const EMAIL_SENT_RE = /mejl\s+skickat|e-?post\s+skickat|har\s+mejlat|mailade|har\s+skickat.*mejl/i;
+    const EMAIL_SENT_RE = /mejl\s+skickat|e-?post\s+skickat|har\s+mejlat|mailade|har\s+skickat.*mejl|skickar.*mejl|mail\s+sent|skickat\s+till\s+\S+@/gi;
     const HAS_EMAIL_BLOCK = /```email_request\s*\n/;
     if (EMAIL_SENT_RE.test(reply) && !HAS_EMAIL_BLOCK.test(reply)) {
       reply = reply.replace(
         EMAIL_SENT_RE,
-        "jag kan föreslå att skicka ett mejl",
+        "jag kan forbereda ett mejl",
       );
     }
 

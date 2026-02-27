@@ -138,9 +138,9 @@ export async function POST(req: NextRequest) {
     const siteAccess = buildOpenClawSiteAccess(req);
     const chatUrl = `${GATEWAY_BASE_URL}/v1/chat/completions`;
 
-    const enrichedData = await enrichContext(formContext);
+    const enrichResult = await enrichContext(formContext);
+    const enrichedData = enrichResult?.text || undefined;
 
-    // Build messages array in OpenAI format
     const openaiMessages = [
       { role: "system", content: buildSystemMessage(formContext, enrichedData, siteAccess) },
       ...messages.slice(-15).map((m: { role: string; content: string }) => ({

@@ -133,6 +133,15 @@ function buildSystemMessage(
     "om data finns i uppslagna data (enrichment). Annars sammanfatta vad checklistan rekommenderar.\n\n" +
     "Elnatsomrade harlds automatiskt fran postnummer (SE1-SE4). " +
     "Nämn alltid omradet nar el diskuteras, t.ex. 'Du tillhor elomrade SE3.'\n\n" +
+    "## E-post-sammanfattning\n" +
+    "Nar anvandaren ber om att fa ett mejl, en sammanfattning, eller en oversikt skickad:\n" +
+    "1. Svara med en kort forklaring.\n" +
+    "2. Inkludera ett email_request-block i EXAKT detta format:\n" +
+    "```email_request\n" +
+    "{\"to\":\"\",\"subject\":\"Sammanfattning av din flytt\",\"includeFields\":true,\"includeChecklist\":true}\n" +
+    "```\n" +
+    "Fyll i 'to' med anvandarens e-post om den finns i formularkontexten (email-faltet). Annars lamna tom.\n" +
+    "Anvandaren far bekrafta innan mejlet skickas.\n\n" +
     "## Proaktivt beteende\n" +
     "- Om du ser saknade falt i kontexten, paminn anvandaren.\n" +
     "- Om postnummer ar ifyllt och ort saknas, foreslå orten.\n" +

@@ -9,6 +9,12 @@ import {
   getOpenClawTokens,
 } from "@/lib/openclaw/server-config";
 import { extractOpenClawText } from "@/lib/openclaw/response";
+import {
+  sendViaResend,
+  sendViaSendgrid,
+  type EmailContent,
+  type MailProvider,
+} from "@/lib/email/send";
 
 export const runtime = "nodejs";
 
@@ -53,13 +59,6 @@ type ReminderCandidate = {
   dueItems: DueItem[];
 };
 
-type EmailContent = {
-  subject: string;
-  text: string;
-  html: string;
-};
-
-type MailProvider = "resend" | "sendgrid";
 
 function toIsoDate(date: Date): string {
   return date.toISOString().split("T")[0];
@@ -322,65 +321,6 @@ function resolveProvider(
     missing: ["RESEND_API_KEY or SENDGRID_API_KEY"],
     requested,
   };
-}
-
-async function sendViaResend(args: {
-  apiKey: string;
-  from: string;
-  to: string;
-  content: EmailContent;
-}): Promise<string | null> {
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${args.apiKey}`,
-    },
-    body: JSON.stringify({
-      from: args.from,
-      to: [args.to],
-      subject: args.content.subject,
-      text: args.content.text,
-      html: args.content.html,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Resend returned ${response.status}`);
-  }
-
-  const data = (await response.json().catch(() => null)) as { id?: string } | null;
-  return data?.id ?? null;
-}
-
-async function sendViaSendgrid(args: {
-  apiKey: string;
-  from: string;
-  to: string;
-  content: EmailContent;
-}): Promise<string | null> {
-  const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${args.apiKey}`,
-    },
-    body: JSON.stringify({
-      personalizations: [{ to: [{ email: args.to }] }],
-      from: { email: args.from },
-      subject: args.content.subject,
-      content: [
-        { type: "text/plain", value: args.content.text },
-        { type: "text/html", value: args.content.html },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`SendGrid returned ${response.status}`);
-  }
-
-  return response.headers.get("x-message-id");
 }
 
 export async function GET(req: NextRequest) {

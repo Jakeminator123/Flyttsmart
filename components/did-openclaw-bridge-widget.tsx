@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import { parseOpenClawResponse } from "@/lib/openclaw/response";
+import { parseOpenClawResponse, type EmailRequestBlock } from "@/lib/openclaw/response";
 import { cn } from "@/lib/utils";
 
 const DID_CLIENT_KEY = process.env.NEXT_PUBLIC_DID_CLIENT_KEY ?? "";
@@ -111,6 +111,7 @@ type BridgeMessage = {
   content: string;
   appliedFields?: string[];
   isError?: boolean;
+  emailRequest?: EmailRequestBlock;
 };
 
 async function sendChatMessage(
@@ -181,6 +182,8 @@ export function DidOpenClawBridgeWidget() {
         "Hej! Jag är Aida. Jag kan guida dig i formuläret, svara på frågor om flytten och föreslå fält att fylla i.",
     },
   ]);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailOverrideTo, setEmailOverrideTo] = useState("");
 
   const syncVideoPlayback = useCallback(() => {
     const videoEl = videoRef.current;
@@ -349,7 +352,7 @@ export function DidOpenClawBridgeWidget() {
 
     try {
       const rawReply = await sendChatMessage(sessionIdRef.current, cleanText);
-      const { text: visibleText, suggestions } = parseOpenClawResponse(rawReply);
+      const { text: visibleText, suggestions, emailRequest } = parseOpenClawResponse(rawReply);
       const displayText = visibleText || rawReply;
       const filled =
         suggestions && Object.keys(suggestions).length > 0
@@ -360,6 +363,13 @@ export function DidOpenClawBridgeWidget() {
         // Parsed suggestion block was applied to matching form fields.
       }
 
+      const resolvedEmailRequest = emailRequest
+        ? {
+            ...emailRequest,
+            to: emailRequest.to || collectFormContext().email || "",
+          }
+        : undefined;
+
       setMessages((prev) => [
         ...prev,
         {
@@ -367,6 +377,7 @@ export function DidOpenClawBridgeWidget() {
           role: "assistant",
           content: displayText,
           appliedFields: filled.length > 0 ? filled : undefined,
+          emailRequest: resolvedEmailRequest,
         },
       ]);
 
@@ -449,6 +460,63 @@ export function DidOpenClawBridgeWidget() {
     setListening(false);
     setInterimTranscript("");
   }, []);
+
+  const handleSendEmail = useCallback(async (msgId: string, emailReq: EmailRequestBlock) => {
+    const toAddress = emailOverrideTo.trim() || emailReq.to;
+    if (!toAddress || !toAddress.includes("@")) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId
+            ? { ...m, content: (m.content || "") + "\n\nAnge en giltig e-postadress.", emailRequest: emailReq }
+            : m
+        )
+      );
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      const formCtx = collectFormContext();
+      const res = await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: toAddress,
+          subject: emailReq.subject,
+          fields: formCtx,
+          checklistItems: [],
+          includeFields: emailReq.includeFields,
+          includeChecklist: emailReq.includeChecklist,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId
+            ? {
+                ...m,
+                emailRequest: undefined,
+                content: res.ok
+                  ? `${m.content || ""}\n\nMejl skickat till ${toAddress}.`
+                  : `${m.content || ""}\n\nKunde inte skicka: ${data.error || "okänt fel"}.`,
+              }
+            : m
+        )
+      );
+      setEmailOverrideTo("");
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId
+            ? { ...m, content: (m.content || "") + "\n\nNätverksfel vid e-postutskick." }
+            : m
+        )
+      );
+    } finally {
+      setSendingEmail(false);
+    }
+  }, [emailOverrideTo]);
 
   const handleOpen = useCallback(() => {
     setOpen(true);
@@ -678,6 +746,42 @@ export function DidOpenClawBridgeWidget() {
                       {FIELD_LABELS[field] || field}
                     </span>
                   ))}
+                </div>
+              )}
+              {message.emailRequest && (
+                <div className="mt-3 space-y-2 rounded-xl border border-primary/25 bg-primary/5 p-3">
+                  <p className="text-[11px] font-medium text-primary">Skicka sammanfattning via mejl</p>
+                  <p className="text-[11px] text-muted-foreground">{message.emailRequest.subject}</p>
+                  <input
+                    type="email"
+                    placeholder="din@email.se"
+                    defaultValue={message.emailRequest.to}
+                    onChange={(e) => setEmailOverrideTo(e.target.value)}
+                    className="h-8 w-full rounded-lg border border-border/60 bg-background px-2.5 text-[12px] outline-none focus:border-primary/40"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={sendingEmail}
+                      onClick={() => void handleSendEmail(message.id, message.emailRequest!)}
+                      className="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground shadow-sm disabled:opacity-50"
+                    >
+                      {sendingEmail ? "Skickar..." : "Bekrafta och skicka"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMessages((prev) =>
+                          prev.map((m) =>
+                            m.id === message.id ? { ...m, emailRequest: undefined } : m
+                          )
+                        )
+                      }
+                      className="rounded-lg border border-border/60 px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      Avbryt
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

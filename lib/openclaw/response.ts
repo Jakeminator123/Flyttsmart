@@ -1,9 +1,18 @@
+export interface EmailRequestBlock {
+  to: string;
+  subject: string;
+  includeFields: boolean;
+  includeChecklist: boolean;
+}
+
 export interface OpenClawParsed {
   text: string | null;
   suggestions: Record<string, string> | null;
+  emailRequest: EmailRequestBlock | null;
 }
 
 const SUGGESTION_RE = /```suggestion\s*\n([\s\S]*?)\n```/;
+const EMAIL_REQUEST_RE = /```email_request\s*\n([\s\S]*?)\n```/;
 
 /**
  * Extract text content from an OpenClaw / OpenAI response object.
@@ -49,11 +58,12 @@ export function extractOpenClawText(data: unknown): string | null {
  */
 export function parseOpenClawResponse(raw: string): OpenClawParsed {
   let suggestions: Record<string, string> | null = null;
+  let emailRequest: EmailRequestBlock | null = null;
 
-  const match = raw.match(SUGGESTION_RE);
-  if (match) {
+  const suggestionMatch = raw.match(SUGGESTION_RE);
+  if (suggestionMatch) {
     try {
-      const parsed = JSON.parse(match[1].trim());
+      const parsed = JSON.parse(suggestionMatch[1].trim());
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         suggestions = parsed as Record<string, string>;
       }
@@ -62,6 +72,27 @@ export function parseOpenClawResponse(raw: string): OpenClawParsed {
     }
   }
 
-  const text = raw.replace(SUGGESTION_RE, "").trim() || null;
-  return { text, suggestions };
+  const emailMatch = raw.match(EMAIL_REQUEST_RE);
+  if (emailMatch) {
+    try {
+      const parsed = JSON.parse(emailMatch[1].trim());
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        emailRequest = {
+          to: typeof parsed.to === "string" ? parsed.to.trim() : "",
+          subject: typeof parsed.subject === "string" ? parsed.subject.trim() : "Sammanfattning av din flytt",
+          includeFields: parsed.includeFields !== false,
+          includeChecklist: parsed.includeChecklist !== false,
+        };
+      }
+    } catch {
+      // Malformed JSON - ignore
+    }
+  }
+
+  const text = raw
+    .replace(SUGGESTION_RE, "")
+    .replace(EMAIL_REQUEST_RE, "")
+    .trim() || null;
+
+  return { text, suggestions, emailRequest };
 }

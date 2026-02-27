@@ -28,7 +28,7 @@ Widget receives reply -> agentManager.speak(reply)
 D-ID Avatar speaks + animates (TTS: sv-SE-SofieNeural)
 ```
 
-## Architecture (current, 2026-02-25)
+## Architecture (current, 2026-02-27)
 
 The widget uses the "client-side relay" pattern:
 - **STT**: Web Speech API (`sv-SE`) in the browser
@@ -42,12 +42,31 @@ D-ID agent config is `provider: "openai"` with `gpt-4.1-nano` but
 the LLM pipeline is never used (we bypass it with `speak()`).
 The built-in LLM is only there as a fallback.
 
+### Smart message routing (2026-02-27)
+
+Both `/api/did/chat` and `/api/openclaw/chat` use `lib/aida/classify.ts`
+to classify each message and choose the optimal response path:
+
+| Intent | Enrichment | Comparison | Typical latency |
+|--------|-----------|-----------|----------------|
+| `direct` | Skip | Skip | <0.5s (local pattern match, no model call) |
+| `simple` | Skip | Skip | 2-5s (field/step questions, greetings) |
+| `comparison` | Parallel | Parallel | 5-15s (gpt-4.1 web_search) |
+| `general` | Yes | Skip | 3-8s (form help, move advice) |
+
+For `comparison` intent, enrichment and comparison run in **parallel**
+(previously sequential), saving 1-3 seconds on comparison questions.
+
 ## Key files
 
 | File | Purpose |
 |------|---------|
 | `components/did-openclaw-bridge-widget.tsx` | Main widget: SDK init, Web Speech API, form tracking |
 | `app/api/did/chat/route.ts` | Backend: form events + chat proxy to OpenClaw |
+| `app/api/openclaw/chat/route.ts` | Text chat: same capabilities as DID (SSE streaming) |
+| `lib/aida/classify.ts` | Message classifier: direct/simple/comparison/general |
+| `lib/aida/enrich.ts` | Enrichment pipeline: PAP, Nominatim, Eniro, SCB |
+| `lib/comparison/compare.ts` | Comparison engine: gpt-4.1 + web_search |
 | `lib/openclaw/server-config.ts` | Token/URL resolution |
 | `lib/openclaw/response.ts` | Response parsing |
 | `lib/did/session-store.ts` | In-memory session history + form context |

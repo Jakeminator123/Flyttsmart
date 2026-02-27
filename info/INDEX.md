@@ -1,13 +1,13 @@
 # Flytt.io — Dokumentationsindex
 
-Senast uppdaterad: 2026-02-25
+Senast uppdaterad: 2026-02-27
 
 ## Dokumentation i `info/`
 
 | Dokument | Innehall |
 |---|---|
 | [GDPR-HANDLINGSGUIDE-FLYTTIO.md](GDPR-HANDLINGSGUIDE-FLYTTIO.md) | Praktisk GDPR-guide: rattslig grund, samtycke, IP/geo, dataminimering, DPIA |
-| [MINDMAP-API-LOGIK-FLYTTBLANKETT.md](MINDMAP-API-LOGIK-FLYTTBLANKETT.md) | Mermaid-mindmap: minsta indata, harledda falt, API-kallor, Skatteverkets 10 falt |
+| [MINDMAP-API-LOGIK-FLYTTBLANKETT.md](MINDMAP-API-LOGIK-FLYTTBLANKETT.md) | Falt-pussel: beroendegraf, enrichment-pipeline, stegordning, jamforelsesystem, minsta indata |
 | [API-ROADMAP-FLYTTIO.md](API-ROADMAP-FLYTTIO.md) | Prioriterad API-lista i tre faser (nu/nasta/senare) med nytta, risk, kostnad |
 | [FLYTTPLANERARE-KARTLAGGNING.md](FLYTTPLANERARE-KARTLAGGNING.md) | Var flyttplaneraren/jamforelselogiken lever i kodbasen, alla 23 moment |
 | [flytta_nu_samlad_kunskap.txt](flytta_nu_samlad_kunskap.txt) | Samlad kunskap: produktide, SKV-formularanalys, API-strategier, juridik |
@@ -53,6 +53,9 @@ Senast uppdaterad: 2026-02-25
 | `hooks/use-openclaw-mirror.ts` | Event-spegling: compare_open/close till OpenClaw |
 | `lib/aida/enrich.ts` | Proaktiv jamforelse + all API-berikning |
 | `lib/aida/direct-suggestion.ts` | Autofill-parser for "fyll i X i Y" |
+| `lib/comparison/compare.ts` | Jamforelsesystem: gpt-4.1 + web_search, 8 kategorier |
+| `lib/comparison/elarea.ts` | Postnummer -> elnatsomrade SE1-SE4 |
+| `claw/config/agents/aida-flyttagent/agent/IDENTITY.md` | Aida-agentens identitet, falt, jamforelser, enrichment |
 
 ## Korsreferens: API -> dokument
 

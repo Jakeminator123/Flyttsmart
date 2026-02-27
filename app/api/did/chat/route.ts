@@ -9,6 +9,7 @@ import {
 import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
 import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
+import { classifyMessage } from "@/lib/aida/classify";
 import {
   runComparison,
   getLiveTaskKeys,
@@ -462,21 +463,44 @@ export async function POST(req: NextRequest) {
     pushMessage(sessionId, "user", userMessage);
 
     let formCtx = getFormContext(sessionId);
-    const enrichResult = formCtx ? await enrichContext({ fields: formCtx }) : null;
-    const enrichedText = enrichResult?.text || null;
+    const siteAccess = buildOpenClawSiteAccess(req);
 
-    if (enrichResult?.resolvedFields) {
-      for (const [k, v] of Object.entries(enrichResult.resolvedFields)) {
-        if (v) updateFormField(sessionId, k, v);
+    const { intent, comparisonTasks } = classifyMessage(userMessage);
+
+    let enrichedText: string | null = null;
+    let comparisonData = "";
+
+    if (intent === "simple") {
+      // Fast path: skip enrichment + comparison for knowledge questions / greetings
+    } else if (intent === "comparison" && formCtx) {
+      // Run enrichment and comparison in PARALLEL for maximum speed
+      const [enrichResult, compResult] = await Promise.all([
+        enrichContext({ fields: formCtx }),
+        prefetchComparisons(comparisonTasks, formCtx),
+      ]);
+      enrichedText = enrichResult?.text || null;
+      comparisonData = compResult;
+      if (enrichResult?.resolvedFields) {
+        for (const [k, v] of Object.entries(enrichResult.resolvedFields)) {
+          if (v) updateFormField(sessionId, k, v);
+        }
+        if (Object.keys(enrichResult.resolvedFields).length > 0) {
+          formCtx = getFormContext(sessionId);
+        }
       }
-      if (Object.keys(enrichResult.resolvedFields).length > 0) {
-        formCtx = getFormContext(sessionId);
+    } else if (formCtx) {
+      // General: enrichment only
+      const enrichResult = await enrichContext({ fields: formCtx });
+      enrichedText = enrichResult?.text || null;
+      if (enrichResult?.resolvedFields) {
+        for (const [k, v] of Object.entries(enrichResult.resolvedFields)) {
+          if (v) updateFormField(sessionId, k, v);
+        }
+        if (Object.keys(enrichResult.resolvedFields).length > 0) {
+          formCtx = getFormContext(sessionId);
+        }
       }
     }
-
-    const comparisonTasks = detectComparisonTasks(userMessage);
-    const comparisonData = await prefetchComparisons(comparisonTasks, formCtx);
-    const siteAccess = buildOpenClawSiteAccess(req);
 
     const unlocked = isUnlocked(sessionId)
       ? { active: true, secondsLeft: getUnlockTimeLeft(sessionId) }
@@ -516,17 +540,8 @@ export async function POST(req: NextRequest) {
     }
 
     const gatewayJson = await gatewayResponse.json().catch(() => null);
-    let reply =
+    const reply =
       extractOpenClawText(gatewayJson) ?? "Aida kunde inte generera ett svar.";
-
-    const EMAIL_SENT_RE = /mejl\s+skickat|e-?post\s+skickat|har\s+mejlat|mailade|har\s+skickat.*mejl|skickar.*mejl|mail\s+sent|skickat\s+till\s+\S+@/gi;
-    const HAS_EMAIL_BLOCK = /```email_request\s*\n/;
-    if (EMAIL_SENT_RE.test(reply) && !HAS_EMAIL_BLOCK.test(reply)) {
-      reply = reply.replace(
-        EMAIL_SENT_RE,
-        "jag kan forbereda ett mejl",
-      );
-    }
 
     pushMessage(sessionId, "assistant", reply);
 

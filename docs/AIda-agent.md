@@ -108,8 +108,11 @@ TONALITET:
 | Endpoint | Metod | Beskrivning |
 |----------|-------|-------------|
 | `/api/openclaw/webhook` | POST | Tar emot realtids-formularhendelser |
-| `/api/openclaw/chat` | POST | Proxy for chatmeddelanden till OpenClaw-agenten |
+| `/api/openclaw/chat` | POST | Textchatt-proxy med smart routing (SSE-streaming) |
+| `/api/did/chat` | POST | DID avatar-chatt med smart routing (JSON-respons) |
 | `/api/openclaw/access` | GET/POST | Bypass for Vercel deployment protection |
+| `/api/compare/{taskKey}` | GET/POST | Jamforelser (el, bredband, forsakring, flytt, stad) |
+| `/api/enrich/postal` | GET | Postnummeruppslag (PAP API) |
 
 ---
 
@@ -117,7 +120,25 @@ TONALITET:
 
 | Variabel | Beskrivning |
 |----------|-------------|
-| `OPENCLAW_AGENT_URL` | URL till OpenClaw-agentens gateway |
-| `OPENCLAW_AGENT_TOKEN` | Bearer-token for autentisering |
+| `OPENCLAW_GATEWAY_URL` | URL till OpenClaw gateway (primar) |
+| `OPENCLAW_GATEWAY_TOKEN` | Bearer-token for gateway-autentisering |
+| `OPENCLAW_AGENT_TOKEN` | Fallback-token (anvands av hooks + access om GATEWAY_TOKEN saknas) |
+| `OPENCLAW_AGENT_ID` | Agent-id (default: `aida-flyttagent`) |
 | `OPENCLAW_WEBHOOK_SECRET` | HMAC-SHA256 nyckel for webhook-signering (valfri) |
 | `VERCEL_AUTOMATION_BYPASS_SECRET` | Vercel deployment protection bypass |
+| `COMPARE_MODEL` | Modell for jamforelser (default: `gpt-4.1`) |
+
+## Smart meddelandeklassificering (2026-02-27)
+
+Bade text-chatten och DID-chatten klassificerar inkommande meddelanden for att
+valja optimal responsväg:
+
+| Intent | Enrichment | Jamforelse | Latens | Exempel |
+|--------|-----------|-----------|--------|---------|
+| `direct` | Nej | Nej | <0.5 sek | "fyll i Jakob i fornamn" |
+| `simple` | Nej | Nej | 2-5 sek | "vad ar fastighetsbeteckning?" |
+| `comparison` | Ja (parallellt) | Ja (parallellt) | 5-15 sek | "jamfor elavtal i Goteborg" |
+| `general` | Ja | Nej | 3-8 sek | "hjalp mig med min flytt" |
+
+Klassificeringen gor att enkla fragor besvaras ~3-5x snabbare an
+jamforelsefragor. Se `lib/aida/classify.ts`.

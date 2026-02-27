@@ -18,12 +18,15 @@ Copy `.env.example` to `.env.local` for local development and add the same keys 
 
 | Variable | Scope | Purpose |
 | --- | --- | --- |
-| `NEXT_PUBLIC_OPENCLAW_WEBHOOK_SECRET` | Client | Shared string used to HMAC-sign payloads from the browser |
-| `OPENCLAW_WEBHOOK_SECRET` | Server | Same value as above; server verifies the HMAC |
-| `OPENCLAW_AGENT_URL` | Server | Base URL to your OpenClaw agent (e.g. `https://assistant.openclaw.ai/sessions/abc123`) |
-| `OPENCLAW_AGENT_TOKEN` | Server | Bearer token that authenticates requests against the agent |
-| `VERCEL_AUTOMATION_BYPASS_SECRET` | Server | Protection‑bypass token from Vercel → Deployment Protection → Automation |
-| `NEXT_PUBLIC_SITE_URL` (optional) | Client | Used in a few UI helpers for canonical links |
+| `OPENCLAW_GATEWAY_URL` | Server | Primary gateway URL (e.g. `https://openclaw-aida.onrender.com`) |
+| `OPENCLAW_GATEWAY_TOKEN` | Server | Primary bearer token for gateway auth |
+| `OPENCLAW_AGENT_TOKEN` | Server | Fallback token (used by hooks + access tokens when gateway token is absent) |
+| `OPENCLAW_AGENT_ID` | Server | Agent identifier (default: `aida-flyttagent`) |
+| `OPENCLAW_WEBHOOK_SECRET` | Server | HMAC-SHA256 key for webhook signature verification |
+| `NEXT_PUBLIC_OPENCLAW_WEBHOOK_SECRET` | Client | Same value as above; browser uses it for client-side HMAC signing |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | Server | Protection-bypass token from Vercel Deployment Protection |
+| `COMPARE_MODEL` | Server | Model for comparison web searches (default: `gpt-4.1`) |
+| `NEXT_PUBLIC_SITE_URL` (optional) | Client | Canonical URL for UI helpers |
 
 > 🔐 **Never** expose `OPENCLAW_AGENT_TOKEN` or `VERCEL_AUTOMATION_BYPASS_SECRET` to the client. They only live on the server or via OpenClaw itself.
 

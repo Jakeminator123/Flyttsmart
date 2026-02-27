@@ -9,16 +9,76 @@ import {
 import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
 import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
+import { classifyMessage } from "@/lib/aida/classify";
+import {
+  runComparison,
+  getLiveTaskKeys,
+  type CompareResult,
+} from "@/lib/comparison/compare";
 
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
 const CHAT_MODEL = getOpenClawChatModel(AGENT_ID);
 const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
 
-/**
- * Build a system message that includes form context
- * so the agent knows what the user is doing on the page.
- */
+// ─── Comparison pre-fetch ────────────────────────────────
+
+async function prefetchComparisons(
+  taskKeys: string[],
+  formCtx: Record<string, string> | null,
+): Promise<string> {
+  if (taskKeys.length === 0 || !formCtx) return "";
+  const toPostal = formCtx.toPostal;
+  const toCity = formCtx.toCity;
+  if (!toPostal && !toCity) return "";
+
+  const liveKeys = new Set(getLiveTaskKeys());
+  const liveTasks = taskKeys.filter((k) => liveKeys.has(k));
+  if (liveTasks.length === 0) return "";
+
+  const results: CompareResult[] = [];
+  await Promise.all(
+    liveTasks.map(async (taskKey) => {
+      try {
+        const r = await runComparison({
+          taskKey,
+          toPostal,
+          toCity,
+          moveDate: formCtx.moveDate,
+          toStreet: formCtx.toStreet,
+        });
+        results.push(r);
+      } catch { /* skip failed comparison */ }
+    }),
+  );
+
+  if (results.length === 0) return "";
+
+  const sections = results.map((r) => {
+    const providerLines = r.providers
+      .map(
+        (p) =>
+          `  - ${p.name}: ${p.price}${p.pros.length ? ` (${p.pros.join(", ")})` : ""}`,
+      )
+      .join("\n");
+    return (
+      `### ${r.category} (${r.taskKey}, mode: ${r.mode})\n` +
+      `Sammanfattning: ${r.summary}\n` +
+      (providerLines ? `Leverantörer:\n${providerLines}\n` : "") +
+      (r.tip ? `Tips: ${r.tip}\n` : "") +
+      (r.elArea ? `Elområde: ${r.elArea}\n` : "") +
+      (r.sources.length ? `Källor: ${r.sources.join(", ")}` : "")
+    );
+  });
+
+  return (
+    "\n\n## Faktisk jämförelsedata (hämtad från Flytt.io API:er — använd BARA denna data, hitta INTE PÅ priser)\n\n" +
+    sections.join("\n\n")
+  );
+}
+
+// ─── System prompt (aligned with DID chat) ───────────────
+
 function buildSystemMessage(
   formContext?: Record<string, unknown> | null,
   enrichedData?: string,
@@ -27,21 +87,52 @@ function buildSystemMessage(
   let base =
     "Du ar Aida, en hjalpsam svensk flyttassistent for Flytt.io. " +
     "Svara alltid pa svenska. Hjalp anvandaren med adressandring, flytt och relaterade fragor.\n\n" +
-    "## Formularforslag\n" +
-    "Nar du vill foreslå att ett formularfalt fylls i, inkludera ett suggestion-block:\n" +
-    "```suggestion\n{\"faltnamn\": \"varde\"}\n```\n" +
+    "## Formularforslag (viktigt)\n" +
+    "Nar anvandaren ber dig fylla i ett falt, ska du foresla varden via suggestion-block.\n" +
+    "Svara med en kort forklaring + exakt detta format:\n" +
+    "```suggestion\n" +
+    "{\"firstName\":\"Jakob\"}\n" +
+    "```\n" +
     "Tillatna faltnamn: firstName, lastName, personalNumber, fromStreet, fromPostal, fromCity, " +
-    "toStreet, toPostal, toCity, apartmentNumber, propertyDesignation, propertyOwner, " +
-    "email, phone, moveDate.\n" +
+    "toStreet, toPostal, toCity, apartmentNumber, propertyDesignation, propertyOwner, email, phone, moveDate.\n" +
+    "Om anvandaren skriver naturligt sprak (t.ex. 'fyll i Jakob i fornamn'), mappa till korrekt faltnamn " +
+    "(fornamn -> firstName) och returnera suggestion-block. Svara inte att du saknar mojlighet om faltet finns i listan.\n" +
     "Foreslå BARA falt du ar saker pa. Skriv en forklaring INNAN suggestion-blocket.\n\n" +
-    FIELD_KNOWLEDGE + "\n\n" +
+    "## Faltkunskap\n" + FIELD_KNOWLEDGE + "\n\n" +
+    "## Jamforelsesystem\n" +
+    "Systemet hamtar AUTOMATISKT jamforelsedata fran Flytt.io APIer nar anvandaren fragar om el, bredband, " +
+    "forsakring, flyttfirma eller stadning. Resultaten visas under 'Faktisk jamforelsedata' nedan.\n" +
+    "VIKTIGT: Nar du svarar pa jamforelsefragor, anvand BARA data fran 'Faktisk jamforelsedata'. " +
+    "HITTA INTE PA priser, leverantorer eller villkor. Om ingen jamforelsedata finns, " +
+    "be anvandaren fylla i postnummer/ort forst sa data kan hamtas.\n\n" +
+    "Elnatsomrade harlds automatiskt fran postnummer (SE1-SE4). " +
+    "Namn alltid omradet nar el diskuteras, t.ex. 'Du tillhor elomrade SE3.'\n\n" +
+    "## E-post-sammanfattning\n" +
+    "Nar anvandaren ber om att fa ett mejl, en sammanfattning, eller en oversikt skickad:\n" +
+    "1. Svara med en kort forklaring.\n" +
+    "2. Inkludera ett email_request-block i EXAKT detta format:\n" +
+    "```email_request\n" +
+    "{\"to\":\"\",\"subject\":\"Sammanfattning av din flytt\",\"includeFields\":true,\"includeChecklist\":true}\n" +
+    "```\n" +
+    "Fyll i 'to' med anvandarens e-post om den finns i formularkontexten (email-faltet). Annars lamna tom.\n" +
+    "Anvandaren far bekrafta innan mejlet skickas.\n\n" +
+    "## Formularets steg-struktur\n" +
+    "Formularet har 5 steg: 1) Identifiering (namn, personnummer, e-post, telefon), " +
+    "2) Adresser (fran/till-adress), 3) Flyttdetaljer (datum, lagenhetsnr, fastighetsbeteckning), " +
+    "4) Checklista (uppgifter att gora), 5) Bekrafta.\n" +
+    "Anvandaren ser bara falt for det aktuella steget i DOM. " +
+    "Falt fran tidigare steg ar SPARADE i sessionen och finns i formularkontexten nedan. " +
+    "Anta INTE att falt saknas bara for att de inte syns — kolla hela kontexten.\n\n" +
     "## Proaktivt beteende\n" +
-    "- Om du ser saknade falt i kontexten, papminn anvandaren och forklara vad de betyder.\n" +
+    "- Om du ser saknade falt i kontexten, paminn anvandaren och forklara vad de betyder.\n" +
     "- Om postnummer ar ifyllt och ort saknas, foreslå orten via suggestion-block (data finns i uppslagna data).\n" +
-    "- Om toCity ar ifyllt, erbjud lokala tips (kollektivtrafik, matbutiker, vardcentral).\n" +
-    "- Nar anvandaren fragar om jamforelser (el, bredband, forsakring, flyttfirma, stadning), " +
-    "ge konkreta tips med riktiga svenska foretag och prisintervall.\n" +
-    "- Nar anvandaren fragar vad ett falt ar, forklara tydligt med exempel och var man hittar uppgiften.\n\n" +
+    "- Om toCity ar ifyllt, erbjud lokala tips och foreslå att jamfora el/bredband/forsakring.\n" +
+    "- Vid jamforelsefragor, anvand BARA data fran 'Faktisk jamforelsedata'. Hitta INTE PA.\n" +
+    "- Nar anvandaren fragar vad ett falt ar, forklara tydligt med exempel och var man hittar uppgiften.\n" +
+    "- Om gatuadress och stad finns men postnummer saknas, har systemet AUTOMATISKT slagit upp postnumret " +
+    "via Nominatim/OpenStreetMap. Resultatet finns i 'Auto-uppslaget postnummer' nedan. " +
+    "Anvand det direkt — fraga INTE anvandaren om postnumret om det redan ar uppslaget.\n" +
+    "- Nar du har postnummer (fran formularet ELLER auto-uppslaget), kor jamforelser direkt utan att fraga.\n\n" +
     "## Tillgangliga datakallor i denna session\n" +
     "- PAP: postnummer till ort/kommun\n" +
     "- Nominatim: adressvalidering och geodata\n" +
@@ -79,8 +170,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Deterministic fallback for direct autofill commands.
-    // This gives OpenClaw chat the same reliable field-fill behavior as DID chat.
     const latestUserMessage = [...messages]
       .reverse()
       .find(
@@ -116,7 +205,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // If no agent URL is configured, return a helpful fallback
     if (!GATEWAY_BASE_URL) {
       return NextResponse.json({
         content:
@@ -138,11 +226,33 @@ export async function POST(req: NextRequest) {
     const siteAccess = buildOpenClawSiteAccess(req);
     const chatUrl = `${GATEWAY_BASE_URL}/v1/chat/completions`;
 
-    const enrichResult = await enrichContext(formContext);
-    const enrichedData = enrichResult?.text || undefined;
+    const { intent, comparisonTasks } = latestUserMessage
+      ? classifyMessage(latestUserMessage.content)
+      : { intent: "general" as const, comparisonTasks: [] as string[] };
+
+    const formFields = formContext?.fields as Record<string, string> | undefined;
+
+    let enrichedData: string | undefined;
+    let comparisonData = "";
+
+    if (intent === "simple") {
+      // Fast path: skip enrichment + comparison for simple knowledge questions
+    } else if (intent === "comparison") {
+      // Run enrichment and comparison in PARALLEL
+      const [enrichResult, compResult] = await Promise.all([
+        enrichContext(formContext),
+        prefetchComparisons(comparisonTasks, formFields ?? null),
+      ]);
+      enrichedData = enrichResult?.text || undefined;
+      comparisonData = compResult;
+    } else {
+      // General: enrichment only (no comparison needed)
+      const enrichResult = await enrichContext(formContext);
+      enrichedData = enrichResult?.text || undefined;
+    }
 
     const openaiMessages = [
-      { role: "system", content: buildSystemMessage(formContext, enrichedData, siteAccess) },
+      { role: "system", content: buildSystemMessage(formContext, enrichedData, siteAccess) + comparisonData },
       ...messages.slice(-15).map((m: { role: string; content: string }) => ({
         role: m.role === "assistant" ? "assistant" : "user",
         content: m.content,
@@ -261,16 +371,10 @@ export async function POST(req: NextRequest) {
     // Non-streaming JSON fallback
     const data = await agentResponse.json().catch(() => null);
 
-    const parsedContent = extractOpenClawText(data);
-    if (parsedContent) {
-      return NextResponse.json({
-        content: parsedContent,
-        role: "assistant",
-      });
-    }
+    const reply = extractOpenClawText(data) ?? data?.content ?? "Inget svar fran agenten.";
 
     return NextResponse.json({
-      content: data?.content || "Inget svar fran agenten.",
+      content: reply,
       role: "assistant",
     });
   } catch (error) {

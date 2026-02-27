@@ -1,6 +1,6 @@
 # API-roadmap for Flytt.io
 
-Senast uppdaterad: 2026-02-25
+Senast uppdaterad: 2026-02-27
 
 ## Fas 1: NU (aktiva — redan integrerade)
 
@@ -10,7 +10,8 @@ Senast uppdaterad: 2026-02-25
 | Nominatim (OpenStreetMap) | Adress -> validerad position, stadsdel, kommun | Adressrimlighet, GPS | Ingen (oppen data) | Gratis (max 1 req/s) | `lib/aida/enrich.ts` |
 | Eniro Company Search | Ort -> foretag (matbutiker, vardcentral, apotek) | Lokala rekommendationer | Ingen (trial aktiv) | Gratis (trial) | `lib/aida/enrich.ts` |
 | SCB API v2 (TAB638) | Kommunkod -> befolkning, folkokning | Kontextuell info for Aida | Ingen (oppen data) | Gratis | `lib/aida/enrich.ts` |
-| OpenClaw Gateway | Chat completions med formularkontext | AI-resonemang, suggestion-block | Ingen (egen deployment) | Render-kostnad | `app/api/did/chat/route.ts` |
+| OpenClaw Gateway | Chat completions med formularkontext | AI-resonemang, suggestion-block | Ingen (egen deployment) | Render-kostnad | `app/api/openclaw/chat/route.ts`, `app/api/did/chat/route.ts` |
+| OpenAI Responses API (gpt-4.1) | Jamforelser med web_search-verktyg (5 kategorier) | Leverantorer, priser, tips med kallor | Ingen | Token-baserad | `lib/comparison/compare.ts` |
 | D-ID Client SDK | Avatar + TTS (sv-SE-SofieNeural) | Rostinteraktion | Lag (DPA rekommenderas) | D-ID-plan | `components/did-openclaw-bridge-widget.tsx` |
 | Resend / SendGrid | Paminnelsemail for checklistmoment | Transaktionell e-post | Lag (DPA kravs) | Freemium | `app/api/cron/reminders/route.ts` |
 

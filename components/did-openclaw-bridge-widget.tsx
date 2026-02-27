@@ -484,6 +484,7 @@ export function DidOpenClawBridgeWidget() {
           to: toAddress,
           subject: emailReq.subject,
           fields: formCtx,
+          sessionId: sessionIdRef.current,
           checklistItems: [],
           includeFields: emailReq.includeFields,
           includeChecklist: emailReq.includeChecklist,

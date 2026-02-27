@@ -142,6 +142,13 @@ function buildSystemMessage(
     "```\n" +
     "Fyll i 'to' med anvandarens e-post om den finns i formularkontexten (email-faltet). Annars lamna tom.\n" +
     "Anvandaren far bekrafta innan mejlet skickas.\n\n" +
+    "## Formularets steg-struktur\n" +
+    "Formularet har 5 steg: 1) Identifiering (namn, personnummer, e-post, telefon), " +
+    "2) Adresser (fran/till-adress), 3) Flyttdetaljer (datum, lagenhetsnr, fastighetsbeteckning), " +
+    "4) Checklista (uppgifter att gora), 5) Bekrafta.\n" +
+    "Anvandaren ser bara falt for det aktuella steget i DOM. " +
+    "Falt fran tidigare steg ar SPARADE i sessionen och finns i formularkontexten nedan. " +
+    "Anta INTE att falt saknas bara for att de inte syns — kolla hela kontexten.\n\n" +
     "## Proaktivt beteende\n" +
     "- Om du ser saknade falt i kontexten, paminn anvandaren.\n" +
     "- Om postnummer ar ifyllt och ort saknas, foreslå orten.\n" +

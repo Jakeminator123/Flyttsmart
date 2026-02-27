@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail, type EmailContent } from "@/lib/email/send";
+import { getFormContext } from "@/lib/did/session-store";
 
 export const dynamic = "force-dynamic";
 
@@ -120,7 +121,11 @@ export async function POST(req: NextRequest) {
     const subject = typeof body.subject === "string" && body.subject.trim()
       ? body.subject.trim().slice(0, 140)
       : "Sammanfattning av din flytt";
-    const fields: Record<string, string> = body.fields && typeof body.fields === "object" ? body.fields : {};
+    const clientFields: Record<string, string> = body.fields && typeof body.fields === "object" ? body.fields : {};
+    const sessionId = typeof body.sessionId === "string" ? body.sessionId.trim() : "";
+    const sessionFields = sessionId ? getFormContext(sessionId) ?? {} : {};
+    const fields: Record<string, string> = { ...sessionFields, ...clientFields };
+
     const checklistItems: Array<{ title: string; dueDate?: string; status?: string }> =
       Array.isArray(body.checklistItems) ? body.checklistItems : [];
     const includeFields = body.includeFields !== false;

@@ -49,6 +49,7 @@ const endpoints: EndpointStatus[] = [
   { path: "/api/admin/openclaw/events", method: "GET/POST", description: "OpenClaw fel/status-events", category: "Admin" },
   { path: "/api/admin/openclaw/automation", method: "GET/POST", description: "Cron + email automation control", category: "Admin" },
   { path: "/api/admin/openclaw/automation/test-candidate", method: "POST", description: "Skapar testkandidat för reminder-flow", category: "Admin" },
+  { path: "/api/admin/openclaw/readiness", method: "GET", description: "Readiness-check for deploy + capabilities", category: "Admin" },
 ];
 
 export default function ApiPage() {
@@ -74,6 +75,7 @@ export default function ApiPage() {
       { key: "/api/admin/did/config", url: "/api/admin/did/config" },
       { key: "/api/admin/openclaw/config", url: "/api/admin/openclaw/config" },
       { key: "/api/admin/openclaw/automation", url: "/api/admin/openclaw/automation" },
+      { key: "/api/admin/openclaw/readiness", url: "/api/admin/openclaw/readiness" },
       { key: "/api/admin/skv/stats", url: "/api/admin/skv/stats" },
       { key: "/api/admin/comparisons/config", url: "/api/admin/comparisons/config" },
       {

@@ -124,6 +124,27 @@ interface TestCandidateResponse {
   error?: string;
 }
 
+interface OpenClawReadiness {
+  ok: boolean;
+  summary: {
+    missingCritical: number;
+    missingWarnings: number;
+  };
+  context: {
+    webSearchEnabled: boolean;
+    didBridgeEnabled: boolean;
+    reminderUseAida: boolean;
+    providerPreference: string;
+  };
+  checks: Array<{
+    key: string;
+    label: string;
+    ok: boolean;
+    severity: "critical" | "warning";
+    details: string;
+  }>;
+}
+
 export default function OpenClawPage() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [healthLoading, setHealthLoading] = useState(true);
@@ -155,6 +176,8 @@ export default function OpenClawPage() {
   const [testCandidateMessage, setTestCandidateMessage] = useState<string | null>(
     null
   );
+  const [readiness, setReadiness] = useState<OpenClawReadiness | null>(null);
+  const [readinessLoading, setReadinessLoading] = useState(true);
 
   const fetchHealth = useCallback(() => {
     setHealthLoading(true);
@@ -224,12 +247,25 @@ export default function OpenClawPage() {
       .finally(() => setAutomationLoading(false));
   }, []);
 
+  const fetchReadiness = useCallback(() => {
+    setReadinessLoading(true);
+    fetch("/api/admin/openclaw/readiness")
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch readiness");
+        return r.json();
+      })
+      .then((data) => setReadiness(data))
+      .catch(() => setReadiness(null))
+      .finally(() => setReadinessLoading(false));
+  }, []);
+
   useEffect(() => {
     fetchHealth();
     fetchConfig();
     fetchEvents();
     fetchAutomationStatus();
-  }, [fetchHealth, fetchConfig, fetchEvents, fetchAutomationStatus]);
+    fetchReadiness();
+  }, [fetchHealth, fetchConfig, fetchEvents, fetchAutomationStatus, fetchReadiness]);
 
   async function handleSaveIdentity() {
     setSaving(true);
@@ -258,6 +294,7 @@ export default function OpenClawPage() {
             : "Sparat."
         );
         fetchConfig();
+        fetchReadiness();
       } else {
         const fallbackError =
           data?.error ||
@@ -288,6 +325,7 @@ export default function OpenClawPage() {
       setRedeployMessage("Nätverksfel.");
     } finally {
       setRedeploying(false);
+      fetchReadiness();
     }
   }
 
@@ -519,6 +557,80 @@ export default function OpenClawPage() {
             label="Render deploy credentials"
             value={config?.redeploy?.renderConfigured ? "Konfigurerad" : "Saknas"}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Readiness efter redeploy</CardTitle>
+          <CardDescription>
+            Snabb driftkontroll for Aidas capabilities (API, web search, e-post, D-ID)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {readinessLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-8 w-full" />
+              ))}
+            </div>
+          ) : readiness ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={readiness.ok ? "default" : "destructive"}>
+                  {readiness.ok ? "Ready" : "Action required"}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  Critical missing: {readiness.summary.missingCritical} · Warning missing:{" "}
+                  {readiness.summary.missingWarnings}
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {readiness.checks.map((check) => (
+                  <div
+                    key={check.key}
+                    className="rounded-lg border p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">{check.label}</p>
+                      <Badge
+                        variant={
+                          check.ok
+                            ? "default"
+                            : check.severity === "critical"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                        className="text-[10px]"
+                      >
+                        {check.ok ? "ok" : check.severity}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                      {check.details}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Kunde inte hamta readiness-status.
+            </p>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchReadiness}
+              disabled={readinessLoading}
+            >
+              <RefreshCw className="mr-2 size-4" />
+              Uppdatera readiness
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

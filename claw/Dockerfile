@@ -13,7 +13,9 @@ RUN git config --global --add url."https://github.com/".insteadOf "ssh://git@git
 
 # Install OpenClaw — skip node-llama-cpp build (gateway uses OpenAI, not local LLM)
 ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD=true
-RUN npm install -g openclaw --ignore-scripts
+ARG OPENCLAW_VERSION=2026.2.24
+RUN npm install -g "openclaw@${OPENCLAW_VERSION}" --ignore-scripts \
+ && openclaw --version
 
 # Seed files (IDENTITY.md, workspace skills) — no secrets in image
 RUN mkdir -p /app/seed/workspace

@@ -9,6 +9,17 @@ LISTEN_PORT="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
 BIND_MODE="${OPENCLAW_GATEWAY_BIND:-lan}"
 MODEL_PRIMARY="${OPENCLAW_MODEL_PRIMARY:-openai/gpt-5.1-codex}"
 MODEL_FALLBACK="${OPENCLAW_MODEL_FALLBACK:-openai/gpt-5.3-codex}"
+OPENCLAW_VERSION="$(openclaw --version 2>/dev/null | tr -d '\r')"
+CONTROLUI_DISABLE_DEVICE_AUTH="${OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH:-false}"
+
+case "$(echo "$CONTROLUI_DISABLE_DEVICE_AUTH" | tr '[:upper:]' '[:lower:]')" in
+  1|true|y|yes)
+    CONTROLUI_DISABLE_DEVICE_AUTH=true
+    ;;
+  *)
+    CONTROLUI_DISABLE_DEVICE_AUTH=false
+    ;;
+esac
 
 # Binding outside loopback requires auth; if token is missing, stay local.
 if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ] && [ "$BIND_MODE" != "loopback" ]; then
@@ -42,7 +53,7 @@ cat > "$CONFIG_FILE" <<EOF
     },
     "controlUi": {
       "enabled": true,
-      "dangerouslyDisableDeviceAuth": true,
+      "dangerouslyDisableDeviceAuth": ${CONTROLUI_DISABLE_DEVICE_AUTH},
       "allowedOrigins": [
         "https://openclaw-aida.onrender.com",
         "https://flyttanu.vercel.app",
@@ -82,6 +93,8 @@ cat > "$CONFIG_FILE" <<EOF
 EOF
 
 echo "[entrypoint] Config written — model=${MODEL_PRIMARY}, fallback=${MODEL_FALLBACK}, port=${LISTEN_PORT}, bind=${BIND_MODE}"
+echo "[entrypoint] OpenClaw version: ${OPENCLAW_VERSION:-unknown}"
+echo "[entrypoint] controlUi.dangerouslyDisableDeviceAuth=${CONTROLUI_DISABLE_DEVICE_AUTH}"
 
 if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
   exec openclaw gateway --port "${LISTEN_PORT}" --bind "${BIND_MODE}" --token "${OPENCLAW_GATEWAY_TOKEN}" --allow-unconfigured

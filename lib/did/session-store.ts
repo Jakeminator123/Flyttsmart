@@ -36,6 +36,25 @@ export function getHistory(sessionId: string) {
   }));
 }
 
+/**
+ * If server-side history is empty (cold start), seed it from client-provided
+ * history so the LLM gets conversation context even after a cold start.
+ */
+export function hydrateFromClient(
+  sessionId: string,
+  clientHistory: Array<{ role: string; content: string }>,
+) {
+  const existing = SESSION_HISTORY.get(sessionId);
+  if (existing && existing.length > 0) return;
+
+  const trimmed = clientHistory.slice(-MAX_HISTORY);
+  const now = Date.now();
+  SESSION_HISTORY.set(
+    sessionId,
+    trimmed.map((m, i) => ({ role: m.role, content: m.content, ts: now - (trimmed.length - i) })),
+  );
+}
+
 export function updateFormField(sessionId: string, field: string, value: string) {
   if (!SESSION_FORM_CTX.has(sessionId)) SESSION_FORM_CTX.set(sessionId, {});
   SESSION_FORM_CTX.get(sessionId)![field] = value;

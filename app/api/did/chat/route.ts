@@ -10,9 +10,15 @@ import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
 import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
 import {
+  runComparison,
+  getLiveTaskKeys,
+  type CompareResult,
+} from "@/lib/comparison/compare";
+import {
   pruneExpiredSessions,
   pushMessage,
   getHistory,
+  hydrateFromClient,
   updateFormField,
   getFormContext,
   unlockSession,
@@ -56,6 +62,79 @@ const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
 const CHAT_MODEL = getOpenClawChatModel(AGENT_ID);
 const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
+
+// ─── Comparison pre-fetch ────────────────────────────────
+
+const COMPARISON_KEYWORDS: Record<string, string[]> = {
+  electricity_contract: ["el", "elavtal", "elbolag", "elpris", "elomrade", "elområde", "elnät"],
+  broadband_order_install: ["bredband", "fiber", "internet", "wifi"],
+  home_insurance: ["hemförsäkring", "hemforsakring", "försäkring", "forsakring"],
+  movers_or_trailer: ["flyttfirma", "flytt firma", "flytthjälp", "flytthjalp", "släpvagn", "slapvagn"],
+  cleaning_service: ["städ", "stad", "flyttstäd", "flyttstad", "städfirma", "stadfirma"],
+};
+
+function detectComparisonTasks(message: string): string[] {
+  const lower = message.toLowerCase();
+  const matched: string[] = [];
+  const liveKeys = new Set(getLiveTaskKeys());
+  for (const [taskKey, keywords] of Object.entries(COMPARISON_KEYWORDS)) {
+    if (!liveKeys.has(taskKey)) continue;
+    if (keywords.some((kw) => lower.includes(kw))) {
+      matched.push(taskKey);
+    }
+  }
+  return matched;
+}
+
+async function prefetchComparisons(
+  taskKeys: string[],
+  formCtx: Record<string, string> | null,
+): Promise<string> {
+  if (taskKeys.length === 0 || !formCtx) return "";
+  const toPostal = formCtx.toPostal;
+  const toCity = formCtx.toCity;
+  if (!toPostal && !toCity) return "";
+
+  const results: CompareResult[] = [];
+  await Promise.all(
+    taskKeys.map(async (taskKey) => {
+      try {
+        const r = await runComparison({
+          taskKey,
+          toPostal,
+          toCity,
+          moveDate: formCtx.moveDate,
+          toStreet: formCtx.toStreet,
+        });
+        results.push(r);
+      } catch { /* skip failed comparison */ }
+    }),
+  );
+
+  if (results.length === 0) return "";
+
+  const sections = results.map((r) => {
+    const providerLines = r.providers
+      .map(
+        (p) =>
+          `  - ${p.name}: ${p.price}${p.pros.length ? ` (${p.pros.join(", ")})` : ""}`,
+      )
+      .join("\n");
+    return (
+      `### ${r.category} (${r.taskKey}, mode: ${r.mode})\n` +
+      `Sammanfattning: ${r.summary}\n` +
+      (providerLines ? `Leverantörer:\n${providerLines}\n` : "") +
+      (r.tip ? `Tips: ${r.tip}\n` : "") +
+      (r.elArea ? `Elområde: ${r.elArea}\n` : "") +
+      (r.sources.length ? `Källor: ${r.sources.join(", ")}` : "")
+    );
+  });
+
+  return (
+    "\n\n## Faktisk jämförelsedata (hämtad från Flytt.io API:er — använd BARA denna data, hitta INTE PÅ priser)\n\n" +
+    sections.join("\n\n")
+  );
+}
 
 // ─── Helpers ────────────────────────────────────────────
 
@@ -124,15 +203,13 @@ function buildSystemMessage(
     "(fornamn -> firstName) och returnera suggestion-block. Svara inte att du saknar mojlighet om faltet finns i listan.\n\n" +
     "## Faltkunskap\n" + FIELD_KNOWLEDGE + "\n\n" +
     "## Jamforelsesystem\n" +
-    "Sajten har ett jamforelseverktyg (/api/compare/{taskKey}) som kan hamta live-data.\n" +
-    "Aktiva jamforelser (live web search): electricity_contract, broadband_order_install, " +
-    "home_insurance, movers_or_trailer, cleaning_service.\n" +
-    "Stubbade (hints, ej live): storage_gap, broadband_tech_check, mail_forwarding.\n\n" +
-    "Nar anvandaren fragar 'jamfor bredband', 'vilken el ar billigast', 'behover jag flyttfirma' " +
-    "eller liknande: ge ett konkret svar med leverantorsnamn och ungefärliga priser " +
-    "om data finns i uppslagna data (enrichment). Annars sammanfatta vad checklistan rekommenderar.\n\n" +
+    "Systemet hamtar AUTOMATISKT jamforelsedata fran Flytt.io APIer nar anvandaren fragar om el, bredband, " +
+    "forsakring, flyttfirma eller stadning. Resultaten visas under 'Faktisk jamforelsedata' nedan.\n" +
+    "VIKTIGT: Nar du svarar pa jamforelsefragor, anvand BARA data fran 'Faktisk jamforelsedata'. " +
+    "HITTA INTE PA priser, leverantorer eller villkor. Om ingen jamforelsedata finns, " +
+    "be anvandaren fylla i postnummer/ort forst sa data kan hamtas.\n\n" +
     "Elnatsomrade harlds automatiskt fran postnummer (SE1-SE4). " +
-    "Nämn alltid omradet nar el diskuteras, t.ex. 'Du tillhor elomrade SE3.'\n\n" +
+    "Namn alltid omradet nar el diskuteras, t.ex. 'Du tillhor elomrade SE3.'\n\n" +
     "## E-post-sammanfattning\n" +
     "Nar anvandaren ber om att fa ett mejl, en sammanfattning, eller en oversikt skickad:\n" +
     "1. Svara med en kort forklaring.\n" +
@@ -141,7 +218,11 @@ function buildSystemMessage(
     "{\"to\":\"\",\"subject\":\"Sammanfattning av din flytt\",\"includeFields\":true,\"includeChecklist\":true}\n" +
     "```\n" +
     "Fyll i 'to' med anvandarens e-post om den finns i formularkontexten (email-faltet). Annars lamna tom.\n" +
-    "Anvandaren far bekrafta innan mejlet skickas.\n\n" +
+    "Anvandaren far bekrafta innan mejlet skickas.\n" +
+    "VIKTIGT: Sag ALDRIG 'mejl skickat', 'jag har mejlat', 'e-post skickat' eller liknande. " +
+    "Du kan BARA foresla att skicka mejl via email_request-block. " +
+    "Anvandaren maste sjalv trycka pa en bekraftelseknapp for att mejlet ska skickas. " +
+    "Du har INGEN formaga att skicka mejl direkt.\n\n" +
     "## Formularets steg-struktur\n" +
     "Formularet har 5 steg: 1) Identifiering (namn, personnummer, e-post, telefon), " +
     "2) Adresser (fran/till-adress), 3) Flyttdetaljer (datum, lagenhetsnr, fastighetsbeteckning), " +
@@ -229,6 +310,20 @@ export async function POST(req: NextRequest) {
       for (const [k, v] of Object.entries(body.formContext as Record<string, unknown>)) {
         if (typeof v === "string") updateFormField(sessionId, k, v);
       }
+    }
+
+    // Rehydrate server history from client on cold start
+    if (Array.isArray(body.clientHistory)) {
+      const safe = (body.clientHistory as unknown[])
+        .filter(
+          (m): m is { role: string; content: string } =>
+            typeof m === "object" &&
+            m !== null &&
+            typeof (m as any).role === "string" &&
+            typeof (m as any).content === "string",
+        )
+        .map(({ role, content }) => ({ role, content }));
+      if (safe.length > 0) hydrateFromClient(sessionId, safe);
     }
 
     pruneExpiredSessions();
@@ -361,7 +456,12 @@ export async function POST(req: NextRequest) {
     pushMessage(sessionId, "user", userMessage);
 
     const formCtx = getFormContext(sessionId);
-    const enrichedData = formCtx ? await enrichContext({ fields: formCtx }) : null;
+    const comparisonTasks = detectComparisonTasks(userMessage);
+
+    const [enrichedData, comparisonData] = await Promise.all([
+      formCtx ? enrichContext({ fields: formCtx }) : Promise.resolve(null),
+      prefetchComparisons(comparisonTasks, formCtx),
+    ]);
     const siteAccess = buildOpenClawSiteAccess(req);
 
     const unlocked = isUnlocked(sessionId)
@@ -370,7 +470,7 @@ export async function POST(req: NextRequest) {
 
     const history = getHistory(sessionId);
     const openaiMessages = [
-      { role: "system", content: buildSystemMessage(formCtx, enrichedData, siteAccess, unlocked) },
+      { role: "system", content: buildSystemMessage(formCtx, enrichedData, siteAccess, unlocked) + comparisonData },
       ...history,
     ];
 
@@ -402,8 +502,17 @@ export async function POST(req: NextRequest) {
     }
 
     const gatewayJson = await gatewayResponse.json().catch(() => null);
-    const reply =
+    let reply =
       extractOpenClawText(gatewayJson) ?? "Aida kunde inte generera ett svar.";
+
+    const EMAIL_SENT_RE = /mejl\s+skickat|e-?post\s+skickat|har\s+mejlat|mailade|har\s+skickat.*mejl/i;
+    const HAS_EMAIL_BLOCK = /```email_request\s*\n/;
+    if (EMAIL_SENT_RE.test(reply) && !HAS_EMAIL_BLOCK.test(reply)) {
+      reply = reply.replace(
+        EMAIL_SENT_RE,
+        "jag kan föreslå att skicka ett mejl",
+      );
+    }
 
     pushMessage(sessionId, "assistant", reply);
 

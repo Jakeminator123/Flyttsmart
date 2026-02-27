@@ -7,9 +7,6 @@ import { cn } from "@/lib/utils";
 const DID_CLIENT_KEY = process.env.NEXT_PUBLIC_DID_CLIENT_KEY ?? "";
 const DID_AGENT_ID = process.env.NEXT_PUBLIC_DID_AGENT_ID ?? "";
 const DID_BRIDGE_ENABLED = process.env.NEXT_PUBLIC_DID_BRIDGE_ENABLED === "true";
-const MERGE_OC_DID =
-  process.env.NEXT_PUBLIC_MERGE_OC_DID?.toLowerCase() === "y";
-
 function getDidSessionId(): string {
   if (typeof window === "undefined") return "";
   const key = "did_bridge_session_id";
@@ -43,23 +40,48 @@ function canTrackBlur(target: HTMLInputElement | HTMLTextAreaElement | HTMLSelec
   return true;
 }
 
-function collectFormContext(): Record<string, string> {
-  const ctx: Record<string, string> = {};
-  if (typeof document === "undefined") return ctx;
-  const fields = document.querySelectorAll<
-    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-  >("input, textarea, select");
+const FORM_CTX_STORAGE_KEY = "aida_form_context";
 
-  for (const el of fields) {
-    if (el instanceof HTMLInputElement && BLOCKED_INPUT_TYPES.has(el.type)) continue;
-    const name = el.name || el.id;
-    if (!name) continue;
-    const value = el instanceof HTMLSelectElement
-      ? (el.selectedOptions?.[0]?.text?.trim() || el.value.trim())
-      : el.value.trim();
-    if (value) ctx[name] = value;
+function loadPersistedFormContext(): Record<string, string> {
+  try {
+    const raw = sessionStorage.getItem(FORM_CTX_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, string>;
+    }
+  } catch { /* corrupt data */ }
+  return {};
+}
+
+function persistFormContext(ctx: Record<string, string>) {
+  try {
+    sessionStorage.setItem(FORM_CTX_STORAGE_KEY, JSON.stringify(ctx));
+  } catch { /* storage full or unavailable */ }
+}
+
+function collectFormContext(): Record<string, string> {
+  const persisted = typeof window !== "undefined" ? loadPersistedFormContext() : {};
+  const domCtx: Record<string, string> = {};
+  if (typeof document !== "undefined") {
+    const fields = document.querySelectorAll<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >("input, textarea, select");
+
+    for (const el of fields) {
+      if (el instanceof HTMLInputElement && BLOCKED_INPUT_TYPES.has(el.type)) continue;
+      const name = el.name || el.id;
+      if (!name) continue;
+      const value = el instanceof HTMLSelectElement
+        ? (el.selectedOptions?.[0]?.text?.trim() || el.value.trim())
+        : el.value.trim();
+      if (value) domCtx[name] = value;
+    }
   }
-  return ctx;
+
+  const merged = { ...persisted, ...domCtx };
+  if (Object.keys(merged).length > 0) persistFormContext(merged);
+  return merged;
 }
 
 function applySuggestions(suggestions: Record<string, string>): string[] {
@@ -117,8 +139,13 @@ type BridgeMessage = {
 async function sendChatMessage(
   sessionId: string,
   message: string,
+  recentMessages?: Array<{ role: string; content: string }>,
 ): Promise<string> {
-  const formContext = MERGE_OC_DID ? collectFormContext() : undefined;
+  const formContext = collectFormContext();
+  const clientHistory = recentMessages?.slice(-10).map(({ role, content }) => ({
+    role,
+    content,
+  }));
   const res = await fetch("/api/did/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -126,7 +153,8 @@ async function sendChatMessage(
       sessionId,
       message,
       source: "did-sdk-voice",
-      ...(formContext ? { formContext } : {}),
+      formContext,
+      ...(clientHistory?.length ? { clientHistory } : {}),
     }),
   });
 
@@ -184,6 +212,8 @@ export function DidOpenClawBridgeWidget() {
   ]);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailOverrideTo, setEmailOverrideTo] = useState("");
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
   const syncVideoPlayback = useCallback(() => {
     const videoEl = videoRef.current;
@@ -351,7 +381,10 @@ export function DidOpenClawBridgeWidget() {
     setThinking(true);
 
     try {
-      const rawReply = await sendChatMessage(sessionIdRef.current, cleanText);
+      const recentMsgs = messagesRef.current
+        .filter((m) => !m.isError)
+        .map(({ role, content }) => ({ role, content }));
+      const rawReply = await sendChatMessage(sessionIdRef.current, cleanText, recentMsgs);
       const { text: visibleText, suggestions, emailRequest } = parseOpenClawResponse(rawReply);
       const displayText = visibleText || rawReply;
       const filled =
@@ -543,7 +576,7 @@ export function DidOpenClawBridgeWidget() {
   const sendFieldBlurToBridge = useCallback(
     async (fieldName: string, fieldValue: string) => {
       try {
-        const formContext = MERGE_OC_DID ? collectFormContext() : undefined;
+        const formContext = collectFormContext();
         await fetch("/api/did/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -553,7 +586,7 @@ export function DidOpenClawBridgeWidget() {
             fieldName,
             fieldValue,
             source: "did-field-blur",
-            ...(formContext ? { formContext } : {}),
+            formContext,
           }),
         });
       } catch { /* silent */ }
@@ -562,7 +595,6 @@ export function DidOpenClawBridgeWidget() {
   );
 
   useEffect(() => {
-    if (!MERGE_OC_DID) return;
     const interval = setInterval(() => {
       const ctx = collectFormContext();
       if (Object.keys(ctx).length === 0) return;

@@ -23,15 +23,31 @@ import {
 const DID_BRIDGE_SECRET = process.env.DID_BRIDGE_SECRET ?? "";
 const TEST_TAL_ENABLED = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
 
-const UNLOCK_PASSPHRASE = (process.env.DID_CLAW_UNLOCK ?? "ulf-lundell_platon")
-  .split("_")
-  .map((w) => w.replace(/-/g, " ").toLowerCase());
+const DEFAULT_UNLOCK_PASSPHRASE = "ulf-lundell_platon";
+
+function resolveUnlockPassphrase(rawValue: string | undefined): string[] {
+  const trimmed = typeof rawValue === "string" ? rawValue.trim() : "";
+  const source =
+    trimmed.length > 0
+      ? trimmed
+      : rawValue === undefined
+        ? DEFAULT_UNLOCK_PASSPHRASE
+        : "";
+
+  return source
+    .split("_")
+    .map((word) => word.trim().replace(/-/g, " ").toLowerCase())
+    .filter(Boolean);
+}
+
+const UNLOCK_PASSPHRASE = resolveUnlockPassphrase(process.env.DID_CLAW_UNLOCK);
 
 const UNLOCK_GREETING =
   "Öppna landskap, jag vill känna vinden från havet, jag vill se horisonten... " +
   "Du har nu 7 minuter med utökade befogenheter. Fråga mig vad som helst.";
 
 function matchesPassphrase(message: string): boolean {
+  if (UNLOCK_PASSPHRASE.length === 0) return false;
   const lower = message.toLowerCase();
   return UNLOCK_PASSPHRASE.every((phrase) => lower.includes(phrase));
 }

@@ -597,16 +597,63 @@ export async function enrichContext(
   }
 
   const resolvedFields: Record<string, string> = {};
+  const autoFilled: string[] = [];
 
   if (!fields.toPostal && fields.toStreet && fields.toCity) {
     const toNom = result.nominatimResults.find((r) => r.addressParts.postcode);
     if (toNom?.addressParts.postcode) {
       resolvedFields.toPostal = toNom.addressParts.postcode.replace(/\s+/g, "");
-      sections.push(
-        `## Auto-uppslaget postnummer\nNy adress "${fields.toStreet}, ${fields.toCity}" → postnummer ${resolvedFields.toPostal}. ` +
-        `Anvand detta som toPostal i suggestion-block och jamforelser.`,
-      );
+      autoFilled.push(`toPostal=${resolvedFields.toPostal} (fran Nominatim)`);
     }
+  }
+
+  if (!fields.fromPostal && fields.fromStreet && fields.fromCity) {
+    const fromNom = result.nominatimResults.find(
+      (r) => r.addressParts.postcode && r.displayName.toLowerCase().includes(fields.fromCity!.toLowerCase()),
+    );
+    if (fromNom?.addressParts.postcode) {
+      resolvedFields.fromPostal = fromNom.addressParts.postcode.replace(/\s+/g, "");
+      autoFilled.push(`fromPostal=${resolvedFields.fromPostal} (fran Nominatim)`);
+    }
+  }
+
+  if (fields.toPostal || resolvedFields.toPostal) {
+    const postal = fields.toPostal || resolvedFields.toPostal;
+    const lookup = result.postalLookups[postal!];
+    if (lookup?.city && !fields.toCity) {
+      resolvedFields.toCity = lookup.city;
+      autoFilled.push(`toCity=${lookup.city} (fran PAP)`);
+    }
+  }
+
+  if (fields.fromPostal || resolvedFields.fromPostal) {
+    const postal = fields.fromPostal || resolvedFields.fromPostal;
+    const lookup = result.postalLookups[postal!];
+    if (lookup?.city && !fields.fromCity) {
+      resolvedFields.fromCity = lookup.city;
+      autoFilled.push(`fromCity=${lookup.city} (fran PAP)`);
+    }
+  }
+
+  if (resolvedFields.toPostal && !fields.toPostal) {
+    const newLookup = await lookupPostal(resolvedFields.toPostal);
+    if (newLookup) {
+      result.postalLookups[resolvedFields.toPostal] = newLookup;
+      if (!fields.toCity && !resolvedFields.toCity && newLookup.city) {
+        resolvedFields.toCity = newLookup.city;
+        autoFilled.push(`toCity=${newLookup.city} (fran PAP via auto-postal)`);
+      }
+    }
+  }
+
+  if (autoFilled.length > 0) {
+    sections.push(
+      "## Auto-ifyllda falt (systemet har slagit upp dessa)\n" +
+      "Foljande falt saknades i formularet men har automatiskt slagits upp:\n" +
+      autoFilled.map((f) => `  - ${f}`).join("\n") + "\n" +
+      "Anvand dessa varden direkt. Fraga INTE anvandaren om dem — de ar redan kanda. " +
+      "Inkludera dem i suggestion-block om anvandaren ber om hjalp med formularet.",
+    );
   }
 
   if (sections.length === 0) return { text: "", resolvedFields };

@@ -478,7 +478,7 @@ export function DidOpenClawBridgeWidget() {
     } finally {
       setThinking(false);
     }
-  }, [thinking, connectionState, connectAgent]);
+  }, [thinking, connectionState, connectStream]);
 
   const startListening = useCallback(() => {
     const SpeechRec = getSpeechRecognition();
@@ -592,8 +592,8 @@ export function DidOpenClawBridgeWidget() {
     window.requestAnimationFrame(() => {
       syncVideoPlayback();
     });
-    void connectAgent();
-  }, [connectAgent, syncVideoPlayback]);
+    void connectStream();
+  }, [connectStream, syncVideoPlayback]);
 
   const handleClose = useCallback(() => {
     setOpen(false);

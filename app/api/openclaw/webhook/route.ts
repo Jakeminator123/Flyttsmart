@@ -74,9 +74,8 @@ export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
     const signature = req.headers.get("x-openclaw-signature");
-    const sameOrigin = req.headers.get("origin") === req.nextUrl.origin;
 
-    if (!sameOrigin && !verifySignature(rawBody, signature)) {
+    if (!verifySignature(rawBody, signature)) {
       return NextResponse.json(
         { error: "Invalid signature" },
         { status: 401 }

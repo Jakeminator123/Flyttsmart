@@ -349,8 +349,7 @@ export async function GET(req: NextRequest) {
     );
     const useAida =
       useAidaOverride ??
-      ((process.env.REMINDER_USE_AIDA ?? "true").trim().toLowerCase() ===
-        "true");
+      (parseBooleanString(process.env.REMINDER_USE_AIDA) ?? true);
 
     const today = new Date();
     const todayIso = toIsoDate(today);

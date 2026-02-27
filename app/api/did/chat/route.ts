@@ -96,9 +96,13 @@ async function prefetchComparisons(
   const toCity = formCtx.toCity;
   if (!toPostal && !toCity) return "";
 
+  const liveKeys = new Set(getLiveTaskKeys());
+  const liveTasks = taskKeys.filter((k) => liveKeys.has(k));
+  if (liveTasks.length === 0) return "";
+
   const results: CompareResult[] = [];
   await Promise.all(
-    taskKeys.map(async (taskKey) => {
+    liveTasks.map(async (taskKey) => {
       try {
         const r = await runComparison({
           taskKey,

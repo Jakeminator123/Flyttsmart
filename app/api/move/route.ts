@@ -47,6 +47,11 @@ export async function POST(req: NextRequest) {
       checklist,
     } = body;
 
+    const ipAddress =
+      req.headers.get("x-forwarded-for") ??
+      req.headers.get("x-real-ip") ??
+      null;
+
     if (!name || !toStreet || !moveDate) {
       return NextResponse.json(
         { error: "name, toStreet, and moveDate are required" },
@@ -85,6 +90,7 @@ export async function POST(req: NextRequest) {
         householdType: householdType || null,
         reason: reason || null,
         status: "submitted",
+        ipAddress,
       })
       .returning();
 

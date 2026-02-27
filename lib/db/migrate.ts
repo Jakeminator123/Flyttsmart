@@ -125,6 +125,7 @@ async function migrate() {
   await ensureMoveColumn("apartment_number");
   await ensureMoveColumn("property_designation");
   await ensureMoveColumn("property_owner");
+  await ensureMoveColumn("ip_address");
 
   async function ensureChecklistColumn(columnName: string, sqlType = "TEXT") {
     const info = await client.execute("PRAGMA table_info(checklist_items)");

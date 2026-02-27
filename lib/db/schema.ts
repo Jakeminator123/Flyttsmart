@@ -31,6 +31,7 @@ export const moves = sqliteTable("moves", {
   householdType: text("household_type"), // "myself" | "family" | "partner" | "child"
   reason: text("reason"),
   status: text("status").notNull().default("draft"), // draft | submitted | confirmed | completed
+  ipAddress: text("ip_address"),
   createdAt: text("created_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

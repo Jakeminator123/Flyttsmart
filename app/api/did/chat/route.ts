@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   buildOpenClawSiteAccess,
   getOpenClawAgentId,
-  getOpenClawChatModel,
   getOpenClawGatewayBaseUrl,
   getOpenClawTokens,
+  getModelForIntent,
 } from "@/lib/openclaw/server-config";
 import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
@@ -61,7 +61,6 @@ function matchesPassphrase(message: string): boolean {
 
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
-const CHAT_MODEL = getOpenClawChatModel(AGENT_ID);
 const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
 
 // ─── Comparison pre-fetch ────────────────────────────────
@@ -522,36 +521,70 @@ export async function POST(req: NextRequest) {
       ...history,
     ];
 
-    const gatewayResponse = await fetch(`${GATEWAY_BASE_URL}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GATEWAY_TOKEN}`,
-        "x-openclaw-agent-id": AGENT_ID,
-      },
-      body: JSON.stringify({
-        model: CHAT_MODEL,
-        stream: false,
-        user: sessionId,
-        messages: openaiMessages,
-      }),
-    });
+    const chatModel = getModelForIntent(intent);
+
+    async function callGateway(msgs: Array<{ role: string; content: string }>) {
+      const res = await fetch(`${GATEWAY_BASE_URL}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${GATEWAY_TOKEN}`,
+          "x-openclaw-agent-id": AGENT_ID,
+        },
+        body: JSON.stringify({
+          model: chatModel,
+          stream: false,
+          user: sessionId,
+          messages: msgs,
+        }),
+      });
+      return res;
+    }
+
+    let gatewayResponse = await callGateway(openaiMessages);
 
     if (!gatewayResponse.ok) {
       const detail = await gatewayResponse.text().catch(() => "");
-      return NextResponse.json(
-        {
-          error: "OpenClaw gateway request failed",
-          status: gatewayResponse.status,
-          detail,
-        },
-        { status: 502, headers: corsHeaders },
+      console.error(
+        `[DID/OpenClaw] gateway ${gatewayResponse.status}: ${detail.slice(0, 300)}`,
       );
+
+      if (gatewayResponse.status >= 500 || gatewayResponse.status === 429) {
+        console.log("[DID/OpenClaw] retrying with shorter context...");
+        await new Promise((r) => setTimeout(r, 1500));
+        const shortMessages = [
+          openaiMessages[0],
+          ...openaiMessages.slice(-3),
+        ];
+        gatewayResponse = await callGateway(shortMessages);
+      }
+
+      if (!gatewayResponse.ok) {
+        const retryDetail = await gatewayResponse.text().catch(() => "");
+        return NextResponse.json(
+          {
+            error: "OpenClaw gateway request failed",
+            status: gatewayResponse.status,
+            detail: retryDetail,
+            reply: `Aida kunde inte svara just nu (${gatewayResponse.status}). Försök igen.`,
+            content: `Aida kunde inte svara just nu (${gatewayResponse.status}). Försök igen.`,
+            text: `Aida kunde inte svara just nu (${gatewayResponse.status}). Försök igen.`,
+          },
+          { status: 502, headers: corsHeaders },
+        );
+      }
     }
 
     const gatewayJson = await gatewayResponse.json().catch(() => null);
-    const reply =
-      extractOpenClawText(gatewayJson) ?? "Aida kunde inte generera ett svar.";
+    let reply = extractOpenClawText(gatewayJson);
+
+    if (!reply) {
+      console.warn(
+        "[DID/OpenClaw] empty response from gateway, raw:",
+        JSON.stringify(gatewayJson)?.slice(0, 500),
+      );
+      reply = "Förlåt, jag kunde inte formulera ett svar just nu. Kan du ställa frågan igen?";
+    }
 
     pushMessage(sessionId, "assistant", reply);
 
@@ -568,10 +601,16 @@ export async function POST(req: NextRequest) {
       { headers: corsHeaders },
     );
   } catch (error) {
-    console.error("[DID/OpenClaw] bridge error:", error);
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error("[DID/OpenClaw] bridge error:", detail, error);
     return NextResponse.json(
-      { error: "Invalid DID bridge request" },
-      { status: 400, headers: corsHeaders },
+      {
+        error: `Aida stötte på ett internt fel: ${detail}`,
+        reply: `Något gick fel på serversidan. Försök igen om en stund.`,
+        content: `Något gick fel på serversidan. Försök igen om en stund.`,
+        text: `Något gick fel på serversidan. Försök igen om en stund.`,
+      },
+      { status: 500, headers: corsHeaders },
     );
   }
 }

@@ -45,7 +45,6 @@ import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
 import { useOpenClawMirror } from "@/hooks/use-openclaw-mirror";
 import { useAutofill } from "@/hooks/use-autofill";
 
-import type { SuggestionSource } from "@/lib/autofill/config";
 import { SkatteverketGuide } from "@/components/skatteverket-guide";
 import { BookmarkletButton } from "@/components/bookmarklet-button";
 
@@ -1031,6 +1030,12 @@ export default function AdressandringPage() {
                   <ChecklistView
                     items={checklist}
                     onItemChange={handleChecklistItemChange}
+                    moveContext={{
+                      toPostal: form.toPostal || undefined,
+                      toCity: form.toCity || undefined,
+                      moveDate: form.moveDate || undefined,
+                      toStreet: form.toStreet || undefined,
+                    }}
                   />
                 ) : (
                   <div className="flex flex-col items-center gap-3 py-12 text-center">

@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   buildOpenClawSiteAccess,
   getOpenClawAgentId,
-  getOpenClawChatModel,
   getOpenClawGatewayBaseUrl,
   getOpenClawTokens,
+  getModelForIntent,
 } from "@/lib/openclaw/server-config";
 import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
@@ -18,7 +18,6 @@ import {
 
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
-const CHAT_MODEL = getOpenClawChatModel(AGENT_ID);
 const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
 
 // ─── Comparison pre-fetch ────────────────────────────────
@@ -274,7 +273,7 @@ export async function POST(req: NextRequest) {
         "x-openclaw-agent-id": AGENT_ID,
       },
       body: JSON.stringify({
-        model: CHAT_MODEL,
+        model: getModelForIntent(intent),
         stream: true,
         user: sessionId,
         messages: openaiMessages,

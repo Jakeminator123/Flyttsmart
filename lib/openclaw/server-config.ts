@@ -65,6 +65,25 @@ export function getOpenClawChatModel(agentId = getOpenClawAgentId()): string {
   return firstNonEmpty(process.env.OPENCLAW_CHAT_MODEL, `openclaw:${agentId}`);
 }
 
+/**
+ * Pick model based on message intent.
+ *
+ *   simple     → OPENCLAW_CHAT_MODEL_SIMPLE  (cheap & fast)
+ *   comparison → OPENCLAW_CHAT_MODEL         (powerful, handles complex reasoning)
+ *   general    → OPENCLAW_CHAT_MODEL         (powerful)
+ *
+ * Set in .env.local:
+ *   OPENCLAW_CHAT_MODEL="openai/gpt-5.1-codex"
+ *   OPENCLAW_CHAT_MODEL_SIMPLE="openai/gpt-4.1-mini"
+ */
+export function getModelForIntent(intent: string): string {
+  const powerful = getOpenClawChatModel();
+  if (intent === "simple") {
+    return firstNonEmpty(process.env.OPENCLAW_CHAT_MODEL_SIMPLE, powerful);
+  }
+  return powerful;
+}
+
 export function getOpenClawTokens() {
   const gatewayToken = firstNonEmpty(
     process.env.OPENCLAW_GATEWAY_TOKEN,

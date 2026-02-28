@@ -1,5 +1,8 @@
 import { getOpenAIClient } from "@/lib/ai/openai";
 import { postalToElArea } from "./elarea";
+import { electricityApiHandler } from "./providers/electricity";
+import { moversApiHandler, cleaningApiHandler } from "./providers/local-services";
+import { broadbandApiHandler } from "./providers/broadband";
 
 const WEB_SEARCH_ENABLED =
   (process.env.WEB_SEARCH_COMPARE ?? "").trim().toLowerCase() === "y";
@@ -48,6 +51,7 @@ type TaskConfig = {
   systemPrompt: string;
   stubSummary: string;
   stubHints: string[];
+  apiHandler?: (input: CompareInput, elArea?: string) => Promise<CompareResult | null>;
 };
 
 export type CompareTaskAdminInfo = {
@@ -74,6 +78,7 @@ const ALL_TASKS: Record<string, TaskConfig> = {
       "Svara pa svenska.",
     stubSummary: "Jamfor elavtal: rorligt eller fast pris, paslag och bindningstid.",
     stubHints: ["Rorligt eller fast", "Paslag", "Bindningstid"],
+    apiHandler: electricityApiHandler,
   },
   broadband_order_install: {
     category: "Bredband",
@@ -89,6 +94,7 @@ const ALL_TASKS: Record<string, TaskConfig> = {
       "Svara pa svenska.",
     stubSummary: "Jamfor bredband: pris efter kampanj, bindningstid och routerkostnad.",
     stubHints: ["Pris efter kampanj", "Bindningstid", "Routerkostnad"],
+    apiHandler: broadbandApiHandler,
   },
   home_insurance: {
     category: "Hemforsakring",
@@ -117,6 +123,7 @@ const ALL_TASKS: Record<string, TaskConfig> = {
       "Svara pa svenska.",
     stubSummary: "Jamfor flyttfirma: timpris eller fast pris, forsakring och omdomen.",
     stubHints: ["Flyttfirma: timpris eller fast pris", "Forsakring", "Omdomen"],
+    apiHandler: moversApiHandler,
   },
   cleaning_service: {
     category: "Flyttstadning",
@@ -131,6 +138,7 @@ const ALL_TASKS: Record<string, TaskConfig> = {
       "Svara pa svenska.",
     stubSummary: "Jamfor stadfirmor: pris, garanti och vad som ingar.",
     stubHints: ["Stadfirma: pris", "Garanti", "Vad som ingar"],
+    apiHandler: cleaningApiHandler,
   },
 
   storage_gap: {
@@ -203,6 +211,15 @@ export function getStubTaskKeys(): string[] {
   return Object.keys(ALL_TASKS).filter((k) => resolveMode(k) === "stub");
 }
 
+export function getApiTaskKeys(): string[] {
+  return Object.keys(ALL_TASKS).filter((k) => resolveMode(k) === "api");
+}
+
+/** All non-stub task keys (both web_search and api). */
+export function getActiveTaskKeys(): string[] {
+  return Object.keys(ALL_TASKS).filter((k) => resolveMode(k) !== "stub");
+}
+
 export function isCompareEnabled(): boolean {
   return WEB_SEARCH_ENABLED;
 }
@@ -233,6 +250,9 @@ export function getComparisonAdminConfig() {
     tasks,
     liveTaskKeys: tasks
       .filter((t) => t.resolvedMode === "web_search")
+      .map((t) => t.taskKey),
+    apiTaskKeys: tasks
+      .filter((t) => t.resolvedMode === "api")
       .map((t) => t.taskKey),
     stubTaskKeys: tasks
       .filter((t) => t.resolvedMode === "stub")
@@ -296,6 +316,19 @@ export async function runComparison(input: CompareInput): Promise<CompareResult>
   const cached = COMPARE_CACHE.get(cacheKey);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
     return { ...cached.data, cached: true };
+  }
+
+  if (mode === "api" && taskConfig.apiHandler) {
+    try {
+      const apiResult = await taskConfig.apiHandler(input, elAreaStr);
+      if (apiResult) {
+        COMPARE_CACHE.set(cacheKey, { data: apiResult, ts: Date.now() });
+        return apiResult;
+      }
+      console.warn(`[compare] ${input.taskKey} apiHandler returned null, falling back to web_search`);
+    } catch (err) {
+      console.error(`[compare] ${input.taskKey} apiHandler error, falling back to web_search:`, err);
+    }
   }
 
   const client = getOpenAIClient();

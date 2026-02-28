@@ -12,7 +12,7 @@ import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
 import { classifyMessage } from "@/lib/aida/classify";
 import {
   runComparison,
-  getLiveTaskKeys,
+  getActiveTaskKeys,
   type CompareResult,
 } from "@/lib/comparison/compare";
 import {
@@ -77,9 +77,9 @@ const COMPARISON_KEYWORDS: Record<string, string[]> = {
 function detectComparisonTasks(message: string): string[] {
   const lower = message.toLowerCase();
   const matched: string[] = [];
-  const liveKeys = new Set(getLiveTaskKeys());
+  const activeKeys = new Set(getActiveTaskKeys());
   for (const [taskKey, keywords] of Object.entries(COMPARISON_KEYWORDS)) {
-    if (!liveKeys.has(taskKey)) continue;
+    if (!activeKeys.has(taskKey)) continue;
     if (keywords.some((kw) => lower.includes(kw))) {
       matched.push(taskKey);
     }
@@ -96,13 +96,13 @@ async function prefetchComparisons(
   const toCity = formCtx.toCity;
   if (!toPostal && !toCity) return "";
 
-  const liveKeys = new Set(getLiveTaskKeys());
-  const liveTasks = taskKeys.filter((k) => liveKeys.has(k));
-  if (liveTasks.length === 0) return "";
+  const activeKeys = new Set(getActiveTaskKeys());
+  const activeTasks = taskKeys.filter((k) => activeKeys.has(k));
+  if (activeTasks.length === 0) return "";
 
   const results: CompareResult[] = [];
   await Promise.all(
-    liveTasks.map(async (taskKey) => {
+    activeTasks.map(async (taskKey) => {
       try {
         const r = await runComparison({
           taskKey,
@@ -122,7 +122,9 @@ async function prefetchComparisons(
     const providerLines = r.providers
       .map(
         (p) =>
-          `  - ${p.name}: ${p.price}${p.pros.length ? ` (${p.pros.join(", ")})` : ""}`,
+          `  - ${p.name}: ${p.price}` +
+          (p.pros.length ? ` | Fordelar: ${p.pros.join(", ")}` : "") +
+          (p.cons.length ? ` | Nackdelar: ${p.cons.join(", ")}` : ""),
       )
       .join("\n");
     return (
@@ -210,6 +212,10 @@ function buildSystemMessage(
     "## Jamforelsesystem\n" +
     "Systemet hamtar AUTOMATISKT jamforelsedata fran Flytt.io APIer nar anvandaren fragar om el, bredband, " +
     "forsakring, flyttfirma eller stadning. Resultaten visas under 'Faktisk jamforelsedata' nedan.\n" +
+    "Vissa kategorier anvander dedikerade APIer: el fran elprisetjustnu.se (exakta spotpriser), " +
+    "lokala flytt/stadfirmor fran Eniro (riktiga foretag med adress och telefon), " +
+    "och bredband fran PTS bredbandskartlaggning (tillgangliga tekniker och operatorer per kommun). " +
+    "Dessa markeras med 'mode: api' i datan nedan. Data fran api-laget ar verklig, inte uppskattningar.\n" +
     "VIKTIGT: Nar du svarar pa jamforelsefragor, anvand BARA data fran 'Faktisk jamforelsedata'. " +
     "HITTA INTE PA priser, leverantorer eller villkor. Om ingen jamforelsedata finns, " +
     "be anvandaren fylla i postnummer/ort forst sa data kan hamtas.\n\n" +

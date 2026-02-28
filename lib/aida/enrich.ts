@@ -9,8 +9,9 @@
  *  - Flyttdatum-analys (tidsfrister, prioriteringar)
  */
 
+import { eniroCompanySearch, type EniroResult } from "@/lib/services/eniro";
+
 const PAP_API_KEY = process.env.PAP_API_KEY ?? "";
-const ENIRO_API_KEY = process.env.ENIRO_API_KEY ?? "";
 const NOMINATIM_ENABLED =
   (process.env.NOMINATIM_ENABLED ?? "true").trim().toLowerCase() !== "false";
 const SCB_ENABLED =
@@ -38,13 +39,7 @@ interface FormFields {
   [key: string]: unknown;
 }
 
-interface EniroResult {
-  title?: string;
-  address?: string;
-  phoneNumber?: string;
-  city?: string;
-  zipCode?: string;
-}
+// EniroResult is imported from @/lib/services/eniro
 
 interface NominatimResult {
   displayName: string;
@@ -160,40 +155,7 @@ async function nominatimLookup(
   }
 }
 
-async function eniroCompanySearch(
-  query: string,
-  geoArea?: string
-): Promise<EniroResult[]> {
-  if (!ENIRO_API_KEY || !query.trim()) return [];
-  try {
-    const params = new URLSearchParams({
-      profile: "APIGW",
-      key: ENIRO_API_KEY,
-      country: "se",
-      search_word: query,
-    });
-    if (geoArea) params.set("geo_area", geoArea);
-
-    const res = await fetch(
-      `https://api.eniro.com/cs/search/basic?${params.toString()}`,
-      { signal: AbortSignal.timeout(4000) }
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    const adverts = data?.adverts;
-    if (!Array.isArray(adverts)) return [];
-
-    return adverts.slice(0, 5).map((a: Record<string, unknown>) => ({
-      title: String(a.companyName ?? ""),
-      address: String(a.address ?? ""),
-      phoneNumber: String(a.phoneNumber ?? ""),
-      city: String(a.city ?? ""),
-      zipCode: String(a.zipCode ?? ""),
-    }));
-  } catch {
-    return [];
-  }
-}
+// eniroCompanySearch is now in @/lib/services/eniro
 
 const CITY_TO_MUNICIPALITY_CODE: Record<string, string> = {
   stockholm: "0180", göteborg: "1480", goteborg: "1480", malmö: "1280",
@@ -332,22 +294,7 @@ function getMoveDateInsights(moveDate: string): string[] {
 }
 
 import { postalToElArea } from "@/lib/comparison/elarea";
-
-const WEB_SEARCH_COMPARE_ENABLED =
-  (process.env.WEB_SEARCH_COMPARE ?? "").trim().toLowerCase() === "y";
-
-const LIVE_TASK_KEYS = [
-  "electricity_contract",
-  "broadband_order_install",
-  "home_insurance",
-  "movers_or_trailer",
-  "cleaning_service",
-];
-const STUB_TASK_KEYS = [
-  "storage_gap",
-  "broadband_tech_check",
-  "mail_forwarding",
-];
+import { getLiveTaskKeys, getStubTaskKeys, getApiTaskKeys } from "@/lib/comparison/compare";
 
 function getComparisonOpportunities(fields: FormFields): string[] {
   const ideas: string[] = [];
@@ -364,15 +311,27 @@ function getComparisonOpportunities(fields: FormFields): string[] {
     );
   }
 
-  if (WEB_SEARCH_COMPARE_ENABLED && hasToAddress) {
+  if (hasToAddress) {
     const qs = `toPostal=${encodeURIComponent(toPostal)}&toCity=${encodeURIComponent(toCity)}${moveDate ? `&moveDate=${encodeURIComponent(moveDate)}` : ""}`;
-    ideas.push(
-      `JAMFORELSE-API TILLGANGLIGT (live web search): ` +
-      `Erbjud att hamta data nar anvandaren fragar om el, bredband, forsakring, flyttfirma eller stadning. ` +
-      `Aktiva endpoints: ` +
-      LIVE_TASK_KEYS.map((k) => `GET /api/compare/${k}?${qs}`).join(", ") +
-      `. Stubbade (hints only): ${STUB_TASK_KEYS.join(", ")}.`
-    );
+    const apiKeys = getApiTaskKeys();
+    const liveKeys = getLiveTaskKeys();
+    const stubKeys = getStubTaskKeys();
+
+    if (apiKeys.length > 0) {
+      ideas.push(
+        `JAMFORELSE-API (dedikerad): ${apiKeys.map((k) => `GET /api/compare/${k}?${qs}`).join(", ")}. ` +
+        `Dessa anvander riktiga externa APIer (t.ex. elprisetjustnu.se for el) och ger exakta priser.`
+      );
+    }
+    if (liveKeys.length > 0) {
+      ideas.push(
+        `JAMFORELSE-API (web search): ` +
+        `Erbjud att hamta data nar anvandaren fragar om bredband, forsakring, flyttfirma eller stadning. ` +
+        `Aktiva endpoints: ` +
+        liveKeys.map((k) => `GET /api/compare/${k}?${qs}`).join(", ") +
+        `. Stubbade (hints only): ${stubKeys.join(", ")}.`
+      );
+    }
   }
 
   if (hasToAddress) {

@@ -49,6 +49,7 @@ interface ComparisonAdminConfig {
   cacheTtlMs: number;
   tasks: ComparisonTaskConfig[];
   liveTaskKeys: string[];
+  apiTaskKeys: string[];
   stubTaskKeys: string[];
 }
 
@@ -324,8 +325,8 @@ function TaskRow({
             <div className="flex items-center gap-2">
               <p className="truncate text-sm font-medium">{label}</p>
               <Badge
-                variant={task.resolvedMode === "web_search" ? "default" : "secondary"}
-                className="text-[10px]"
+                variant={task.resolvedMode === "web_search" ? "default" : task.resolvedMode === "api" ? "outline" : "secondary"}
+                className={`text-[10px]${task.resolvedMode === "api" ? " border-emerald-500 text-emerald-700 dark:text-emerald-400" : ""}`}
               >
                 {modeLabel}
               </Badge>

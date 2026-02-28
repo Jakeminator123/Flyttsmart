@@ -12,7 +12,7 @@ import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
 import { classifyMessage } from "@/lib/aida/classify";
 import {
   runComparison,
-  getLiveTaskKeys,
+  getActiveTaskKeys,
   type CompareResult,
 } from "@/lib/comparison/compare";
 
@@ -32,13 +32,13 @@ async function prefetchComparisons(
   const toCity = formCtx.toCity;
   if (!toPostal && !toCity) return "";
 
-  const liveKeys = new Set(getLiveTaskKeys());
-  const liveTasks = taskKeys.filter((k) => liveKeys.has(k));
-  if (liveTasks.length === 0) return "";
+  const activeKeys = new Set(getActiveTaskKeys());
+  const activeTasks = taskKeys.filter((k) => activeKeys.has(k));
+  if (activeTasks.length === 0) return "";
 
   const results: CompareResult[] = [];
   await Promise.all(
-    liveTasks.map(async (taskKey) => {
+    activeTasks.map(async (taskKey) => {
       try {
         const r = await runComparison({
           taskKey,
@@ -58,7 +58,9 @@ async function prefetchComparisons(
     const providerLines = r.providers
       .map(
         (p) =>
-          `  - ${p.name}: ${p.price}${p.pros.length ? ` (${p.pros.join(", ")})` : ""}`,
+          `  - ${p.name}: ${p.price}` +
+          (p.pros.length ? ` | Fordelar: ${p.pros.join(", ")}` : "") +
+          (p.cons.length ? ` | Nackdelar: ${p.cons.join(", ")}` : ""),
       )
       .join("\n");
     return (
@@ -102,6 +104,10 @@ function buildSystemMessage(
     "## Jamforelsesystem\n" +
     "Systemet hamtar AUTOMATISKT jamforelsedata fran Flytt.io APIer nar anvandaren fragar om el, bredband, " +
     "forsakring, flyttfirma eller stadning. Resultaten visas under 'Faktisk jamforelsedata' nedan.\n" +
+    "Vissa kategorier anvander dedikerade APIer: el fran elprisetjustnu.se (exakta spotpriser), " +
+    "lokala flytt/stadfirmor fran Eniro (riktiga foretag med adress och telefon), " +
+    "och bredband fran PTS bredbandskartlaggning (tillgangliga tekniker och operatorer per kommun). " +
+    "Dessa markeras med 'mode: api' i datan nedan. Data fran api-laget ar verklig, inte uppskattningar.\n" +
     "VIKTIGT: Nar du svarar pa jamforelsefragor, anvand BARA data fran 'Faktisk jamforelsedata'. " +
     "HITTA INTE PA priser, leverantorer eller villkor. Om ingen jamforelsedata finns, " +
     "be anvandaren fylla i postnummer/ort forst sa data kan hamtas.\n\n" +
@@ -136,8 +142,9 @@ function buildSystemMessage(
     "## Tillgangliga datakallor i denna session\n" +
     "- PAP: postnummer till ort/kommun\n" +
     "- Nominatim: adressvalidering och geodata\n" +
-    "- Eniro: foretagslistor nara destinationen\n" +
-    "- SCB: befolkningsdata per kommun";
+    "- Eniro: foretagslistor nara destinationen + lokala flytt/stadfirmor (mode: api)\n" +
+    "- SCB: befolkningsdata per kommun\n" +
+    "- PTS: bredbandsdata per kommun (tillgangliga tekniker, operatorer, fibertackning)";
 
   if (formContext) {
     base +=

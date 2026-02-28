@@ -21,6 +21,8 @@ const envChecks: Array<{ key: string; category: string; anyOf: string[] }> = [
   { key: "RESEND_API_KEY / SENDGRID_API_KEY", category: "Automation", anyOf: ["RESEND_API_KEY", "SENDGRID_API_KEY"] },
   { key: "CRON_SECRET / VERCEL_CRON_SECRET", category: "Automation", anyOf: ["CRON_SECRET", "VERCEL_CRON_SECRET"] },
   { key: "QR_SIGNING_SECRET", category: "SKV", anyOf: ["QR_SIGNING_SECRET"] },
+  { key: "RENDER_API_KEY", category: "Render", anyOf: ["RENDER_API_KEY"] },
+  { key: "RENDER_SERVICE_ID", category: "Render", anyOf: ["RENDER_SERVICE_ID"] },
   { key: "WEB_SEARCH_COMPARE", category: "Jämförelser", anyOf: ["WEB_SEARCH_COMPARE"] },
   { key: "COMPARE_TASKS_ENABLED", category: "Jämförelser", anyOf: ["COMPARE_TASKS_ENABLED"] },
 ];

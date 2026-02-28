@@ -50,6 +50,8 @@ const endpoints: EndpointStatus[] = [
   { path: "/api/admin/openclaw/automation", method: "GET/POST", description: "Cron + email automation control", category: "Admin" },
   { path: "/api/admin/openclaw/automation/test-candidate", method: "POST", description: "Skapar testkandidat för reminder-flow", category: "Admin" },
   { path: "/api/admin/openclaw/readiness", method: "GET", description: "Readiness-check for deploy + capabilities", category: "Admin" },
+  { path: "/api/admin/render/env", method: "GET/PUT", description: "Render env-var hantering", category: "Render" },
+  { path: "/api/admin/render/deploys", method: "GET", description: "Render deploy-historik", category: "Render" },
 ];
 
 export default function ApiPage() {

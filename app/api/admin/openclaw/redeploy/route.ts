@@ -28,7 +28,7 @@ export async function POST() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${renderApiKey}`,
         },
-        body: JSON.stringify({ clearCache: "do_not_clear" }),
+        body: JSON.stringify({ clearCache: "clear" }),
       }
     );
 

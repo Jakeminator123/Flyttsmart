@@ -14,6 +14,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
+  Server,
+  ExternalLink,
+  Pencil,
+  History,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -179,6 +183,19 @@ export default function OpenClawPage() {
   const [readiness, setReadiness] = useState<OpenClawReadiness | null>(null);
   const [readinessLoading, setReadinessLoading] = useState(true);
 
+  const [renderEnv, setRenderEnv] = useState<Array<{ key: string; value: string; masked: boolean }>>([]);
+  const [renderEnvLoading, setRenderEnvLoading] = useState(true);
+  const [renderEnvError, setRenderEnvError] = useState<string | null>(null);
+  const [renderDeploys, setRenderDeploys] = useState<Array<{
+    id: string; status: string; trigger: string; createdAt: string;
+    finishedAt: string | null; commitMessage: string | null; commitId: string | null;
+  }>>([]);
+  const [renderDeploysLoading, setRenderDeploysLoading] = useState(true);
+  const [editingEnvKey, setEditingEnvKey] = useState<string | null>(null);
+  const [editingEnvValue, setEditingEnvValue] = useState("");
+  const [savingEnv, setSavingEnv] = useState(false);
+  const [envSaveMsg, setEnvSaveMsg] = useState<string | null>(null);
+
   const fetchHealth = useCallback(() => {
     setHealthLoading(true);
     fetch("/api/openclaw/health?debug=1")
@@ -259,13 +276,61 @@ export default function OpenClawPage() {
       .finally(() => setReadinessLoading(false));
   }, []);
 
+  const fetchRenderEnv = useCallback(() => {
+    setRenderEnvLoading(true);
+    setRenderEnvError(null);
+    fetch("/api/admin/render/env")
+      .then((r) => {
+        if (!r.ok) throw new Error(r.status === 501 ? "Render API-nyckel saknas" : `Render API ${r.status}`);
+        return r.json();
+      })
+      .then((data) => setRenderEnv(data.vars ?? []))
+      .catch((e) => { setRenderEnvError(e.message); setRenderEnv([]); })
+      .finally(() => setRenderEnvLoading(false));
+  }, []);
+
+  const fetchRenderDeploys = useCallback(() => {
+    setRenderDeploysLoading(true);
+    fetch("/api/admin/render/deploys")
+      .then((r) => { if (!r.ok) throw new Error(""); return r.json(); })
+      .then((data) => setRenderDeploys(data.deploys ?? []))
+      .catch(() => setRenderDeploys([]))
+      .finally(() => setRenderDeploysLoading(false));
+  }, []);
+
   useEffect(() => {
     fetchHealth();
     fetchConfig();
     fetchEvents();
     fetchAutomationStatus();
     fetchReadiness();
-  }, [fetchHealth, fetchConfig, fetchEvents, fetchAutomationStatus, fetchReadiness]);
+    fetchRenderEnv();
+    fetchRenderDeploys();
+  }, [fetchHealth, fetchConfig, fetchEvents, fetchAutomationStatus, fetchReadiness, fetchRenderEnv, fetchRenderDeploys]);
+
+  async function handleSaveEnvVar(key: string, value: string) {
+    setSavingEnv(true);
+    setEnvSaveMsg(null);
+    try {
+      const res = await fetch("/api/admin/render/env", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates: [{ key, value }] }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEnvSaveMsg(`${key} uppdaterad. Redeploy krävs.`);
+        setEditingEnvKey(null);
+        fetchRenderEnv();
+      } else {
+        setEnvSaveMsg(data.error ?? "Kunde inte spara.");
+      }
+    } catch {
+      setEnvSaveMsg("Nätverksfel.");
+    } finally {
+      setSavingEnv(false);
+    }
+  }
 
   async function handleSaveIdentity() {
     setSaving(true);
@@ -923,30 +988,141 @@ export default function OpenClawPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Gateway-konfiguration</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Server className="size-4" />
+            Render – Miljövariabler
+          </CardTitle>
           <CardDescription>
-            Inställningar från Docker-entrypoint och Render-miljövariabler
+            Env vars på <code className="text-xs">openclaw-aida</code> (Render).
+            Ändringar kräver redeploy.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {configLoading ? (
+        <CardContent className="space-y-4">
+          {renderEnvLoading ? (
             <div className="space-y-2">
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-6 w-full" />
+              {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
+            </div>
+          ) : renderEnvError ? (
+            <p className="text-sm text-destructive">{renderEnvError}</p>
+          ) : (
+            <div className="space-y-2">
+              {renderEnv.map((env) => (
+                <div key={env.key} className="rounded-lg border p-3">
+                  {editingEnvKey === env.key ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium">{env.key}</p>
+                      <input
+                        className="h-9 w-full rounded-md border bg-background px-3 font-mono text-sm"
+                        value={editingEnvValue}
+                        onChange={(e) => setEditingEnvValue(e.target.value)}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveEnvVar(env.key, editingEnvValue)}
+                          disabled={savingEnv}
+                        >
+                          {savingEnv ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Save className="mr-1 size-3" />}
+                          Spara
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setEditingEnvKey(null)}>
+                          Avbryt
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">{env.key}</p>
+                        <p className="truncate font-mono text-sm">
+                          {env.value || "–"}
+                          {env.masked && <Badge variant="secondary" className="ml-2 text-[9px]">masked</Badge>}
+                        </p>
+                      </div>
+                      {!env.masked && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setEditingEnvKey(env.key); setEditingEnvValue(env.value); setEnvSaveMsg(null); }}
+                        >
+                          <Pencil className="size-3" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
-          ) : config ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <ConfigRow label="Gateway URL" value={config.gatewayUrl} />
-              <ConfigRow label="Agent ID" value={config.agentId} />
-              <ConfigRow label="Primär modell" value={config.models.primary} />
-              <ConfigRow label="Fallback-modell" value={config.models.fallback} />
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Kunde inte hämta konfiguration.
-            </p>
           )}
+          {envSaveMsg && (
+            <p className="text-sm text-muted-foreground">{envSaveMsg}</p>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={fetchRenderEnv} disabled={renderEnvLoading}>
+              <RefreshCw className="mr-2 size-4" />
+              Uppdatera
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open("https://openclaw-aida.onrender.com/chat?session=agent%3Aaida-flyttagent%3Amain", "_blank")}
+            >
+              <ExternalLink className="mr-2 size-4" />
+              OpenClaw Control UI
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="size-4" />
+            Render – Deploy-historik
+          </CardTitle>
+          <CardDescription>Senaste 10 deploys för openclaw-aida</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {renderDeploysLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+          ) : renderDeploys.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Inga deploys hittade.</p>
+          ) : (
+            <div className="space-y-2">
+              {renderDeploys.map((d) => (
+                <div key={d.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={d.status === "live" ? "default" : d.status === "build_failed" || d.status === "update_failed" ? "destructive" : "secondary"}
+                        className="text-[10px]"
+                      >
+                        {d.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">{d.trigger}</span>
+                      {d.commitId && (
+                        <code className="text-[10px] text-muted-foreground">{d.commitId}</code>
+                      )}
+                    </div>
+                    {d.commitMessage && (
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">{d.commitMessage}</p>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                    {new Date(d.createdAt).toLocaleString("sv-SE")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-3">
+            <Button variant="outline" size="sm" onClick={fetchRenderDeploys} disabled={renderDeploysLoading}>
+              <RefreshCw className="mr-2 size-4" />
+              Uppdatera
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

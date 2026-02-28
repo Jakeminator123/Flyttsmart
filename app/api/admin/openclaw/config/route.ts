@@ -56,7 +56,7 @@ async function triggerRenderRedeploy(): Promise<RedeployResult> {
         "Content-Type": "application/json",
         Authorization: `Bearer ${renderApiKey}`,
       },
-      body: JSON.stringify({ clearCache: "do_not_clear" }),
+      body: JSON.stringify({ clearCache: "clear" }),
     }
   );
 

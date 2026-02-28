@@ -378,7 +378,7 @@ export async function POST(req: NextRequest) {
     // Non-streaming JSON fallback
     const data = await agentResponse.json().catch(() => null);
 
-    const reply = extractOpenClawText(data) ?? data?.content ?? "Inget svar fran agenten.";
+    const reply = extractOpenClawText(data) || data?.content || "Inget svar fran agenten.";
 
     return NextResponse.json({
       content: reply,

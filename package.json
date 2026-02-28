@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "dev": "next dev -p 4173",
     "lint": "eslint . --max-warnings=50",
-    "start": "next start",
+    "start": "next start -p 4173",
     "db:migrate": "npx tsx lib/db/migrate.ts",
     "db:studio": "npx drizzle-kit studio",
     "openclaw:doctor": "node scripts/openclaw-doctor.cjs"

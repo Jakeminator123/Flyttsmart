@@ -159,10 +159,18 @@ export async function GET(req: NextRequest) {
 
     const db = getDb();
 
+    const moveId = parseInt(id, 10);
+    if (isNaN(moveId)) {
+      return NextResponse.json(
+        { error: "Invalid id parameter" },
+        { status: 400 }
+      );
+    }
+
     const [move] = await db
       .select()
       .from(moves)
-      .where(eq(moves.id, parseInt(id)))
+      .where(eq(moves.id, moveId))
       .limit(1);
 
     if (!move) {

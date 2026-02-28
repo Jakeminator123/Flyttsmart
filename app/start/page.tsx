@@ -1,13 +1,11 @@
 "use client";
 
 import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 function StartContent() {
-  useSearchParams();
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8">
       <Card className="w-full max-w-md shadow-xl">

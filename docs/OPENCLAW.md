@@ -76,11 +76,11 @@ An OpenClaw tool can either set the header on every request or call the `bypassC
 
 1. Install deps once: `npm install`
 2. Copy `.env.example` → `.env.local` and fill dev secrets.
-3. Run `npm run dev` and visit `http://localhost:3000/adressandring`
+3. Run `npm run dev` and visit `http://localhost:4173/adressandring`
 4. To simulate mirroring, send a signed payload:
 
 ```bash
-curl -X POST http://localhost:3000/api/openclaw/webhook \
+curl -X POST http://localhost:4173/api/openclaw/webhook \
   -H 'Content-Type: application/json' \
   -H 'x-openclaw-signature: '$(node scripts/sign-openclaw-payload.js) \
   -d '{"sessionId":"demo","event":"field_change","formType":"adressandring","fields":{"firstName":"Test"}}'
@@ -91,7 +91,7 @@ curl -X POST http://localhost:3000/api/openclaw/webhook \
 5. To verify deployment access, hit:
 
 ```bash
-curl -i 'http://localhost:3000/api/openclaw/access' \
+curl -i 'http://localhost:4173/api/openclaw/access' \
   -H 'Content-Type: application/json' \
   -d '{"token": "<OPENCLAW_AGENT_TOKEN>"}'
 ```

@@ -1,6 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  async rewrites() {
+    const demoUrl = process.env.DEMO_ALTERNATIV_URL?.trim();
+    if (demoUrl) {
+      const base = demoUrl.replace(/\/$/, "");
+      return [
+        { source: "/demo", destination: `${base}/` },
+        { source: "/demo/:path*", destination: `${base}/:path*` },
+      ];
+    }
+    return [];
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
   },

@@ -9,7 +9,11 @@ import {
 import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
 import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
-import { classifyMessage, isGreetingOnlyMessage } from "@/lib/aida/classify";
+import {
+  classifyMessage,
+  isGreetingOnlyMessage,
+  isSiteCapabilitiesQuestion,
+} from "@/lib/aida/classify";
 import {
   runComparison,
   getActiveTaskKeys,
@@ -416,6 +420,25 @@ export async function POST(req: NextRequest) {
           reply: greetingReply,
           content: greetingReply,
           text: greetingReply,
+        },
+        { headers: corsHeaders },
+      );
+    }
+
+    if (isSiteCapabilitiesQuestion(userMessage)) {
+      const capabilitiesReply =
+        "Här kan du göra din flyttanmälan steg för steg: fylla i person- och adressuppgifter, få hjälp med vad fälten betyder, få smarta förslag i formuläret och jämföra flyttrelaterade tjänster. Jag kan guida dig genom varje steg och föreslå vad som saknas.";
+      pushMessage(sessionId, "user", userMessage);
+      pushMessage(sessionId, "assistant", capabilitiesReply);
+      return NextResponse.json(
+        {
+          role: "assistant",
+          provider: "did-local-capabilities",
+          agentId: AGENT_ID,
+          sessionId,
+          reply: capabilitiesReply,
+          content: capabilitiesReply,
+          text: capabilitiesReply,
         },
         { headers: corsHeaders },
       );

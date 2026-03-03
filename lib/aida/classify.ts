@@ -63,6 +63,20 @@ export function isGreetingOnlyMessage(message: string): boolean {
   return false;
 }
 
+export function isSiteCapabilitiesQuestion(message: string): boolean {
+  const normalized = normalizeMessage(message);
+  if (!normalized) return false;
+
+  return (
+    /vad kan jag gora pa denna sajt/.test(normalized) ||
+    /vad kan jag gora har/.test(normalized) ||
+    /vad kan man gora pa denna sajt/.test(normalized) ||
+    /vad kan ni hjalpa mig med/.test(normalized) ||
+    /vad gor den har sajten/.test(normalized) ||
+    /vad ar det har for sajt/.test(normalized)
+  );
+}
+
 export function classifyMessage(message: string): {
   intent: MessageIntent;
   comparisonTasks: string[];

@@ -65,27 +65,6 @@ const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
 
 // ─── Comparison pre-fetch ────────────────────────────────
 
-const COMPARISON_KEYWORDS: Record<string, string[]> = {
-  electricity_contract: ["el", "elavtal", "elbolag", "elpris", "elomrade", "elområde", "elnät"],
-  broadband_order_install: ["bredband", "fiber", "internet", "wifi"],
-  home_insurance: ["hemförsäkring", "hemforsakring", "försäkring", "forsakring"],
-  movers_or_trailer: ["flyttfirma", "flytt firma", "flytthjälp", "flytthjalp", "släpvagn", "slapvagn"],
-  cleaning_service: ["städ", "stad", "flyttstäd", "flyttstad", "städfirma", "stadfirma"],
-};
-
-function detectComparisonTasks(message: string): string[] {
-  const lower = message.toLowerCase();
-  const matched: string[] = [];
-  const activeKeys = new Set(getActiveTaskKeys());
-  for (const [taskKey, keywords] of Object.entries(COMPARISON_KEYWORDS)) {
-    if (!activeKeys.has(taskKey)) continue;
-    if (keywords.some((kw) => lower.includes(kw))) {
-      matched.push(taskKey);
-    }
-  }
-  return matched;
-}
-
 async function prefetchComparisons(
   taskKeys: string[],
   formCtx: Record<string, string> | null,
@@ -484,7 +463,7 @@ export async function POST(req: NextRequest) {
     } else if (intent === "comparison" && formCtx) {
       const apiBaseUrl = req.nextUrl.origin;
       const [enrichResult, compResult] = await Promise.all([
-        enrichContext({ fields: formCtx }, apiBaseUrl),
+        enrichContext({ fields: formCtx }, apiBaseUrl, userMessage),
         prefetchComparisons(comparisonTasks, formCtx),
       ]);
       enrichedText = enrichResult?.text || null;
@@ -497,9 +476,13 @@ export async function POST(req: NextRequest) {
           formCtx = getFormContext(sessionId);
         }
       }
-    } else if (formCtx) {
+    } else {
       const apiBaseUrl = req.nextUrl.origin;
-      const enrichResult = await enrichContext({ fields: formCtx }, apiBaseUrl);
+      const enrichResult = await enrichContext(
+        { fields: formCtx ?? {} },
+        apiBaseUrl,
+        userMessage
+      );
       enrichedText = enrichResult?.text || null;
       if (enrichResult?.resolvedFields) {
         for (const [k, v] of Object.entries(enrichResult.resolvedFields)) {
@@ -550,7 +533,7 @@ export async function POST(req: NextRequest) {
       );
 
       if (gatewayResponse.status >= 500 || gatewayResponse.status === 429) {
-        console.log("[DID/OpenClaw] retrying with shorter context...");
+        console.warn("[DID/OpenClaw] retrying with shorter context...");
         await new Promise((r) => setTimeout(r, 1500));
         const shortMessages = [
           openaiMessages[0],

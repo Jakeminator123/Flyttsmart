@@ -126,6 +126,35 @@ async function migrate() {
   await ensureMoveColumn("property_designation");
   await ensureMoveColumn("property_owner");
   await ensureMoveColumn("ip_address");
+  await ensureMoveColumn("has_children", "INTEGER NOT NULL DEFAULT 0");
+  await ensureMoveColumn("user_agent");
+  await ensureMoveColumn("ip_city");
+  await ensureMoveColumn("ip_region");
+  await ensureMoveColumn("ip_country");
+  await ensureMoveColumn("ip_latitude");
+  await ensureMoveColumn("ip_longitude");
+  await ensureMoveColumn("from_municipality");
+  await ensureMoveColumn("from_county");
+  await ensureMoveColumn("from_latitude");
+  await ensureMoveColumn("from_longitude");
+  await ensureMoveColumn("to_municipality");
+  await ensureMoveColumn("to_county");
+  await ensureMoveColumn("to_latitude");
+  await ensureMoveColumn("to_longitude");
+  await ensureMoveColumn("enrichment_data");
+
+  async function ensureUserColumn(columnName: string, sqlType = "TEXT") {
+    const info = await client.execute("PRAGMA table_info(users)");
+    const exists = info.rows.some(
+      (row) => String((row as Record<string, unknown>).name) === columnName
+    );
+    if (!exists) {
+      await client.execute(`ALTER TABLE users ADD COLUMN ${columnName} ${sqlType}`);
+    }
+  }
+
+  await ensureUserColumn("first_name");
+  await ensureUserColumn("last_name");
 
   async function ensureChecklistColumn(columnName: string, sqlType = "TEXT") {
     const info = await client.execute("PRAGMA table_info(checklist_items)");

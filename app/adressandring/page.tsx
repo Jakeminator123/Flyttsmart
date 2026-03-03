@@ -292,6 +292,8 @@ export default function AdressandringPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: `${form.firstName} ${form.lastName}`.trim(),
+          firstName: form.firstName,
+          lastName: form.lastName,
           personalNumber: form.personalNumber,
           email: form.email,
           phone: form.phone,
@@ -307,6 +309,7 @@ export default function AdressandringPage() {
           moveDate: form.moveDate,
           householdType: form.householdType,
           reason: form.reason,
+          hasChildren: form.hasChildren,
           checklist,
         }),
       });

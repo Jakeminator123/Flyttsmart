@@ -248,13 +248,13 @@ export async function POST(req: NextRequest) {
       // Fast path: skip enrichment + comparison for simple knowledge questions
     } else if (intent === "comparison") {
       const [enrichResult, compResult] = await Promise.all([
-        enrichContext(formContext, apiBaseUrl),
+        enrichContext(formContext, apiBaseUrl, latestUserMessage?.content),
         prefetchComparisons(comparisonTasks, formFields ?? null),
       ]);
       enrichedData = enrichResult?.text || undefined;
       comparisonData = compResult;
     } else {
-      const enrichResult = await enrichContext(formContext, apiBaseUrl);
+      const enrichResult = await enrichContext(formContext, apiBaseUrl, latestUserMessage?.content);
       enrichedData = enrichResult?.text || undefined;
     }
 

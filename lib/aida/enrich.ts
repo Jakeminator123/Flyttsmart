@@ -430,13 +430,23 @@ async function personLookup(pnr: string, apiBaseUrl: string): Promise<{
   return null;
 }
 
-export async function enrichContext(
-  formContext: { fields?: FormFields; currentStep?: number } | null,
-  apiBaseUrl?: string
-): Promise<EnrichResult> {
-  if (!formContext?.fields) return { text: "", resolvedFields: {} };
+function extractPnrFromText(text: string): string | null {
+  const m = text.match(/\b(\d{8})[- ]?(\d{4})\b/);
+  if (!m) return null;
+  const candidate = m[1] + m[2];
+  const parsed = parsePersonalNumber(candidate);
+  return parsed?.valid ? candidate : null;
+}
 
-  const fields = formContext.fields;
+export async function enrichContext(
+  formContext: { fields?: FormFields; currentStep?: number } | null | undefined,
+  apiBaseUrl?: string,
+  latestMessage?: string
+): Promise<EnrichResult> {
+  const chatPnr = latestMessage ? extractPnrFromText(latestMessage) : null;
+  if (!formContext?.fields && !chatPnr) return { text: "", resolvedFields: {} };
+
+  const fields = formContext?.fields ?? ({} as FormFields);
   const result: EnrichmentResult = {
     postalLookups: {},
     nominatimResults: [],
@@ -500,15 +510,17 @@ export async function enrichContext(
 
   await Promise.all(lookups);
 
-  if (fields.personalNumber) {
-    const parsed = parsePersonalNumber(fields.personalNumber);
+  const pnrSource = fields.personalNumber || chatPnr;
+
+  if (pnrSource) {
+    const parsed = parsePersonalNumber(pnrSource);
     if (parsed?.valid) {
       result.personInsights.push(
         `Personnumret tillhor nagon fodd ${parsed.birthDate} (${parsed.age} ar).`
       );
     }
     if (apiBaseUrl && (!fields.firstName || !fields.lastName || !fields.fromStreet) && parsed?.valid) {
-      const lookup = await personLookup(fields.personalNumber, apiBaseUrl);
+      const lookup = await personLookup(pnrSource, apiBaseUrl);
       if (lookup) result.personLookup = lookup;
     }
   }

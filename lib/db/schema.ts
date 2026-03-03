@@ -4,6 +4,8 @@ import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
   personalNumber: text("personal_number"), // encrypted / hashed
   email: text("email"),
   phone: text("phone"),
@@ -30,8 +32,24 @@ export const moves = sqliteTable("moves", {
   moveDate: text("move_date"), // ISO date string
   householdType: text("household_type"), // "myself" | "family" | "partner" | "child"
   reason: text("reason"),
+  hasChildren: integer("has_children", { mode: "boolean" }).notNull().default(false),
   status: text("status").notNull().default("draft"), // draft | submitted | confirmed | completed
   ipAddress: text("ip_address"),
+  ipCity: text("ip_city"),
+  ipRegion: text("ip_region"),
+  ipCountry: text("ip_country"),
+  ipLatitude: text("ip_latitude"),
+  ipLongitude: text("ip_longitude"),
+  userAgent: text("user_agent"),
+  fromMunicipality: text("from_municipality"),
+  fromCounty: text("from_county"),
+  fromLatitude: text("from_latitude"),
+  fromLongitude: text("from_longitude"),
+  toMunicipality: text("to_municipality"),
+  toCounty: text("to_county"),
+  toLatitude: text("to_latitude"),
+  toLongitude: text("to_longitude"),
+  enrichmentData: text("enrichment_data"), // JSON blob with full API responses
   createdAt: text("created_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

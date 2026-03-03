@@ -10,6 +10,7 @@ import {
   GitCompareArrows,
   FileText,
   ArrowLeft,
+  Users,
 } from "lucide-react";
 import {
   Sidebar,
@@ -27,6 +28,7 @@ import {
 
 const navItems = [
   { title: "Allmänt", href: "/admin", icon: LayoutDashboard },
+  { title: "Personer", href: "/admin/personer", icon: Users },
   { title: "OpenClaw", href: "/admin/openclaw", icon: Bot },
   { title: "D-ID", href: "/admin/did", icon: Mic },
   { title: "API", href: "/admin/api", icon: Code2 },

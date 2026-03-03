@@ -53,6 +53,10 @@ function normalizeMessage(message: string): string {
     .trim();
 }
 
+function foldDiacritics(value: string): string {
+  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "");
+}
+
 export function isGreetingOnlyMessage(message: string): boolean {
   const normalized = normalizeMessage(message);
   if (!normalized) return false;
@@ -66,14 +70,16 @@ export function isGreetingOnlyMessage(message: string): boolean {
 export function isSiteCapabilitiesQuestion(message: string): boolean {
   const normalized = normalizeMessage(message);
   if (!normalized) return false;
+  const folded = foldDiacritics(normalized);
 
   return (
-    /vad kan jag gora pa denna sajt/.test(normalized) ||
-    /vad kan jag gora har/.test(normalized) ||
-    /vad kan man gora pa denna sajt/.test(normalized) ||
-    /vad kan ni hjalpa mig med/.test(normalized) ||
-    /vad gor den har sajten/.test(normalized) ||
-    /vad ar det har for sajt/.test(normalized)
+    /vad kan jag gora pa denna sajt/.test(folded) ||
+    /vad kan jag gora pa den har sajten/.test(folded) ||
+    /vad kan jag gora har/.test(folded) ||
+    /vad kan man gora pa denna sajt/.test(folded) ||
+    /vad kan ni hjalpa mig med/.test(folded) ||
+    /vad gor den har sajten/.test(folded) ||
+    /vad ar det har for sajt/.test(folded)
   );
 }
 

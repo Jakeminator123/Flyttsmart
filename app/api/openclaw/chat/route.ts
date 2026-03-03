@@ -9,7 +9,7 @@ import {
 import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
 import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
-import { classifyMessage } from "@/lib/aida/classify";
+import { classifyMessage, isGreetingOnlyMessage } from "@/lib/aida/classify";
 import {
   runComparison,
   getActiveTaskKeys,
@@ -209,6 +209,16 @@ export async function POST(req: NextRequest) {
           field: directSuggestion.field,
           value: directSuggestion.value,
         },
+      });
+    }
+
+    if (latestUserMessage && isGreetingOnlyMessage(latestUserMessage.content)) {
+      const greetingReply =
+        "Hej! Jag är med. Säg bara vad du vill göra i flyttformuläret så hjälper jag direkt.";
+      return NextResponse.json({
+        role: "assistant",
+        content: greetingReply,
+        provider: "openclaw-local-greeting",
       });
     }
 

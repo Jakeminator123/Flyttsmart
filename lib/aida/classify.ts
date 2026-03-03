@@ -9,6 +9,22 @@
 
 export type MessageIntent = "direct" | "simple" | "comparison" | "general";
 
+const GREETING_ONLY_VALUES = new Set([
+  "hej",
+  "hejsan",
+  "hallå",
+  "halla",
+  "tjena",
+  "tja",
+  "tjabba",
+  "yo",
+  "hello",
+  "god morgon",
+  "god dag",
+  "god kväll",
+  "god kvall",
+]);
+
 const SIMPLE_PATTERNS = [
   /^(hej|hallå|tjena|hejsan|god\s*(morgon|kväll|dag)|tack|okej|ok)\b/i,
   /vad\s+(är|betyder|innebär)\s+(en?\s+)?(fastighets(beteckning|ägare)|lägenhetsnr|lägenhetsnummer|personnummer|postnummer|inflyttningsdatum)/i,
@@ -28,6 +44,24 @@ const COMPARISON_KEYWORDS: Record<string, string[]> = {
   movers_or_trailer: ["flyttfirma", "flytt firma", "flytthjälp", "flytthjalp", "släpvagn", "slapvagn"],
   cleaning_service: ["städ", "stad", "flyttstäd", "flyttstad", "städfirma", "stadfirma"],
 };
+
+function normalizeMessage(message: string): string {
+  return message
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function isGreetingOnlyMessage(message: string): boolean {
+  const normalized = normalizeMessage(message);
+  if (!normalized) return false;
+  if (GREETING_ONLY_VALUES.has(normalized)) return true;
+
+  // Common follow-up after prior misunderstanding.
+  if (/^men jag s[äa]ger ju bara hej$/.test(normalized)) return true;
+  return false;
+}
 
 export function classifyMessage(message: string): {
   intent: MessageIntent;

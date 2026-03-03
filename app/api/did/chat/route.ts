@@ -9,7 +9,7 @@ import {
 import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
 import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
-import { classifyMessage } from "@/lib/aida/classify";
+import { classifyMessage, isGreetingOnlyMessage } from "@/lib/aida/classify";
 import {
   runComparison,
   getActiveTaskKeys,
@@ -397,6 +397,25 @@ export async function POST(req: NextRequest) {
           content: UNLOCK_GREETING,
           text: UNLOCK_GREETING,
           unlocked: true,
+        },
+        { headers: corsHeaders },
+      );
+    }
+
+    if (isGreetingOnlyMessage(userMessage)) {
+      const greetingReply =
+        "Hej! Jag är med. Säg bara vad du vill göra i flyttformuläret så hjälper jag direkt.";
+      pushMessage(sessionId, "user", userMessage);
+      pushMessage(sessionId, "assistant", greetingReply);
+      return NextResponse.json(
+        {
+          role: "assistant",
+          provider: "did-local-greeting",
+          agentId: AGENT_ID,
+          sessionId,
+          reply: greetingReply,
+          content: greetingReply,
+          text: greetingReply,
         },
         { headers: corsHeaders },
       );

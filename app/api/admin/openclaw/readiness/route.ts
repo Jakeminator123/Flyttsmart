@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  getOpenClawAgentId,
+  getOpenClawChatModel,
+  getModelForIntent,
+} from "@/lib/openclaw/server-config";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +28,8 @@ function boolFromEnv(value: string | undefined, fallback = false): boolean {
 }
 
 export async function GET() {
+  const agentId = getOpenClawAgentId();
+  const modelPrimary = getOpenClawChatModel(agentId);
   const webSearchEnabled =
     (process.env.WEB_SEARCH_COMPARE ?? "").trim().toLowerCase() === "y";
   const didEnabled = process.env.NEXT_PUBLIC_DID_BRIDGE_ENABLED === "true";
@@ -140,6 +147,13 @@ export async function GET() {
       didBridgeEnabled: didEnabled,
       reminderUseAida: boolFromEnv(process.env.REMINDER_USE_AIDA, true),
       providerPreference,
+      modelRouting: {
+        agentId,
+        primary: modelPrimary,
+        simple: getModelForIntent("simple"),
+        general: getModelForIntent("general"),
+        comparison: getModelForIntent("comparison"),
+      },
     },
     checks,
   });

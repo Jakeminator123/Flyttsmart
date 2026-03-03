@@ -3,6 +3,7 @@ import {
   getOpenClawAgentId,
   getOpenClawChatModel,
   getOpenClawGatewayBaseUrl,
+  getModelForIntent,
   getOpenClawTokens,
 } from "@/lib/openclaw/server-config";
 
@@ -16,6 +17,11 @@ export async function GET(req: NextRequest) {
   const gatewayUrl = getOpenClawGatewayBaseUrl();
   const agentId = getOpenClawAgentId();
   const model = getOpenClawChatModel(agentId);
+  const modelByIntent = {
+    simple: getModelForIntent("simple"),
+    general: getModelForIntent("general"),
+    comparison: getModelForIntent("comparison"),
+  };
   const testTalEnabled = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
   const scbEnabled =
     (process.env.SCB_ENABLED ?? "").toLowerCase() === "y" ||
@@ -38,6 +44,7 @@ export async function GET(req: NextRequest) {
     gatewayUrl,
     agentId,
     model,
+    modelByIntent,
     hasGatewayToken: Boolean(gatewayToken),
     hasHooksToken: Boolean(hooksToken),
     hasAccessToken: Boolean(accessToken),

@@ -23,6 +23,17 @@ import {
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
 const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
+const GATEWAY_TIMEOUT_MS_RAW = Number(process.env.OPENCLAW_CHAT_TIMEOUT_MS ?? "25000");
+const OPENCLAW_GATEWAY_TIMEOUT_MS =
+  Number.isFinite(GATEWAY_TIMEOUT_MS_RAW) && GATEWAY_TIMEOUT_MS_RAW >= 5000
+    ? GATEWAY_TIMEOUT_MS_RAW
+    : 25000;
+
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const name = (error as { name?: string }).name;
+  return name === "AbortError" || name === "TimeoutError";
+}
 
 // ─── Comparison pre-fetch ────────────────────────────────
 
@@ -138,6 +149,7 @@ function buildSystemMessage(
     "- Om toCity ar ifyllt, erbjud lokala tips och foreslå att jamfora el/bredband/forsakring.\n" +
     "- Vid jamforelsefragor, anvand BARA data fran 'Faktisk jamforelsedata'. Hitta INTE PA.\n" +
     "- Nar anvandaren fragar vad ett falt ar, forklara tydligt med exempel och var man hittar uppgiften.\n" +
+    "- Sag ALDRIG att sessionen har kraschat, dog eller tappade data om det inte uttryckligen finns i kontexten.\n" +
     "- Om gatuadress och stad finns men postnummer saknas, har systemet AUTOMATISKT slagit upp postnumret " +
     "via Nominatim/OpenStreetMap. Resultatet finns i 'Auto-uppslaget postnummer' nedan. " +
     "Anvand det direkt — fraga INTE anvandaren om postnumret om det redan ar uppslaget.\n" +
@@ -290,20 +302,49 @@ export async function POST(req: NextRequest) {
       })),
     ];
 
-    const agentResponse = await fetch(chatUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GATEWAY_TOKEN}`,
-        "x-openclaw-agent-id": AGENT_ID,
-      },
-      body: JSON.stringify({
-        model: getModelForIntent(intent),
-        stream: true,
-        user: sessionId,
-        messages: openaiMessages,
-      }),
-    });
+    const timeoutSignal =
+      typeof (AbortSignal as { timeout?: (ms: number) => AbortSignal }).timeout === "function"
+        ? (AbortSignal as { timeout: (ms: number) => AbortSignal }).timeout(OPENCLAW_GATEWAY_TIMEOUT_MS)
+        : undefined;
+
+    let agentResponse: Response;
+    try {
+      agentResponse = await fetch(chatUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${GATEWAY_TOKEN}`,
+          "x-openclaw-agent-id": AGENT_ID,
+        },
+        body: JSON.stringify({
+          model: getModelForIntent(intent),
+          stream: true,
+          user: sessionId,
+          messages: openaiMessages,
+        }),
+        signal: timeoutSignal,
+      });
+    } catch (error) {
+      if (isAbortError(error)) {
+        return NextResponse.json(
+          {
+            content: "Aida tog för lång tid att svara. Försök igen direkt så fortsätter vi.",
+            role: "assistant",
+            provider: "openclaw-timeout-fallback",
+          },
+          { status: 504 }
+        );
+      }
+      console.error("[v0] OpenClaw chat fetch error:", error);
+      return NextResponse.json(
+        {
+          content: "Aida kunde inte nås just nu. Försök igen om en stund.",
+          role: "assistant",
+          provider: "openclaw-network-fallback",
+        },
+        { status: 502 }
+      );
+    }
 
     if (!agentResponse.ok) {
       const errText = await agentResponse.text().catch(() => "Unknown");
@@ -409,6 +450,16 @@ export async function POST(req: NextRequest) {
       role: "assistant",
     });
   } catch (error) {
+    if (isAbortError(error)) {
+      return NextResponse.json(
+        {
+          content: "Aida tog för lång tid att svara. Försök igen direkt så fortsätter vi.",
+          role: "assistant",
+          provider: "openclaw-timeout-fallback",
+        },
+        { status: 504 }
+      );
+    }
     console.error("[v0] OpenClaw chat proxy error:", error);
     return NextResponse.json(
       {

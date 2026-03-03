@@ -89,6 +89,8 @@ For `comparison` intent, enrichment and comparison run in **parallel**
 | `OPENCLAW_GATEWAY_TOKEN` | Auth to OpenClaw on Render |
 | `OPENCLAW_GATEWAY_URL` | OpenClaw base URL |
 | `OPENCLAW_AGENT_ID` | Agent ID (`aida-flyttagent`) |
+| `OPENCLAW_CHAT_MODEL` | Primary model for general/comparison (recommended: `openai/gpt-5.1-codex`) |
+| `OPENCLAW_CHAT_MODEL_SIMPLE` | Fast model for simple prompts (recommended: `openai/gpt-4.1-mini`) |
 | `DID_BRIDGE_SECRET` | Auth for cross-origin DID bridge requests |
 | `NEXT_PUBLIC_DID_CLIENT_KEY` | D-ID client key (frontend, origin-locked) |
 | `NEXT_PUBLIC_DID_AGENT_ID` | D-ID agent ID (`v2_agt_THZNQGpC`) |
@@ -102,6 +104,8 @@ For `comparison` intent, enrichment and comparison run in **parallel**
 | `OPENCLAW_GATEWAY_TOKEN` | Gateway auth |
 | `OPENCLAW_GATEWAY_PORT` | Listen port (`10000`) |
 | `OPENAI_API_KEY` | OpenAI API for LLM calls |
+
+OpenClaw is configured OpenAI-only in this setup (no JuiceFactory provider path).
 
 ## D-ID agent config
 

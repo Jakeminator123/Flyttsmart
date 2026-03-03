@@ -79,7 +79,7 @@ export function getOpenClawChatModel(agentId = getOpenClawAgentId()): string {
 export function getModelForIntent(intent: string): string {
   const powerful = getOpenClawChatModel();
   if (intent === "simple") {
-    return firstNonEmpty(process.env.OPENCLAW_CHAT_MODEL_SIMPLE, powerful);
+    return firstNonEmpty(process.env.OPENCLAW_CHAT_MODEL_SIMPLE, "openai/gpt-4.1-mini", powerful);
   }
   return powerful;
 }

@@ -744,16 +744,16 @@ export function DidOpenClawBridgeWidget() {
         </button>
       </div>
 
-      <div className="relative h-[180px] shrink-0 bg-linear-to-b from-gray-900 to-black sm:h-[200px]">
+      <div className="relative h-[220px] shrink-0 bg-black sm:h-[260px]">
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted={connectionState !== "connected"}
           onLoadedMetadata={(e) => void (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-contain object-top"
         />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/45 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-black/40 to-transparent" />
         {connectionState !== "connected" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-linear-to-b from-gray-800/90 to-gray-900/95 text-center text-white/90">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">

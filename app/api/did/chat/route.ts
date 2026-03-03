@@ -66,6 +66,17 @@ function matchesPassphrase(message: string): boolean {
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
 const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
+const GATEWAY_TIMEOUT_MS_RAW = Number(process.env.OPENCLAW_CHAT_TIMEOUT_MS ?? "25000");
+const OPENCLAW_GATEWAY_TIMEOUT_MS =
+  Number.isFinite(GATEWAY_TIMEOUT_MS_RAW) && GATEWAY_TIMEOUT_MS_RAW >= 5000
+    ? GATEWAY_TIMEOUT_MS_RAW
+    : 25000;
+
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const name = (error as { name?: string }).name;
+  return name === "AbortError" || name === "TimeoutError";
+}
 
 // ─── Comparison pre-fetch ────────────────────────────────
 
@@ -228,6 +239,7 @@ function buildSystemMessage(
     "- Om postnummer ar ifyllt och ort saknas, foreslå orten.\n" +
     "- Om toCity ar ifyllt, erbjud lokala tips och foreslå att jamfora el/bredband/forsakring.\n" +
     "- Vid jamforelsefragor (el, bredband, forsakring, flyttfirma, stadning), ge konkreta tips med leverantorsnamn.\n" +
+    "- Sag ALDRIG att sessionen har kraschat, dog eller tappade data om det inte uttryckligen finns i kontexten.\n" +
     "- Om gatuadress och stad finns men postnummer saknas, har systemet AUTOMATISKT slagit upp postnumret " +
     "via Nominatim/OpenStreetMap. Resultatet finns i 'Auto-uppslaget postnummer' nedan. " +
     "Anvand det direkt — fraga INTE anvandaren om postnumret om det redan ar uppslaget.\n" +
@@ -549,6 +561,10 @@ export async function POST(req: NextRequest) {
     const chatModel = getModelForIntent(intent);
 
     async function callGateway(msgs: Array<{ role: string; content: string }>) {
+      const timeoutSignal =
+        typeof (AbortSignal as { timeout?: (ms: number) => AbortSignal }).timeout === "function"
+          ? (AbortSignal as { timeout: (ms: number) => AbortSignal }).timeout(OPENCLAW_GATEWAY_TIMEOUT_MS)
+          : undefined;
       const res = await fetch(`${GATEWAY_BASE_URL}/v1/chat/completions`, {
         method: "POST",
         headers: {
@@ -562,6 +578,7 @@ export async function POST(req: NextRequest) {
           user: sessionId,
           messages: msgs,
         }),
+        signal: timeoutSignal,
       });
       return res;
     }
@@ -626,6 +643,17 @@ export async function POST(req: NextRequest) {
       { headers: corsHeaders },
     );
   } catch (error) {
+    if (isAbortError(error)) {
+      return NextResponse.json(
+        {
+          error: "OpenClaw gateway timeout",
+          reply: "Aida tog för lång tid att svara. Försök igen direkt så fortsätter vi.",
+          content: "Aida tog för lång tid att svara. Försök igen direkt så fortsätter vi.",
+          text: "Aida tog för lång tid att svara. Försök igen direkt så fortsätter vi.",
+        },
+        { status: 504, headers: corsHeaders },
+      );
+    }
     const detail = error instanceof Error ? error.message : String(error);
     console.error("[DID/OpenClaw] bridge error:", detail, error);
     return NextResponse.json(

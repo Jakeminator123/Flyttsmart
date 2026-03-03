@@ -55,6 +55,9 @@ Render environment variables (optional but recommended):
 - OPENCLAW_MODEL_PRIMARY=openai/gpt-5.1-codex
 - OPENCLAW_MODEL_FALLBACK=openai/gpt-5.1-codex
 
+Provider note:
+- This stack is OpenAI-only (no JuiceFactory/qwen provider path).
+
 Notes:
 - Do not manually set PORT unless you have a specific reason.
 - The entrypoint resolves port in this order:
@@ -74,6 +77,8 @@ Recommended OpenClaw vars:
 - OPENCLAW_HOOKS_TOKEN=<secret>
 - OPENCLAW_ACCESS_TOKEN=<secret>
 - OPENCLAW_WEBHOOK_SECRET=<secret>   (for form mirror signature verification)
+- OPENCLAW_CHAT_MODEL=openai/gpt-5.1-codex
+- OPENCLAW_CHAT_MODEL_SIMPLE=openai/gpt-4.1-mini
 
 Other app-critical vars:
 - TURSO_DATABASE_URL

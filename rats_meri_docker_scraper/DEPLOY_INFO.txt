@@ -1,0 +1,30 @@
+Rats Meri Docker Scraper — Render Deployment
+============================================
+
+Purpose
+-------
+REST API för personnummeruppslag via Biluppgifter.se, Ratsit.se och Merinfo.se.
+Används av Flytt.io för autofill (namn, adress från personnummer) och av Aida-agenten.
+
+Fordon krävs INTE — Biluppgifter.se visar namn även för privatpersoner utan fordon.
+
+Render Setup
+------------
+1. Skapa ny Web Service
+2. Connect repo, Root Directory: rats_meri_docker_scraper
+3. Runtime: Docker
+4. Render sätter PORT automatiskt
+5. Health check: GET /health
+
+Vercel (Flytt.io) — Environment Variables
+-----------------------------------------
+RATSIT_SCRAPER_URL=https://rats-meri-docker-scraper.onrender.com
+
+(Uppdatera URL efter att Render-tjänsten skapats.)
+
+Endpoints
+---------
+POST /lookup   { "pnr": "19860528-0299" }
+POST /search   { "fornamn": "Jakob", "efternamn": "Eberg", "stad": "Stockholm" }
+POST /batch    { "pnrs": ["19860528-0299", ...] }  (max 10)
+GET  /health

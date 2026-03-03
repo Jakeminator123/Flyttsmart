@@ -143,7 +143,8 @@ function buildSystemMessage(
     "- Nominatim: adressvalidering och geodata\n" +
     "- Eniro: foretagslistor nara destinationen + lokala flytt/stadfirmor (mode: api)\n" +
     "- SCB: befolkningsdata per kommun\n" +
-    "- PTS: bredbandsdata per kommun (tillgangliga tekniker, operatorer, fibertackning)";
+    "- PTS: bredbandsdata per kommun (tillgangliga tekniker, operatorer, fibertackning)\n" +
+    "- Personuppslag (Ratsit/Biluppgifter/Merinfo): personnummer -> namn, adress, stad (koers automatiskt om personnummer finns men namn/adress saknas)";
 
   if (formContext) {
     base +=
@@ -241,19 +242,19 @@ export async function POST(req: NextRequest) {
     let enrichedData: string | undefined;
     let comparisonData = "";
 
+    const apiBaseUrl = req.nextUrl.origin;
+
     if (intent === "simple") {
       // Fast path: skip enrichment + comparison for simple knowledge questions
     } else if (intent === "comparison") {
-      // Run enrichment and comparison in PARALLEL
       const [enrichResult, compResult] = await Promise.all([
-        enrichContext(formContext),
+        enrichContext(formContext, apiBaseUrl),
         prefetchComparisons(comparisonTasks, formFields ?? null),
       ]);
       enrichedData = enrichResult?.text || undefined;
       comparisonData = compResult;
     } else {
-      // General: enrichment only (no comparison needed)
-      const enrichResult = await enrichContext(formContext);
+      const enrichResult = await enrichContext(formContext, apiBaseUrl);
       enrichedData = enrichResult?.text || undefined;
     }
 

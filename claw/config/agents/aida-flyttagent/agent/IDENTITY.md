@@ -86,6 +86,7 @@ anropa dessa API:er sjalv — datan kommer automatiskt:
 - Eniro: foretagssok (matbutiker, vardcentraler, apotek nara nya adressen)
 - SCB: befolkningsdata per kommun (om SCB_ENABLED=true)
 - Personnummer-parsing: fodelsedatum och alder
+- Personuppslag (Ratsit/Biluppgifter/Merinfo): personnummer -> namn, adress, stad. Anvands automatiskt nar personnummer finns men namn/adress saknas. Finns under "Uppslagna data" som "Personuppslag"
 - Flyttdatum-analys: tidsfrister, prioriteringar ("flytten ar om X dagar")
 - Elnatsomrade: SE1-SE4 fran postnummer
 - Saknade falt: systemet listar vilka falt som saknas sa du kan hjalpa

@@ -1,4 +1,4 @@
-export type SuggestionSource = "postal" | "ai" | "openclaw";
+export type SuggestionSource = "postal" | "ai" | "openclaw" | "pnr_lookup";
 
 export type AutofillMode = "auto" | "manual";
 
@@ -26,6 +26,7 @@ export function getAutofillConfig(): AutofillConfig {
     postal: bool(process.env.NEXT_PUBLIC_AUTOFILL_SOURCE_POSTAL, true),
     ai: bool(process.env.NEXT_PUBLIC_AUTOFILL_SOURCE_AI, true),
     openclaw: bool(process.env.NEXT_PUBLIC_AUTOFILL_SOURCE_OPENCLAW, true),
+    pnr_lookup: bool(process.env.NEXT_PUBLIC_AUTOFILL_SOURCE_PNR_LOOKUP, true),
   };
 
   return { enabled, devOnly, debug, mode, sources };
@@ -36,7 +37,8 @@ export function isAutofillActive(config: AutofillConfig): boolean {
 }
 
 export const SUGGESTION_PRIORITY: Record<SuggestionSource, number> = {
-  postal: 3,
+  postal: 4,
+  pnr_lookup: 3,
   ai: 2,
   openclaw: 1,
 };
@@ -45,4 +47,5 @@ export const SUGGESTION_SOURCE_LABEL: Record<SuggestionSource, string> = {
   postal: "Postnummer-uppslag",
   ai: "AI-förslag",
   openclaw: "Aida-förslag",
+  pnr_lookup: "Personnummer-uppslag",
 };

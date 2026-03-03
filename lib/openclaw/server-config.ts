@@ -125,6 +125,8 @@ export function buildOpenClawSiteAccess(req: NextRequest) {
   const assistantTools = {
     postalLookupEndpoint: `${baseUrl}/api/enrich/postal`,
     postalLookupExample: `${baseUrl}/api/enrich/postal?postalCode=41119`,
+    personLookupEndpoint: `${baseUrl}/api/enrich/person`,
+    personLookupNote: "POST med { personalNumber: 'YYYYMMDD-NNNN' } → firstName, lastName, fromStreet, fromCity, etc.",
     healthDebugEndpoint: `${baseUrl}/api/openclaw/health?debug=1`,
     compareEndpoint: `${baseUrl}/api/compare/{taskKey}`,
     compareLiveKeys,

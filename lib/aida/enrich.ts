@@ -70,6 +70,7 @@ interface EnrichmentResult {
   eniroResults: EniroResult[];
   scbData: ScbPopulation | null;
   personInsights: string[];
+  personLookup: { firstName?: string; lastName?: string; fromStreet?: string; fromCity?: string; fromPostal?: string; address?: string } | null;
   fieldHelp: string[];
   moveDateInsights: string[];
   comparisonOpportunities: string[];
@@ -404,8 +405,34 @@ export interface EnrichResult {
   resolvedFields: Record<string, string>;
 }
 
+async function personLookup(pnr: string, apiBaseUrl: string): Promise<{
+  firstName?: string;
+  lastName?: string;
+  fromStreet?: string;
+  fromCity?: string;
+  fromPostal?: string;
+  address?: string;
+} | null> {
+  const clean = pnr.replace(/\s|-/g, "");
+  if (!/^\d{12}$/.test(clean)) return null;
+  try {
+    const res = await fetch(`${apiBaseUrl}/api/enrich/person`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        personalNumber: `${clean.slice(0, 8)}-${clean.slice(8)}`,
+      }),
+      signal: AbortSignal.timeout(40000),
+    });
+    const data = await res.json();
+    if (data?.found && (data.firstName || data.lastName || data.fromStreet)) return data;
+  } catch {}
+  return null;
+}
+
 export async function enrichContext(
-  formContext: { fields?: FormFields; currentStep?: number } | null
+  formContext: { fields?: FormFields; currentStep?: number } | null,
+  apiBaseUrl?: string
 ): Promise<EnrichResult> {
   if (!formContext?.fields) return { text: "", resolvedFields: {} };
 
@@ -416,6 +443,7 @@ export async function enrichContext(
     eniroResults: [],
     scbData: null,
     personInsights: [],
+    personLookup: null,
     fieldHelp: [],
     moveDateInsights: [],
     comparisonOpportunities: [],
@@ -479,6 +507,10 @@ export async function enrichContext(
         `Personnumret tillhor nagon fodd ${parsed.birthDate} (${parsed.age} ar).`
       );
     }
+    if (apiBaseUrl && (!fields.firstName || !fields.lastName || !fields.fromStreet) && parsed?.valid) {
+      const lookup = await personLookup(fields.personalNumber, apiBaseUrl);
+      if (lookup) result.personLookup = lookup;
+    }
   }
 
   if (fields.moveDate) {
@@ -532,6 +564,19 @@ export async function enrichContext(
       `## Befolkningsdata (SCB, ${s.year})\n` +
       `  ${s.municipality}: ${s.population.toLocaleString("sv-SE")} invanare (forandring: ${growthStr})`
     );
+  }
+
+  if (result.personLookup) {
+    const p = result.personLookup;
+    const lines = [
+      p.firstName && `  Fornamn: ${p.firstName}`,
+      p.lastName && `  Efternamn: ${p.lastName}`,
+      p.fromStreet && `  Gatuadress: ${p.fromStreet}`,
+      p.fromCity && `  Stad: ${p.fromCity}`,
+      p.fromPostal && `  Postnummer: ${p.fromPostal}`,
+      p.address && `  Adress: ${p.address}`,
+    ].filter(Boolean);
+    sections.push("## Personuppslag (Ratsit/Biluppgifter/Merinfo)\n" + lines.join("\n"));
   }
 
   if (result.personInsights.length > 0) {

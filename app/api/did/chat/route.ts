@@ -482,9 +482,9 @@ export async function POST(req: NextRequest) {
     if (intent === "simple") {
       // Fast path: skip enrichment + comparison for knowledge questions / greetings
     } else if (intent === "comparison" && formCtx) {
-      // Run enrichment and comparison in PARALLEL for maximum speed
+      const apiBaseUrl = req.nextUrl.origin;
       const [enrichResult, compResult] = await Promise.all([
-        enrichContext({ fields: formCtx }),
+        enrichContext({ fields: formCtx }, apiBaseUrl),
         prefetchComparisons(comparisonTasks, formCtx),
       ]);
       enrichedText = enrichResult?.text || null;
@@ -498,8 +498,8 @@ export async function POST(req: NextRequest) {
         }
       }
     } else if (formCtx) {
-      // General: enrichment only
-      const enrichResult = await enrichContext({ fields: formCtx });
+      const apiBaseUrl = req.nextUrl.origin;
+      const enrichResult = await enrichContext({ fields: formCtx }, apiBaseUrl);
       enrichedText = enrichResult?.text || null;
       if (enrichResult?.resolvedFields) {
         for (const [k, v] of Object.entries(enrichResult.resolvedFields)) {

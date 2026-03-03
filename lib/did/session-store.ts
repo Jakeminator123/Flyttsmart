@@ -7,9 +7,6 @@ const SESSION_TTL_MS = 30 * 60 * 1000;
 
 const SESSION_FORM_CTX = new Map<string, Record<string, string>>();
 
-const UNLOCK_DURATION_MS = 7 * 60 * 1000;
-const SESSION_UNLOCK = new Map<string, number>();
-
 export function pruneExpiredSessions() {
   const now = Date.now();
   for (const [id, msgs] of SESSION_HISTORY) {
@@ -17,7 +14,6 @@ export function pruneExpiredSessions() {
     if (now - newest > SESSION_TTL_MS) {
       SESSION_HISTORY.delete(id);
       SESSION_FORM_CTX.delete(id);
-      SESSION_UNLOCK.delete(id);
     }
   }
 }
@@ -65,23 +61,3 @@ export function getFormContext(sessionId: string): Record<string, string> | null
   return ctx && Object.keys(ctx).length > 0 ? ctx : null;
 }
 
-export function unlockSession(sessionId: string) {
-  SESSION_UNLOCK.set(sessionId, Date.now());
-}
-
-export function isUnlocked(sessionId: string): boolean {
-  const ts = SESSION_UNLOCK.get(sessionId);
-  if (!ts) return false;
-  if (Date.now() - ts > UNLOCK_DURATION_MS) {
-    SESSION_UNLOCK.delete(sessionId);
-    return false;
-  }
-  return true;
-}
-
-export function getUnlockTimeLeft(sessionId: string): number {
-  const ts = SESSION_UNLOCK.get(sessionId);
-  if (!ts) return 0;
-  const left = UNLOCK_DURATION_MS - (Date.now() - ts);
-  return left > 0 ? Math.ceil(left / 1000) : 0;
-}

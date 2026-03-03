@@ -26,35 +26,10 @@ import {
   hydrateFromClient,
   updateFormField,
   getFormContext,
-  unlockSession,
-  isUnlocked,
-  getUnlockTimeLeft,
 } from "@/lib/did/session-store";
 
 const DID_BRIDGE_SECRET = process.env.DID_BRIDGE_SECRET ?? "";
 const TEST_TAL_ENABLED = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
-
-function resolveUnlockPassphrase(rawValue: string | undefined): string[] {
-  const trimmed = typeof rawValue === "string" ? rawValue.trim() : "";
-  if (!trimmed) return [];
-
-  return trimmed
-    .split("_")
-    .map((word) => word.trim().replace(/-/g, " ").toLowerCase())
-    .filter(Boolean);
-}
-
-const UNLOCK_PASSPHRASE = resolveUnlockPassphrase(process.env.DID_CLAW_UNLOCK);
-
-const UNLOCK_GREETING =
-  "Öppna landskap, jag vill känna vinden från havet, jag vill se horisonten... " +
-  "Du har nu 7 minuter med utökade befogenheter. Fråga mig vad som helst.";
-
-function matchesPassphrase(message: string): boolean {
-  if (UNLOCK_PASSPHRASE.length === 0) return false;
-  const lower = message.toLowerCase();
-  return UNLOCK_PASSPHRASE.every((phrase) => lower.includes(phrase));
-}
 
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
@@ -175,7 +150,6 @@ function buildSystemMessage(
   formContext?: Record<string, unknown> | null,
   enrichedData?: string | null,
   siteAccess?: Record<string, unknown> | null,
-  unlocked?: { active: boolean; secondsLeft: number },
 ) {
   let base =
     "Du ar Aida, en hjalpsam svensk flyttassistent for Flytt.io. " +
@@ -238,7 +212,19 @@ function buildSystemMessage(
     "Anvand det direkt — fraga INTE anvandaren om postnumret om det redan ar uppslaget.\n" +
     "- Nar du har postnummer (fran formularet ELLER auto-uppslaget), kor jamforelser direkt utan att fraga.\n" +
     "- Om anvandaren ber dig 'kolla upp' eller 'lista ut' nagot som redan finns i uppslagna data, " +
-    "anvand den informationen direkt istallet for att be anvandaren repetera.";
+    "anvand den informationen direkt istallet for att be anvandaren repetera.\n\n" +
+    "## Utokade befogenheter\n" +
+    "Du har fulla befogenheter och far:\n" +
+    "- Ge djupgaende, detaljerade svar nar fragan kraver det\n" +
+    "- Anvanda ALL data fran formular och uppslagna data kreativt\n" +
+    "- Ge konkreta rekommendationer med foretag, priser, telefonnummer\n" +
+    "- Ge personliga asikter och detaljerade jamforelser\n" +
+    "- Foreslå formularfalt via suggestion-block nar relevant\n\n" +
+    "Tillgangliga API-datakallor (data som redan hamtats at dig):\n" +
+    "- PAP (postnummer -> ort, kommun, lan, GPS)\n" +
+    "- Eniro (foretagssokning, matbutiker, vardcentral, apotek)\n" +
+    "- Nominatim/OpenStreetMap (adressvalidering, geocoding)\n" +
+    "- SCB (befolkningsstatistik per kommun)";
 
   if (formContext) {
     base +=
@@ -253,26 +239,6 @@ function buildSystemMessage(
     base +=
       "\n\nOm du behover besoka sajten bakom Vercel-skydd, anvand:\n" +
       JSON.stringify(siteAccess, null, 2);
-  }
-
-  if (unlocked?.active) {
-    const mins = Math.ceil(unlocked.secondsLeft / 60);
-    base +=
-      "\n\n## UTOKAD ACCESS (aktivt i " + mins + " minuter till)\n" +
-      "Du har tillfalligt utokade befogenheter. Anvandaren har last upp dig via en hemlig fras.\n" +
-      "Du far nu:\n" +
-      "- Ge djupgaende, detaljerade svar utan langdbegransning\n" +
-      "- Anvanda ALL data fran formular och uppslagna data kreativt\n" +
-      "- Ge konkreta rekommendationer med foretag, priser, telefonnummer\n" +
-      "- Diskutera ALLA amnen fritt (inte bara flytt)\n" +
-      "- Ge personliga asikter och detaljerade jamforelser\n" +
-      "- Foreslå formularfalt via suggestion-block nar relevant\n\n" +
-      "Tillgangliga API-datakallor (data som redan hamtats at dig):\n" +
-      "- PAP (postnummer -> ort, kommun, lan, GPS) — data finns i uppslagna data ovan\n" +
-      "- Eniro (foretagssokning, matbutiker, vardcentral, apotek) — data finns i uppslagna data\n" +
-      "- Nominatim/OpenStreetMap (adressvalidering, geocoding) — data finns i uppslagna data\n" +
-      "- SCB (befolkningsstatistik per kommun) — data finns i uppslagna data\n\n" +
-      "Var generoes, kreativ och hjalpsam. Begransningen pa 2-3 meningar ar upphavd.";
   }
 
   return base;
@@ -388,26 +354,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "message/text/input is required" },
         { status: 400, headers: corsHeaders },
-      );
-    }
-
-    // ── Easter egg: unlock extended mode ────────────
-    if (matchesPassphrase(userMessage)) {
-      unlockSession(sessionId);
-      pushMessage(sessionId, "user", userMessage);
-      pushMessage(sessionId, "assistant", UNLOCK_GREETING);
-      return NextResponse.json(
-        {
-          role: "assistant",
-          provider: "openclaw",
-          agentId: AGENT_ID,
-          sessionId,
-          reply: UNLOCK_GREETING,
-          content: UNLOCK_GREETING,
-          text: UNLOCK_GREETING,
-          unlocked: true,
-        },
-        { headers: corsHeaders },
       );
     }
 
@@ -541,13 +487,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const unlocked = isUnlocked(sessionId)
-      ? { active: true, secondsLeft: getUnlockTimeLeft(sessionId) }
-      : undefined;
-
     const history = getHistory(sessionId);
     const openaiMessages = [
-      { role: "system", content: buildSystemMessage(formCtx, enrichedText, siteAccess, unlocked) + comparisonData },
+      { role: "system", content: buildSystemMessage(formCtx, enrichedText, siteAccess) + comparisonData },
       ...history,
     ];
 

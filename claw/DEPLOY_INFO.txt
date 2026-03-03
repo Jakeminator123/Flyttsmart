@@ -53,7 +53,7 @@ Render environment variables (required):
 Render environment variables (optional but recommended):
 - OPENCLAW_GATEWAY_BIND=lan
 - OPENCLAW_MODEL_PRIMARY=openai/gpt-5.1-codex
-- OPENCLAW_MODEL_FALLBACK=openai/gpt-5.3-codex
+- OPENCLAW_MODEL_FALLBACK=openai/gpt-5.1-codex
 
 Notes:
 - Do not manually set PORT unless you have a specific reason.

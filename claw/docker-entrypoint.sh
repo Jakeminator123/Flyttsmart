@@ -8,7 +8,7 @@ WORKSPACE_DIR="$OPENCLAW_DIR/workspace-aida"
 LISTEN_PORT="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
 BIND_MODE="${OPENCLAW_GATEWAY_BIND:-lan}"
 MODEL_PRIMARY="${OPENCLAW_MODEL_PRIMARY:-openai/gpt-5.1-codex}"
-MODEL_FALLBACK="${OPENCLAW_MODEL_FALLBACK:-openai/gpt-5.3-codex}"
+MODEL_FALLBACK="${OPENCLAW_MODEL_FALLBACK:-openai/gpt-5.1-codex}"
 OPENCLAW_VERSION="$(openclaw --version 2>/dev/null | tr -d '\r')"
 CONTROLUI_DISABLE_DEVICE_AUTH="${OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH:-false}"
 
@@ -41,33 +41,9 @@ if [ -d "/app/seed/workspace" ]; then
   echo "[entrypoint] Seeded workspace files"
 fi
 
-# Build optional custom providers block (JuiceFactory for Qwen, etc.)
-CUSTOM_PROVIDERS=""
-if [ -n "${JUICEFACTORY_API_KEY:-}" ]; then
-  CUSTOM_PROVIDERS=$(cat <<'PROVIDERS_END'
-  "models": {
-    "providers": {
-      "juicefactory": {
-        "baseUrl": "https://api.juicefactory.ai/v1",
-        "apiKey": "${JUICEFACTORY_API_KEY}",
-        "api": "openai-completions",
-        "models": [
-          { "id": "qwen3-vl", "name": "Qwen 3 VL (JuiceFactory EU)" }
-        ]
-      }
-    }
-  },
-PROVIDERS_END
-)
-  # Env-expand the API key in the providers block
-  CUSTOM_PROVIDERS=$(echo "$CUSTOM_PROVIDERS" | sed "s|\${JUICEFACTORY_API_KEY}|${JUICEFACTORY_API_KEY}|g")
-  echo "[entrypoint] JuiceFactory provider configured (qwen3-vl)"
-fi
-
 # Write OpenClaw config for container runtime.
 cat > "$CONFIG_FILE" <<EOF
 {
-  ${CUSTOM_PROVIDERS}
   "gateway": {
     "mode": "local",
     "bind": "${BIND_MODE}",

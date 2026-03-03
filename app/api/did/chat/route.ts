@@ -34,18 +34,11 @@ import {
 const DID_BRIDGE_SECRET = process.env.DID_BRIDGE_SECRET ?? "";
 const TEST_TAL_ENABLED = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
 
-const DEFAULT_UNLOCK_PASSPHRASE = "ulf-lundell_platon";
-
 function resolveUnlockPassphrase(rawValue: string | undefined): string[] {
   const trimmed = typeof rawValue === "string" ? rawValue.trim() : "";
-  const source =
-    trimmed.length > 0
-      ? trimmed
-      : rawValue === undefined
-        ? DEFAULT_UNLOCK_PASSPHRASE
-        : "";
+  if (!trimmed) return [];
 
-  return source
+  return trimmed
     .split("_")
     .map((word) => word.trim().replace(/-/g, " ").toLowerCase())
     .filter(Boolean);

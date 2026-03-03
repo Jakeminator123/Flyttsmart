@@ -34,34 +34,33 @@ För att `/demo` ska visa alternativet i produktion på befintliga domäner:
 
 Ge det ett namn, t.ex. `flytta-nu-demo`. Du får en URL typ `flytta-nu-demo.vercel.app`.
 
-### 2. Koppla subdomän till befintlig domän (valfritt)
+### 2. Koppla subdomän (valfritt)
 
-Om du har t.ex. `flytta.nu` eller `flyttanu.se` kan du lägga till subdomänen `demo`:
+Om du vill använda t.ex. `demo.flyttanu.vercel.app` eller en egen domän:
 
 - I Vercel → flytta-nu-demo-projektet → Settings → Domains
-- Lägg till `demo.flytta.nu` (eller `demo.flyttanu.se`) och följ DNS-instruktionerna
+- Lägg till önskad domän och följ DNS-instruktionerna
 
 ### 3. Sätt `NEXT_PUBLIC_MAIN_APP_URL` på demo-projektet
 
 I Vercel → flytta-nu-demo → Settings → Environment Variables:
 ```
-NEXT_PUBLIC_MAIN_APP_URL=https://flytta.nu
+NEXT_PUBLIC_MAIN_APP_URL=https://flyttanu.vercel.app
 ```
-(eller din huvudapps URL)
 
 ### 4. Sätt `DEMO_ALTERNATIV_URL` på huvudappen
 
-I Vercel → huvudapp (flytta.nu) → Settings → Environment Variables:
+I Vercel → huvudapp (flyttanu.vercel.app) → Settings → Environment Variables:
 ```
-DEMO_ALTERNATIV_URL=https://demo.flytta.nu
+DEMO_ALTERNATIV_URL=https://flytta-nu-demo.vercel.app
 ```
-(eller `https://flytta-nu-demo.vercel.app` om du inte använder subdomän)
+(eller `https://demo.flyttanu.vercel.app` om du kopplat subdomän)
 
 Redeploya huvudappen så att rewrite:n aktiveras.
 
 ### 5. Besök produktion
 
-Öppna `https://flytta.nu/demo` (eller din domän) – du ser alternativstartsidan.
+Öppna [https://flyttanu.vercel.app/demo](https://flyttanu.vercel.app/demo) – du ser alternativstartsidan.
 
 ## Konfiguration i new_front (lokal)
 

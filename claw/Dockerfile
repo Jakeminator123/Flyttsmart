@@ -15,10 +15,8 @@ RUN git config --global --add url."https://github.com/".insteadOf "ssh://git@git
 ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD=true
 ARG OPENCLAW_VERSION=latest
 RUN npm install -g "openclaw@${OPENCLAW_VERSION}" --ignore-scripts \
- && cd "$(npm root -g)/openclaw" \
- && corepack enable \
- && corepack prepare pnpm@latest --activate \
- && pnpm ui:build \
+ && OPENCLAW_PKG_DIR="$(npm root -g)/openclaw" \
+ && test -f "$OPENCLAW_PKG_DIR/dist/control-ui/index.html" \
  && openclaw --version
 
 # Seed files (IDENTITY.md, workspace skills) — no secrets in image

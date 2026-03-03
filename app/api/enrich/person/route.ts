@@ -3,6 +3,32 @@ import { NextRequest, NextResponse } from "next/server";
 const RATSIT_SCRAPER_URL =
   process.env.RATSIT_SCRAPER_URL ?? "http://localhost:8766";
 
+const ENRICH_API_SECRET = (process.env.ENRICH_API_SECRET ?? "").trim();
+
+const ALLOWED_ORIGINS = [
+  "https://flyttanu.vercel.app",
+  "https://flytta.nu",
+  "https://www.flytta.nu",
+  "http://localhost:4173",
+  "http://localhost:3000",
+];
+
+function isAuthorized(req: NextRequest): boolean {
+  const authHeader = req.headers.get("authorization") ?? "";
+  if (ENRICH_API_SECRET && authHeader === `Bearer ${ENRICH_API_SECRET}`) {
+    return true;
+  }
+
+  const origin = req.headers.get("origin") ?? "";
+  const referer = req.headers.get("referer") ?? "";
+  if (origin && ALLOWED_ORIGINS.includes(origin)) return true;
+  if (referer && ALLOWED_ORIGINS.some((o) => referer.startsWith(o))) return true;
+
+  if (process.env.NODE_ENV === "development") return true;
+
+  return false;
+}
+
 function normalizePnr(v: string): string | null {
   const s = String(v || "").replace(/\s|-/g, "");
   if (/^\d{12}$/.test(s)) return `${s.slice(0, 8)}-${s.slice(8)}`;
@@ -11,6 +37,10 @@ function normalizePnr(v: string): string | null {
 
 /** POST /api/enrich/person — personnummer lookup via rats_meri_docker_scraper */
 export async function POST(req: NextRequest) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const pnr = normalizePnr(body?.personalNumber ?? body?.pnr ?? body?.personnummer ?? "");
@@ -52,14 +82,7 @@ export async function POST(req: NextRequest) {
       address?: string;
       streetAddress?: string;
       city?: string;
-      age?: number;
-      gender?: string;
       personnummer?: string;
-      married?: boolean;
-      hasCompany?: boolean;
-      coordinates?: { lat?: number; lng?: number };
-      medboende?: Array<{ name?: string; age?: number }>;
-      fordonAdress?: unknown[];
     };
 
     return NextResponse.json({
@@ -70,9 +93,6 @@ export async function POST(req: NextRequest) {
       fromStreet: data.streetAddress || data.address?.split(",")[0]?.trim(),
       fromCity: data.city,
       fromPostal: null,
-      age: data.age,
-      gender: data.gender,
-      address: data.address,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";

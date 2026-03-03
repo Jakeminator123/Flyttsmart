@@ -415,10 +415,13 @@ async function personLookup(pnr: string, apiBaseUrl: string): Promise<{
 } | null> {
   const clean = pnr.replace(/\s|-/g, "");
   if (!/^\d{12}$/.test(clean)) return null;
+  const enrichSecret = (process.env.ENRICH_API_SECRET ?? "").trim();
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (enrichSecret) headers["Authorization"] = `Bearer ${enrichSecret}`;
     const res = await fetch(`${apiBaseUrl}/api/enrich/person`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         personalNumber: `${clean.slice(0, 8)}-${clean.slice(8)}`,
       }),

@@ -17,7 +17,6 @@ import {
   Wifi,
   Search,
   AlertCircle,
-  Loader2,
 } from "lucide-react";
 import {
   Card,

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const maxDuration = 60;
+
 const RATSIT_SCRAPER_URL =
   process.env.RATSIT_SCRAPER_URL ?? "http://localhost:8766";
 

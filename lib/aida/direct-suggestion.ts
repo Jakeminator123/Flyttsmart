@@ -37,6 +37,15 @@ function cleanSuggestionValue(value: string): string {
     .trim();
 }
 
+function looksLikePersonnummer(value: string): boolean {
+  const digits = value.replace(/[\s-]/g, "");
+  return /^\d{10,12}$/.test(digits);
+}
+
+function messageContainsPersonnummer(message: string): boolean {
+  return /\b\d{8}[- ]?\d{4}\b/.test(message);
+}
+
 function findFieldAlias(rawFieldText: string): { field: string; label: string } | null {
   const normalized = normalizeSwedish(rawFieldText);
   for (const def of FIELD_ALIAS_DEFINITIONS) {
@@ -50,6 +59,8 @@ function findFieldAlias(rawFieldText: string): { field: string; label: string } 
 }
 
 export function parseDirectSuggestion(message: string): DirectSuggestion | null {
+  if (messageContainsPersonnummer(message)) return null;
+
   const tryMatch = (
     regex: RegExp,
     valueIdx: number,
@@ -60,6 +71,7 @@ export function parseDirectSuggestion(message: string): DirectSuggestion | null 
     const value = cleanSuggestionValue(match[valueIdx] ?? "");
     const fieldText = (match[fieldIdx] ?? "").trim();
     if (!value || !fieldText) return null;
+    if (looksLikePersonnummer(value)) return null;
     const resolved = findFieldAlias(fieldText);
     if (!resolved) return null;
     return { field: resolved.field, value, label: resolved.label };

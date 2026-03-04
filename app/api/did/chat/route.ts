@@ -10,6 +10,10 @@ import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
 import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
 import {
+  runExplicitWebSearch,
+  shouldRunExplicitWebSearch,
+} from "@/lib/aida/explicit-web-search";
+import {
   classifyMessage,
   isGreetingOnlyMessage,
   isSiteCapabilitiesQuestion,
@@ -220,11 +224,19 @@ function buildSystemMessage(
     "- Ge konkreta rekommendationer med foretag, priser, telefonnummer\n" +
     "- Ge personliga asikter och detaljerade jamforelser\n" +
     "- Foreslå formularfalt via suggestion-block nar relevant\n\n" +
+    "## Webbsokning\n" +
+    "Om anvandaren uttryckligen ber dig 'soka pa natet', 'googla', 'web searcha' eller liknande, " +
+    "sa gor systemet en riktig webbsokning via Brave Search at dig automatiskt. " +
+    "Du behover INTE saga att du inte kan soka pa natet — systemet hanterar det. " +
+    "Svara ALDRIG 'jag kan inte soka pa natet' om anvandaren ber dig. " +
+    "Resultatet kommer tillbaka som ditt svar.\n\n" +
     "Tillgangliga API-datakallor (data som redan hamtats at dig):\n" +
-    "- PAP (postnummer -> ort, kommun, lan, GPS)\n" +
-    "- Eniro (foretagssokning, matbutiker, vardcentral, apotek)\n" +
+    "- PAP (postnummer -> ort, kommun, lan, GPS) — anvand detta for att ge ortinfo, kommuninfo etc\n" +
+    "- Eniro (foretagssokning nara destinationen: matbutiker, vardcentral, apotek, flyttfirmor) — verkliga foretag med adress och telefon\n" +
     "- Nominatim/OpenStreetMap (adressvalidering, geocoding)\n" +
-    "- SCB (befolkningsstatistik per kommun)";
+    "- SCB (befolkningsstatistik per kommun)\n" +
+    "- Personuppslag via Ratsit/Biluppgifter/Merinfo (personnummer -> namn, adress, stad)\n" +
+    "- Brave Search (webbsokning — triggas automatiskt nar anvandaren ber om det)";
 
   if (formContext) {
     base +=
@@ -393,6 +405,47 @@ export async function POST(req: NextRequest) {
         },
         { headers: corsHeaders },
       );
+    }
+
+    if (shouldRunExplicitWebSearch(userMessage)) {
+      pushMessage(sessionId, "user", userMessage);
+      try {
+        const searchReply =
+          (await runExplicitWebSearch(userMessage)) ||
+          "Jag kunde inte fa fram nagot tydligt webbsokresultat just nu. Forsok igen med en mer specifik fraga.";
+        pushMessage(sessionId, "assistant", searchReply);
+        return NextResponse.json(
+          {
+            role: "assistant",
+            provider: "did-local-web-search",
+            agentId: AGENT_ID,
+            sessionId,
+            reply: searchReply,
+            content: searchReply,
+            text: searchReply,
+          },
+          { headers: corsHeaders },
+        );
+      } catch (error) {
+        const searchError =
+          error instanceof Error ? error.message : "Webbsokning misslyckades";
+        const fallback =
+          "Jag kunde inte gora webbsokningen just nu. Forsok igen om en liten stund.";
+        pushMessage(sessionId, "assistant", fallback);
+        return NextResponse.json(
+          {
+            role: "assistant",
+            provider: "did-local-web-search-fallback",
+            agentId: AGENT_ID,
+            sessionId,
+            error: searchError,
+            reply: fallback,
+            content: fallback,
+            text: fallback,
+          },
+          { status: 502, headers: corsHeaders },
+        );
+      }
     }
 
     // ── Deterministic autofill fallback ───────────────

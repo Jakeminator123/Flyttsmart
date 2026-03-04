@@ -1,0 +1,51 @@
+---
+description: Prevent newline and whitespace corruption in Vercel/Render env vars
+alwaysApply: true
+---
+
+# Vercel + Render Env Hygiene
+
+When a task mentions Vercel, Render, or env vars, apply this checklist before and after changes.
+
+## Vercel environment levels
+
+- Always handle Vercel env vars with explicit scope awareness:
+  - `development`
+  - `preview`
+  - `production`
+- Treat these 3 levels as the minimum standard unless a task explicitly says otherwise.
+- If a user asks to "set on Vercel", confirm or perform updates for all intended levels.
+
+## Newline-safe writes
+
+- Never use `echo "value" | vercel env add ...` in PowerShell (adds `\r\n`).
+- Use newline-safe input instead, for example:
+  - `cmd /c "echo|set /p=value" | vercel env add KEY production`
+- Avoid wrapping env values in extra quotes unless the value intentionally contains quotes.
+
+## Post-write verification
+
+- After env updates, run `vercel env pull` for the target environment and verify:
+  - no escaped `\r\n`
+  - no leading/trailing whitespace
+  - no unintended surrounding quotes
+- If malformed values are found, replace them immediately.
+
+## Render API safety
+
+- Treat `PUT /v1/services/{id}/env-vars` as destructive: it replaces the full env set.
+- Prefer additive operations for single vars.
+- If `PUT` is used, send the complete intended env list and verify all keys afterward.
+
+## OpenClaw URL sanity
+
+- `OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789` is development-only.
+- Production must use the public HTTPS gateway URL (for example `https://openclaw-aida.onrender.com`).
+
+## Communication requirements
+
+- Always specify where each env belongs:
+  - Vercel server env
+  - Vercel `NEXT_PUBLIC_*` client env
+  - Render service env
+- Redact secrets in user-facing messages unless the user explicitly asks for full raw values.

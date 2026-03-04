@@ -10,6 +10,10 @@ import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
 import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
 import {
+  runExplicitWebSearch,
+  shouldRunExplicitWebSearch,
+} from "@/lib/aida/explicit-web-search";
+import {
   classifyMessage,
   isGreetingOnlyMessage,
   isSiteCapabilitiesQuestion,
@@ -154,13 +158,20 @@ function buildSystemMessage(
     "via Nominatim/OpenStreetMap. Resultatet finns i 'Auto-uppslaget postnummer' nedan. " +
     "Anvand det direkt — fraga INTE anvandaren om postnumret om det redan ar uppslaget.\n" +
     "- Nar du har postnummer (fran formularet ELLER auto-uppslaget), kor jamforelser direkt utan att fraga.\n\n" +
+    "## Webbsokning\n" +
+    "Om anvandaren uttryckligen ber dig 'soka pa natet', 'googla', 'web searcha' eller liknande, " +
+    "sa gor systemet en riktig webbsokning via Brave Search at dig automatiskt. " +
+    "Du behover INTE saga att du inte kan soka pa natet — systemet hanterar det. " +
+    "Svara ALDRIG 'jag kan inte soka pa natet' om anvandaren ber dig. " +
+    "Resultatet kommer tillbaka som ditt svar.\n\n" +
     "## Tillgangliga datakallor i denna session\n" +
-    "- PAP: postnummer till ort/kommun\n" +
+    "- PAP: postnummer -> ort, kommun, lan, GPS — anvand detta for att ge ortinfo, kommuninfo etc\n" +
     "- Nominatim: adressvalidering och geodata\n" +
-    "- Eniro: foretagslistor nara destinationen + lokala flytt/stadfirmor (mode: api)\n" +
+    "- Eniro: foretagslistor nara destinationen + lokala flytt/stadfirmor (verkliga foretag med adress och telefon, mode: api)\n" +
     "- SCB: befolkningsdata per kommun\n" +
     "- PTS: bredbandsdata per kommun (tillgangliga tekniker, operatorer, fibertackning)\n" +
-    "- Personuppslag (Ratsit/Biluppgifter/Merinfo): personnummer -> namn, adress, stad (koers automatiskt om personnummer finns men namn/adress saknas)";
+    "- Personuppslag via Ratsit/Biluppgifter/Merinfo: personnummer -> namn, adress, stad (koers automatiskt om personnummer finns men namn/adress saknas)\n" +
+    "- Brave Search: webbsokning (triggas automatiskt nar anvandaren ber om det)";
 
   if (formContext) {
     base +=
@@ -202,6 +213,30 @@ export async function POST(req: NextRequest) {
           typeof m.content === "string" &&
           m.content.trim()
       ) as { content: string } | undefined;
+
+    if (latestUserMessage && shouldRunExplicitWebSearch(latestUserMessage.content)) {
+      try {
+        const searchReply =
+          (await runExplicitWebSearch(latestUserMessage.content)) ||
+          "Jag kunde inte fa fram nagot tydligt webbsokresultat just nu. Forsok igen med en mer specifik fraga.";
+        return NextResponse.json({
+          role: "assistant",
+          content: searchReply,
+          provider: "openclaw-local-web-search",
+        });
+      } catch (error) {
+        const searchError = error instanceof Error ? error.message : "Webbsokning misslyckades";
+        return NextResponse.json(
+          {
+            role: "assistant",
+            content: "Jag kunde inte gora webbsokningen just nu. Forsok igen om en liten stund.",
+            provider: "openclaw-local-web-search-fallback",
+            error: searchError,
+          },
+          { status: 502 },
+        );
+      }
+    }
 
     const directSuggestion = latestUserMessage
       ? parseDirectSuggestion(latestUserMessage.content)

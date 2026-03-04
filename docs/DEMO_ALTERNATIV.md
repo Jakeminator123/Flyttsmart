@@ -1,74 +1,83 @@
-# Alternativ startsida via /demo
+# Alternativ startsida — separat repo
 
-För att visa den alternativa startsidan från `new_front` på `/demo`.
+Den alternativa startsidan (3D-lanyard, dither-bakgrund, Sverige-karta etc.)
+lever i ett **eget Git-repo** och deployar som ett fristående Vercel-projekt.
+
+Huvudappen kan proxya den via `/demo` med en rewrite.
+
+## Arkitektur
+
+```
+flytta-nu  (detta repo)          flytta-nu-front  (separat repo)
+├── app/                          ├── app/
+├── next.config.mjs               ├── next.config.mjs
+│   └─ rewrites → DEMO_URL        ├── components/ui/lanyard.tsx
+├── ...                           ├── public/countries-110m.json
+                                  ├── styles/slider.css
+                                  └── package.json
+```
 
 ## Lokal utveckling
 
-1. **Lägg till i projektets `.env.local`:**
+1. Klona det separata repot bredvid huvudappen:
+   ```
+   cd ~/dev/projects
+   git clone <url> flytta-nu-front
+   ```
+
+2. Lägg till i huvudappens `.env.local`:
    ```
    DEMO_ALTERNATIV_URL=http://localhost:2222
    ```
 
-2. **Starta båda apparna** (i två terminaler):
-   ```bash
+3. Starta båda apparna (i två terminaler):
+   ```powershell
    # Terminal 1 – huvudappen (port 4173)
    npm run dev
 
    # Terminal 2 – alternativ frontend (port 2222)
-   cd new_front && npm run dev
+   cd ../flytta-nu-front
+   npm run dev
    ```
 
-3. **Besök** [http://localhost:4173/demo](http://localhost:4173/demo)
-
-Du ser då den alternativa startsidan med Dither-bakgrund, 3D-lanyard, Sverige-kartan osv.
+4. Besök http://localhost:4173/demo
 
 ## Produktion (Vercel)
 
-För att `/demo` ska visa alternativet i produktion på befintliga domäner:
+### 1. Skapa Vercel-projekt för det nya repot
 
-### 1. Skapa ett nytt Vercel-projekt för new_front
+- **Add New** → Project → importera `flytta-nu-front`-repot
+- Framework: Next.js (auto-detected)
+- Ge det ett namn, t.ex. `flytta-nu-demo`
 
-- **Add New** → Project → importera samma repo
-- **Root Directory:** `new_front`
-- **Framework:** Next.js (auto-detected)
+### 2. Sätt env-variabler
 
-Ge det ett namn, t.ex. `flytta-nu-demo`. Du får en URL typ `flytta-nu-demo.vercel.app`.
-
-### 2. Koppla subdomän (valfritt)
-
-Om du vill använda t.ex. `demo.flyttanu.vercel.app` eller en egen domän:
-
-- I Vercel → flytta-nu-demo-projektet → Settings → Domains
-- Lägg till önskad domän och följ DNS-instruktionerna
-
-### 3. Sätt `NEXT_PUBLIC_MAIN_APP_URL` på demo-projektet
-
-I Vercel → flytta-nu-demo → Settings → Environment Variables:
+**På demo-projektet** (flytta-nu-demo):
 ```
 NEXT_PUBLIC_MAIN_APP_URL=https://flyttanu.vercel.app
 ```
 
-### 4. Sätt `DEMO_ALTERNATIV_URL` på huvudappen
-
-I Vercel → huvudapp (flyttanu.vercel.app) → Settings → Environment Variables:
+**På huvudappen** (flyttanu):
 ```
 DEMO_ALTERNATIV_URL=https://flytta-nu-demo.vercel.app
 ```
-(eller `https://demo.flyttanu.vercel.app` om du kopplat subdomän)
 
 Redeploya huvudappen så att rewrite:n aktiveras.
 
-### 5. Besök produktion
+### 3. Besök produktion
 
-Öppna [https://flyttanu.vercel.app/demo](https://flyttanu.vercel.app/demo) – du ser alternativstartsidan.
-
-## Konfiguration i new_front (lokal)
-
-I `new_front/.env.local` bör `NEXT_PUBLIC_MAIN_APP_URL` peka på huvudappen:
-```
-NEXT_PUBLIC_MAIN_APP_URL=http://localhost:4173
-```
+Öppna https://flyttanu.vercel.app/demo — du ser alternativstartsidan.
 
 ## Fallback
 
 Om `DEMO_ALTERNATIV_URL` inte är satt visas den vanliga `/demo`-sidan (testdata-formuläret).
+
+## Flytta filerna
+
+De tre filerna som idag ligger i `new_front/` i detta repo ska flyttas till det nya repot:
+
+- `new_front/components/ui/lanyard.tsx` → `components/ui/lanyard.tsx`
+- `new_front/public/countries-110m.json` → `public/countries-110m.json`
+- `new_front/styles/slider.css` → `styles/slider.css`
+
+Efter flytten kan `new_front/`-mappen i detta repo tas bort.

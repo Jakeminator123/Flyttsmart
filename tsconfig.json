@@ -37,7 +37,6 @@
   ],
   "exclude": [
     "node_modules",
-    "new_front",
     "rats_meri_docker_scraper",
     "skrapning_ratsit",
     "inlogg"

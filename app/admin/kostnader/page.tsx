@@ -102,14 +102,22 @@ export default function KostnaderPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setError(null);
     setLoading(true);
     fetch(`/api/admin/usage?period=${period}`)
       .then((r) => {
         if (!r.ok) throw new Error("Kunde inte ladda anvandningsdata");
         return r.json();
       })
-      .then(setData)
-      .catch((e) => setError(e.message))
+      .then((nextData) => {
+        setData(nextData);
+        setError(null);
+      })
+      .catch((e: unknown) =>
+        setError(
+          e instanceof Error ? e.message : "Kunde inte ladda anvandningsdata",
+        ),
+      )
       .finally(() => setLoading(false));
   }, [period]);
 

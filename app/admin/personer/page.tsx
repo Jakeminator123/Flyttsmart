@@ -271,6 +271,7 @@ export default function PersonerPage() {
   const [persons, setPersons] = useState<PersonRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<DetailData | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -290,6 +291,7 @@ export default function PersonerPage() {
   const openDetail = useCallback(async (moveId: number) => {
     setSelectedMoveId(moveId);
     setDetailLoading(true);
+    setDetailError(null);
     setDetail(null);
     try {
       const r = await fetch(`/api/admin/personer?id=${moveId}`);
@@ -297,7 +299,7 @@ export default function PersonerPage() {
       const data = await r.json();
       setDetail(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Okänt fel");
+      setDetailError(e instanceof Error ? e.message : "Okänt fel");
     } finally {
       setDetailLoading(false);
     }
@@ -335,7 +337,15 @@ export default function PersonerPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => { setSelectedMoveId(null); setDetail(null); }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSelectedMoveId(null);
+              setDetail(null);
+              setDetailError(null);
+            }}
+          >
             <ArrowLeft className="size-4 mr-1" />
             Tillbaka
           </Button>
@@ -514,7 +524,21 @@ export default function PersonerPage() {
               </Card>
             )}
           </div>
-        ) : null}
+        ) : detailError ? (
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <p className="text-destructive">{detailError}</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground">
+                Ingen detaljdata tillgänglig.
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     );
   }

@@ -1,5 +1,6 @@
 # Never commit real openclaw config (tokens, secrets)
 config/openclaw.json
+RENDER_ENV_VARS.txt
 
 # Keep the workspace skills but not runtime artifacts
 config/workspace/sessions/

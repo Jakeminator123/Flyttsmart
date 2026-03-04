@@ -1,0 +1,20 @@
+---
+description: 
+alwaysApply: true
+---
+
+# Shell Environment: Windows 11 + PowerShell 7
+
+This machine runs **Windows 11** with **PowerShell 7.x** as the shell. All terminal commands execute as `.ps1` scripts.
+
+## Rules
+
+- NEVER use bash-only syntax: `cat <<'EOF'`, heredocs, `$(...)` subshells, `&&` chaining in complex cases
+- Use `-m "single line message"` for git commits instead of heredocs
+- For multi-line strings use PowerShell here-strings (`@'...'@`) if absolutely needed
+- NEVER use `cat`, `head`, `tail`, `sed`, `awk`, `grep` — use the dedicated Read, Write, StrReplace, Grep tools instead
+- `&&` works for simple command chaining in pwsh 7, but avoid mixing with bash-isms
+- File paths use backslashes (`C:\...`) but forward slashes also work in most contexts
+- Environment variables: `$env:VAR_NAME` (not `$VAR_NAME`)
+
+But if you are using something with the local clawagents it might be that my openclawagent is in my wsl. But with that said, thats onley for local projekts with agents. So if an folder for a OC is existing in a repo or a proejkt, that one is an external and therefore it is wrong to use wsl for edits fo example

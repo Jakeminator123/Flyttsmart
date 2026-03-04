@@ -20,9 +20,16 @@ User voice -> Web Speech API (sv-SE) -> transcribed text
 
 - `components/did-openclaw-bridge-widget.tsx` — Main widget: D-ID Client SDK, Web Speech API, form tracking, suggestion parsing
 - `app/api/did/chat/route.ts` — Backend proxy: form events + chat to OpenClaw
+- `app/api/enrich/person/route.ts` — Personuppslag proxy mot `RATSIT_SCRAPER_URL`
 - `lib/openclaw/server-config.ts` — Token/URL resolution (OPENCLAW_GATEWAY_TOKEN, OPENCLAW_GATEWAY_URL)
 - `lib/openclaw/response.ts` — Parse suggestion blocks from OpenClaw responses
 - `lib/did/session-store.ts` — In-memory session history + form context
+
+## Persondata enrichment source of truth
+
+- The active Render service for personnummer lookups is `rats_meri_docker_scraper` (repo path: `rats_meri_docker_scraper/`).
+- `app/api/enrich/person/route.ts` calls `${RATSIT_SCRAPER_URL}/lookup` and is the only supported server path for autofill persondata.
+- `skrapning_ratsit/` is local tooling and should not be treated as the production web-service integration unless explicitly migrated.
 
 ## Widget uses speak() mode (not chat())
 
@@ -57,3 +64,10 @@ to matching form fields via `applySuggestions()`.
 ## Full docs
 
 See `docs/DID-OPENCLAW-INTEGRATION.md` and `claw/DEPLOY_INFO.txt`
+
+## OpenClaw docs via MCP
+
+This workspace has an OpenClaw documentation MCP server available: `user-openclaw-docs`.
+Use it as the source of truth for official OpenClaw behavior/integration details:
+- `openclaw_docs_search` for targeted lookup
+- `openclaw_docs_section` for reading full sections

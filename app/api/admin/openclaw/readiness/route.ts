@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import {
+  getAllowedModelPrefixes,
   getOpenClawAgentId,
   getOpenClawChatModel,
+  isModelAllowed,
+  isModelPolicyEnforced,
   getModelForIntent,
 } from "@/lib/openclaw/server-config";
 
@@ -30,6 +33,14 @@ function boolFromEnv(value: string | undefined, fallback = false): boolean {
 export async function GET() {
   const agentId = getOpenClawAgentId();
   const modelPrimary = getOpenClawChatModel(agentId);
+  const modelPolicyEnforced = isModelPolicyEnforced();
+  const allowedModelPrefixes = getAllowedModelPrefixes();
+  const rawPrimaryModel = (process.env.OPENCLAW_CHAT_MODEL ?? "").trim();
+  const rawSimpleModel = (process.env.OPENCLAW_CHAT_MODEL_SIMPLE ?? "").trim();
+  const controlUiDeviceAuthDisabled = boolFromEnv(
+    process.env.OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH,
+    false,
+  );
   const webSearchEnabled =
     (process.env.WEB_SEARCH_COMPARE ?? "").trim().toLowerCase() === "y";
   const didEnabled = process.env.NEXT_PUBLIC_DID_BRIDGE_ENABLED === "true";
@@ -57,6 +68,28 @@ export async function GET() {
       ok: hasAny("OPENCLAW_AGENT_ID"),
       severity: "critical",
       details: "OPENCLAW_AGENT_ID",
+    },
+    {
+      key: "model_policy_primary",
+      label: "Model policy (primary)",
+      ok: !rawPrimaryModel || isModelAllowed(rawPrimaryModel),
+      severity: modelPolicyEnforced ? "critical" : "warning",
+      details: `OPENCLAW_CHAT_MODEL should use allowed prefixes: ${allowedModelPrefixes.join(", ")} (enforce=${modelPolicyEnforced})`,
+    },
+    {
+      key: "model_policy_simple",
+      label: "Model policy (simple)",
+      ok: !rawSimpleModel || isModelAllowed(rawSimpleModel),
+      severity: "warning",
+      details: `OPENCLAW_CHAT_MODEL_SIMPLE should use allowed prefixes: ${allowedModelPrefixes.join(", ")} (enforce=${modelPolicyEnforced})`,
+    },
+    {
+      key: "controlui_device_auth",
+      label: "Control UI device auth safety",
+      ok: !controlUiDeviceAuthDisabled,
+      severity: "warning",
+      details:
+        "OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH should be false/empty in production",
     },
     {
       key: "site_access",
@@ -153,6 +186,12 @@ export async function GET() {
         simple: getModelForIntent("simple"),
         general: getModelForIntent("general"),
         comparison: getModelForIntent("comparison"),
+      },
+      modelPolicy: {
+        enforced: modelPolicyEnforced,
+        allowedPrefixes: allowedModelPrefixes,
+        rawPrimaryModel: rawPrimaryModel || "(default)",
+        rawSimpleModel: rawSimpleModel || "(default)",
       },
     },
     checks,

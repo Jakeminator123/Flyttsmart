@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  getAllowedModelPrefixes,
   getOpenClawAgentId,
   getOpenClawChatModel,
   getOpenClawGatewayBaseUrl,
+  isModelAllowed,
+  isModelPolicyEnforced,
   getModelForIntent,
   getOpenClawTokens,
 } from "@/lib/openclaw/server-config";
@@ -22,6 +25,14 @@ export async function GET(req: NextRequest) {
     general: getModelForIntent("general"),
     comparison: getModelForIntent("comparison"),
   };
+  const modelPolicyEnforced = isModelPolicyEnforced();
+  const allowedModelPrefixes = getAllowedModelPrefixes();
+  const rawPrimaryModel = (process.env.OPENCLAW_CHAT_MODEL ?? "").trim();
+  const rawSimpleModel = (process.env.OPENCLAW_CHAT_MODEL_SIMPLE ?? "").trim();
+  const controlUiDeviceAuthDisabled =
+    ["1", "true", "y", "yes"].includes(
+      (process.env.OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH ?? "").trim().toLowerCase(),
+    );
   const testTalEnabled = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
   const scbEnabled =
     (process.env.SCB_ENABLED ?? "").toLowerCase() === "y" ||
@@ -45,6 +56,12 @@ export async function GET(req: NextRequest) {
     agentId,
     model,
     modelByIntent,
+    modelPolicy: {
+      enforced: modelPolicyEnforced,
+      allowedPrefixes: allowedModelPrefixes,
+      rawPrimaryModel: rawPrimaryModel || "(default)",
+      rawSimpleModel: rawSimpleModel || "(default)",
+    },
     hasGatewayToken: Boolean(gatewayToken),
     hasHooksToken: Boolean(hooksToken),
     hasAccessToken: Boolean(accessToken),
@@ -68,6 +85,21 @@ export async function GET(req: NextRequest) {
     warnings.push("OPENCLAW_ACCESS_TOKEN (eller fallback-token) saknas.");
   if (!webhookSecret)
     warnings.push("OPENCLAW_WEBHOOK_SECRET saknas, signaturkontroll ar avstangd.");
+  if (rawPrimaryModel && !isModelAllowed(rawPrimaryModel)) {
+    warnings.push(
+      `OPENCLAW_CHAT_MODEL='${rawPrimaryModel}' bryter modellpolicyn. Tillatna prefix: ${allowedModelPrefixes.join(", ")} (enforce=${modelPolicyEnforced})`,
+    );
+  }
+  if (rawSimpleModel && !isModelAllowed(rawSimpleModel)) {
+    warnings.push(
+      `OPENCLAW_CHAT_MODEL_SIMPLE='${rawSimpleModel}' bryter modellpolicyn. Tillatna prefix: ${allowedModelPrefixes.join(", ")} (enforce=${modelPolicyEnforced})`,
+    );
+  }
+  if (controlUiDeviceAuthDisabled) {
+    warnings.push(
+      "OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH=true ar osakert och bor vara avstangt i produktion.",
+    );
+  }
 
   const includeMasked =
     req.nextUrl.searchParams.get("debug") === "1" ||

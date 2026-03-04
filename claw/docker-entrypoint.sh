@@ -7,19 +7,87 @@ AGENT_DIR="$OPENCLAW_DIR/agents/aida-flyttagent/agent"
 WORKSPACE_DIR="$OPENCLAW_DIR/workspace-aida"
 LISTEN_PORT="${PORT:-${OPENCLAW_GATEWAY_PORT:-18789}}"
 BIND_MODE="${OPENCLAW_GATEWAY_BIND:-lan}"
-MODEL_PRIMARY="${OPENCLAW_MODEL_PRIMARY:-openai/gpt-5.1-codex}"
-MODEL_FALLBACK="${OPENCLAW_MODEL_FALLBACK:-openai/gpt-5.1-codex}"
+HARD_DEFAULT_MODEL="openai/gpt-5.1-codex"
+DEFAULT_MODEL_RAW="${OPENCLAW_MODEL_DEFAULT:-${OPENCLAW_MODEL_LOCK:-$HARD_DEFAULT_MODEL}}"
+MODEL_PRIMARY_RAW="${OPENCLAW_MODEL_PRIMARY:-$DEFAULT_MODEL_RAW}"
+MODEL_FALLBACK_RAW="${OPENCLAW_MODEL_FALLBACK:-$DEFAULT_MODEL_RAW}"
+ALLOWED_MODEL_PREFIXES_RAW="${OPENCLAW_ALLOWED_MODEL_PREFIXES:-openai/}"
+MODEL_LOCK_ENABLED_RAW="${OPENCLAW_MODEL_LOCK_ENABLED:-false}"
+MODEL_POLICY_ENFORCE_RAW="${OPENCLAW_MODEL_POLICY_ENFORCE:-false}"
 OPENCLAW_VERSION="$(openclaw --version 2>/dev/null | tr -d '\r')"
-CONTROLUI_DISABLE_DEVICE_AUTH="${OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH:-false}"
+CONTROLUI_DISABLE_DEVICE_AUTH_RAW="${OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH:-false}"
+ALLOW_INSECURE_CONTROLUI_RAW="${OPENCLAW_ALLOW_INSECURE_CONTROLUI:-false}"
 
-case "$(echo "$CONTROLUI_DISABLE_DEVICE_AUTH" | tr '[:upper:]' '[:lower:]')" in
-  1|true|y|yes)
-    CONTROLUI_DISABLE_DEVICE_AUTH=true
-    ;;
-  *)
-    CONTROLUI_DISABLE_DEVICE_AUTH=false
-    ;;
-esac
+normalize_bool() {
+  case "$(echo "$1" | tr '[:upper:]' '[:lower:]')" in
+    1|true|y|yes)
+      echo "true"
+      ;;
+    *)
+      echo "false"
+      ;;
+  esac
+}
+
+is_model_allowed() {
+  model_lower="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
+  old_ifs="$IFS"
+  IFS=','
+  for raw_prefix in $ALLOWED_MODEL_PREFIXES_RAW; do
+    prefix="$(echo "$raw_prefix" | tr '[:upper:]' '[:lower:]' | sed 's/^ *//;s/ *$//')"
+    [ -z "$prefix" ] && continue
+    case "$model_lower" in
+      "$prefix"*)
+        IFS="$old_ifs"
+        return 0
+        ;;
+    esac
+  done
+  IFS="$old_ifs"
+  return 1
+}
+
+enforce_model_policy() {
+  label="$1"
+  candidate="$2"
+  fallback="$3"
+  if [ -z "$candidate" ]; then
+    echo "$fallback"
+    return
+  fi
+  if [ "$MODEL_POLICY_ENFORCE" != "true" ]; then
+    if ! is_model_allowed "$candidate"; then
+      echo "[entrypoint] WARNING: disallowed ${label} model '${candidate}' seen, but OPENCLAW_MODEL_POLICY_ENFORCE=false." >&2
+    fi
+    echo "$candidate"
+    return
+  fi
+  if is_model_allowed "$candidate"; then
+    echo "$candidate"
+    return
+  fi
+  echo "[entrypoint] WARNING: blocked disallowed ${label} model '${candidate}', fallback='${fallback}'" >&2
+  echo "$fallback"
+}
+
+MODEL_LOCK_ENABLED="$(normalize_bool "$MODEL_LOCK_ENABLED_RAW")"
+MODEL_POLICY_ENFORCE="$(normalize_bool "$MODEL_POLICY_ENFORCE_RAW")"
+ALLOW_INSECURE_CONTROLUI="$(normalize_bool "$ALLOW_INSECURE_CONTROLUI_RAW")"
+CONTROLUI_DISABLE_DEVICE_AUTH="$(normalize_bool "$CONTROLUI_DISABLE_DEVICE_AUTH_RAW")"
+
+DEFAULT_MODEL="$(enforce_model_policy "default" "$DEFAULT_MODEL_RAW" "$HARD_DEFAULT_MODEL")"
+MODEL_PRIMARY="$(enforce_model_policy "primary" "$MODEL_PRIMARY_RAW" "$DEFAULT_MODEL")"
+MODEL_FALLBACK="$(enforce_model_policy "fallback" "$MODEL_FALLBACK_RAW" "$DEFAULT_MODEL")"
+
+if [ "$MODEL_LOCK_ENABLED" = "true" ]; then
+  MODEL_FALLBACK="$MODEL_PRIMARY"
+fi
+
+if [ "$CONTROLUI_DISABLE_DEVICE_AUTH" = "true" ] && [ "$ALLOW_INSECURE_CONTROLUI" != "true" ]; then
+  echo "[entrypoint] WARNING: blocked OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH=true; forcing false."
+  echo "[entrypoint] WARNING: set OPENCLAW_ALLOW_INSECURE_CONTROLUI=true only for local troubleshooting."
+  CONTROLUI_DISABLE_DEVICE_AUTH=false
+fi
 
 # Binding outside loopback requires auth; if token is missing, stay local.
 if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ] && [ "$BIND_MODE" != "loopback" ]; then
@@ -93,6 +161,7 @@ cat > "$CONFIG_FILE" <<EOF
 EOF
 
 echo "[entrypoint] Config written — model=${MODEL_PRIMARY}, fallback=${MODEL_FALLBACK}, port=${LISTEN_PORT}, bind=${BIND_MODE}"
+echo "[entrypoint] Model policy — allowed prefixes: ${ALLOWED_MODEL_PREFIXES_RAW}, enforce=${MODEL_POLICY_ENFORCE}, lockEnabled=${MODEL_LOCK_ENABLED}"
 echo "[entrypoint] OpenClaw version: ${OPENCLAW_VERSION:-unknown}"
 echo "[entrypoint] controlUi.dangerouslyDisableDeviceAuth=${CONTROLUI_DISABLE_DEVICE_AUTH}"
 

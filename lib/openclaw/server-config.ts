@@ -3,6 +3,9 @@ import { getLiveTaskKeys, getStubTaskKeys, getApiTaskKeys } from "@/lib/comparis
 
 const DEFAULT_DEV_GATEWAY_URL = "http://127.0.0.1:18789";
 const DEFAULT_REDIRECT_PATH = "/adressandring";
+const DEFAULT_OPENCLAW_MODEL = "openai/gpt-5.1-codex";
+const DEFAULT_SIMPLE_MODEL = "openai/gpt-4.1-mini";
+const DEFAULT_ALLOWED_MODEL_PREFIXES = ["openai/"];
 
 function sanitizeEnvValue(value: string): string {
   return value
@@ -20,6 +23,53 @@ function firstNonEmpty(...values: Array<string | undefined>): string {
     if (sanitized) return sanitized;
   }
   return "";
+}
+
+function boolFromEnv(value: string | undefined): boolean {
+  const normalized = sanitizeEnvValue(value ?? "").toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "y" || normalized === "yes";
+}
+
+function parseAllowedModelPrefixes(): string[] {
+  const raw = sanitizeEnvValue(process.env.OPENCLAW_ALLOWED_MODEL_PREFIXES ?? "");
+  const parsed = raw
+    .split(",")
+    .map((prefix) => sanitizeEnvValue(prefix).toLowerCase())
+    .filter(Boolean);
+  return parsed.length > 0 ? parsed : DEFAULT_ALLOWED_MODEL_PREFIXES;
+}
+
+export function getAllowedModelPrefixes(): string[] {
+  return parseAllowedModelPrefixes();
+}
+
+export function isModelPolicyEnforced(): boolean {
+  return boolFromEnv(process.env.OPENCLAW_MODEL_POLICY_ENFORCE);
+}
+
+export function isModelAllowed(model: string): boolean {
+  const candidate = sanitizeEnvValue(model).toLowerCase();
+  if (!candidate) return false;
+  return parseAllowedModelPrefixes().some((prefix) => candidate.startsWith(prefix));
+}
+
+function enforceModelPolicy(candidate: string, fallback: string, source: string): string {
+  const safeFallback = sanitizeEnvValue(fallback) || DEFAULT_OPENCLAW_MODEL;
+  const safeCandidate = sanitizeEnvValue(candidate);
+  if (!safeCandidate) return safeFallback;
+  if (isModelAllowed(safeCandidate)) return safeCandidate;
+
+  if (!isModelPolicyEnforced()) {
+    console.warn(
+      `[OpenClaw] disallowed model '${safeCandidate}' from ${source}; allowing because OPENCLAW_MODEL_POLICY_ENFORCE=false`,
+    );
+    return safeCandidate;
+  }
+
+  console.warn(
+    `[OpenClaw] blocked disallowed model '${safeCandidate}' from ${source}; falling back to '${safeFallback}'`,
+  );
+  return safeFallback;
 }
 
 function normalizeGatewayUrl(value: string): string {
@@ -62,7 +112,14 @@ export function getOpenClawAgentId(): string {
 }
 
 export function getOpenClawChatModel(agentId = getOpenClawAgentId()): string {
-  return firstNonEmpty(process.env.OPENCLAW_CHAT_MODEL, `openclaw:${agentId}`);
+  const defaultModel = firstNonEmpty(
+    process.env.OPENCLAW_MODEL_DEFAULT,
+    process.env.OPENCLAW_MODEL_LOCK,
+    DEFAULT_OPENCLAW_MODEL,
+    `openclaw:${agentId}`,
+  );
+  const configured = firstNonEmpty(process.env.OPENCLAW_CHAT_MODEL, defaultModel);
+  return enforceModelPolicy(configured, defaultModel, "OPENCLAW_CHAT_MODEL");
 }
 
 /**
@@ -79,7 +136,12 @@ export function getOpenClawChatModel(agentId = getOpenClawAgentId()): string {
 export function getModelForIntent(intent: string): string {
   const powerful = getOpenClawChatModel();
   if (intent === "simple") {
-    return firstNonEmpty(process.env.OPENCLAW_CHAT_MODEL_SIMPLE, "openai/gpt-4.1-mini", powerful);
+    const configuredSimple = firstNonEmpty(
+      process.env.OPENCLAW_CHAT_MODEL_SIMPLE,
+      DEFAULT_SIMPLE_MODEL,
+      powerful,
+    );
+    return enforceModelPolicy(configuredSimple, powerful, "OPENCLAW_CHAT_MODEL_SIMPLE");
   }
   return powerful;
 }

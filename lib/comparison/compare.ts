@@ -3,6 +3,7 @@ import { postalToElArea } from "./elarea";
 import { electricityApiHandler } from "./providers/electricity";
 import { moversApiHandler, cleaningApiHandler } from "./providers/local-services";
 import { broadbandApiHandler } from "./providers/broadband";
+import { extractTokenUsage, trackUsage } from "@/lib/usage/tracker";
 
 const WEB_SEARCH_ENABLED =
   (process.env.WEB_SEARCH_COMPARE ?? "").trim().toLowerCase() === "y";
@@ -343,6 +344,8 @@ export async function runComparison(input: CompareInput): Promise<CompareResult>
     elAreaInfo ? `Elnatsomrade: ${elAreaInfo.area} (${elAreaInfo.label}, ${elAreaInfo.city})` : null,
   ];
   const userPrompt = promptParts.filter(Boolean).join("\n");
+  const route = `/api/compare/${input.taskKey}`;
+  const started = Date.now();
 
   try {
     const response = await (client as any).responses.create({
@@ -352,6 +355,19 @@ export async function runComparison(input: CompareInput): Promise<CompareResult>
         { role: "user", content: userPrompt },
       ],
       tools: [{ type: "web_search" }],
+    });
+
+    const usage = extractTokenUsage((response as any)?.usage);
+    trackUsage({
+      provider: "openai",
+      flow: "comparison",
+      route,
+      model: COMPARE_MODEL,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+      durationMs: Date.now() - started,
+      ok: true,
     });
 
     const outputText =
@@ -395,6 +411,14 @@ export async function runComparison(input: CompareInput): Promise<CompareResult>
     return result;
   } catch (err) {
     console.error(`[compare] ${input.taskKey} error:`, err);
+    trackUsage({
+      provider: "openai",
+      flow: "comparison",
+      route,
+      model: COMPARE_MODEL,
+      durationMs: Date.now() - started,
+      ok: false,
+    });
 
     return {
       taskKey: input.taskKey,

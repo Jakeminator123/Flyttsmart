@@ -1,3 +1,5 @@
+import { trackUsage, type UsageFlow } from "@/lib/usage/tracker";
+
 const BRAVE_API_KEY = (process.env.BRAVE_API_KEY ?? "").trim();
 const BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search";
 const BRAVE_TIMEOUT_MS = 8_000;
@@ -8,6 +10,12 @@ export interface BraveSearchResult {
   description: string;
 }
 
+export interface BraveTrackingContext {
+  route?: string;
+  sessionId?: string;
+  flow?: UsageFlow;
+}
+
 export function isBraveConfigured(): boolean {
   return BRAVE_API_KEY.length > 0;
 }
@@ -15,8 +23,11 @@ export function isBraveConfigured(): boolean {
 export async function braveWebSearch(
   query: string,
   count = 5,
+  tracking?: BraveTrackingContext,
 ): Promise<BraveSearchResult[]> {
   if (!BRAVE_API_KEY) return [];
+  const started = Date.now();
+  let ok = false;
 
   const params = new URLSearchParams({
     q: query,
@@ -40,6 +51,7 @@ export async function braveWebSearch(
     const data = await res.json();
     const results = data?.web?.results;
     if (!Array.isArray(results)) return [];
+    ok = true;
 
     return results.slice(0, count).map((r: Record<string, unknown>) => ({
       title: String(r.title ?? ""),
@@ -48,5 +60,14 @@ export async function braveWebSearch(
     }));
   } catch {
     return [];
+  } finally {
+    trackUsage({
+      provider: "brave",
+      flow: tracking?.flow ?? "web_search",
+      route: tracking?.route ?? "/api/unknown",
+      sessionId: tracking?.sessionId,
+      durationMs: Date.now() - started,
+      ok,
+    });
   }
 }

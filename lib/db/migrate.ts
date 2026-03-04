@@ -110,6 +110,29 @@ async function migrate() {
 
     CREATE UNIQUE INDEX IF NOT EXISTS reminder_logs_move_kind_schedule_idx
       ON reminder_logs(move_id, kind, scheduled_for);
+
+    CREATE TABLE IF NOT EXISTS usage_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      provider TEXT NOT NULL,
+      flow TEXT NOT NULL,
+      route TEXT NOT NULL,
+      model TEXT,
+      input_tokens INTEGER,
+      output_tokens INTEGER,
+      total_tokens INTEGER,
+      estimated_cost_usd TEXT,
+      duration_ms INTEGER,
+      ok INTEGER NOT NULL DEFAULT 1,
+      session_id TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS usage_events_provider_created_at_idx
+      ON usage_events(provider, created_at);
+    CREATE INDEX IF NOT EXISTS usage_events_flow_created_at_idx
+      ON usage_events(flow, created_at);
+    CREATE INDEX IF NOT EXISTS usage_events_route_created_at_idx
+      ON usage_events(route, created_at);
   `);
 
   async function ensureMoveColumn(columnName: string, sqlType = "TEXT") {

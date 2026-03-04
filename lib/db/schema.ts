@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 
 // ── Users ──────────────────────────────────────────────────────────────
 export const users = sqliteTable("users", {
@@ -116,6 +116,42 @@ export const reminderLogs = sqliteTable(
   })
 );
 
+// ── Usage Events (cost/tokens tracking) ────────────────────────────────
+export const usageEvents = sqliteTable(
+  "usage_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    provider: text("provider").notNull(), // openai | brave | pap | eniro | nominatim | scb | ratsit | openclaw_gateway | elpris
+    flow: text("flow").notNull(), // web_search | enrichment | comparison | gateway_simple | gateway_general | gateway_comparison | keepalive
+    route: text("route").notNull(), // /api/did/chat, /api/openclaw/chat, etc
+    model: text("model"),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    totalTokens: integer("total_tokens"),
+    estimatedCostUsd: text("estimated_cost_usd"), // stored as string, ex: "0.0032"
+    durationMs: integer("duration_ms"),
+    ok: integer("ok", { mode: "boolean" }).notNull().default(true),
+    sessionId: text("session_id"),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    providerCreatedAtIdx: index("usage_events_provider_created_at_idx").on(
+      table.provider,
+      table.createdAt,
+    ),
+    flowCreatedAtIdx: index("usage_events_flow_created_at_idx").on(
+      table.flow,
+      table.createdAt,
+    ),
+    routeCreatedAtIdx: index("usage_events_route_created_at_idx").on(
+      table.route,
+      table.createdAt,
+    ),
+  }),
+);
+
 // ── Type helpers ───────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -127,3 +163,5 @@ export type QrToken = typeof qrTokens.$inferSelect;
 export type NewQrToken = typeof qrTokens.$inferInsert;
 export type ReminderLog = typeof reminderLogs.$inferSelect;
 export type NewReminderLog = typeof reminderLogs.$inferInsert;
+export type UsageEvent = typeof usageEvents.$inferSelect;
+export type NewUsageEvent = typeof usageEvents.$inferInsert;

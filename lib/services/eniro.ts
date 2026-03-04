@@ -1,3 +1,5 @@
+import { trackUsage, type UsageFlow } from "@/lib/usage/tracker";
+
 const ENIRO_API_KEY = process.env.ENIRO_API_KEY ?? "";
 
 export interface EniroResult {
@@ -8,11 +10,20 @@ export interface EniroResult {
   zipCode?: string;
 }
 
+export interface EniroTrackingContext {
+  route?: string;
+  sessionId?: string;
+  flow?: UsageFlow;
+}
+
 export async function eniroCompanySearch(
   query: string,
-  geoArea?: string
+  geoArea?: string,
+  tracking?: EniroTrackingContext,
 ): Promise<EniroResult[]> {
   if (!ENIRO_API_KEY || !query.trim()) return [];
+  const started = Date.now();
+  let ok = false;
   try {
     const params = new URLSearchParams({
       profile: "APIGW",
@@ -30,6 +41,7 @@ export async function eniroCompanySearch(
     const data = await res.json();
     const adverts = data?.adverts;
     if (!Array.isArray(adverts)) return [];
+    ok = true;
 
     return adverts.slice(0, 5).map((a: Record<string, unknown>) => ({
       title: String(a.companyName ?? ""),
@@ -40,5 +52,14 @@ export async function eniroCompanySearch(
     }));
   } catch {
     return [];
+  } finally {
+    trackUsage({
+      provider: "eniro",
+      flow: tracking?.flow ?? "enrichment",
+      route: tracking?.route ?? "/api/unknown",
+      sessionId: tracking?.sessionId,
+      durationMs: Date.now() - started,
+      ok,
+    });
   }
 }

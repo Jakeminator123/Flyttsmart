@@ -10,6 +10,7 @@
  */
 
 import { eniroCompanySearch, type EniroResult } from "@/lib/services/eniro";
+import { trackUsage } from "@/lib/usage/tracker";
 
 const PAP_API_KEY = process.env.PAP_API_KEY ?? "";
 const NOMINATIM_ENABLED =
@@ -76,6 +77,11 @@ interface EnrichmentResult {
   comparisonOpportunities: string[];
 }
 
+interface EnrichTrackingContext {
+  route?: string;
+  sessionId?: string;
+}
+
 const SCB_CACHE = new Map<string, { data: ScbPopulation; ts: number }>();
 const SCB_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -88,6 +94,7 @@ async function lookupPostal(postalCode: string): Promise<{
   if (!/^\d{5}$/.test(clean)) return null;
 
   if (PAP_API_KEY) {
+    const started = Date.now();
     try {
       const res = await fetch(
         `https://api.papapi.se/lite/?query=${clean}&format=json&apikey=${PAP_API_KEY}`,
@@ -97,6 +104,13 @@ async function lookupPostal(postalCode: string): Promise<{
         const data = await res.json();
         const item = data?.results?.[0];
         if (item?.city) {
+          trackUsage({
+            provider: "pap",
+            flow: "enrichment",
+            route: "/api/enrich/postal",
+            durationMs: Date.now() - started,
+            ok: true,
+          });
           return {
             city: item.city.trim(),
             municipality: item.county?.trim(),
@@ -104,7 +118,22 @@ async function lookupPostal(postalCode: string): Promise<{
           };
         }
       }
-    } catch { /* fall through */ }
+      trackUsage({
+        provider: "pap",
+        flow: "enrichment",
+        route: "/api/enrich/postal",
+        durationMs: Date.now() - started,
+        ok: false,
+      });
+    } catch {
+      trackUsage({
+        provider: "pap",
+        flow: "enrichment",
+        route: "/api/enrich/postal",
+        durationMs: Date.now() - started,
+        ok: false,
+      });
+    }
   }
   return null;
 }
@@ -116,6 +145,7 @@ async function nominatimLookup(
 ): Promise<NominatimResult | null> {
   if (!NOMINATIM_ENABLED) return null;
   const q = [street, postalCode, city, "Sweden"].filter(Boolean).join(", ");
+  const started = Date.now();
   try {
     const params = new URLSearchParams({
       q,
@@ -131,11 +161,36 @@ async function nominatimLookup(
         headers: { "User-Agent": "Flytt.io/1.0 (flyttanmalan-assistent)" },
       }
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      trackUsage({
+        provider: "nominatim",
+        flow: "enrichment",
+        route: "/api/enrich/nominatim",
+        durationMs: Date.now() - started,
+        ok: false,
+      });
+      return null;
+    }
     const data = await res.json();
-    if (!Array.isArray(data) || data.length === 0) return null;
+    if (!Array.isArray(data) || data.length === 0) {
+      trackUsage({
+        provider: "nominatim",
+        flow: "enrichment",
+        route: "/api/enrich/nominatim",
+        durationMs: Date.now() - started,
+        ok: false,
+      });
+      return null;
+    }
     const item = data[0];
     const addr = item.address ?? {};
+    trackUsage({
+      provider: "nominatim",
+      flow: "enrichment",
+      route: "/api/enrich/nominatim",
+      durationMs: Date.now() - started,
+      ok: true,
+    });
     return {
       displayName: item.display_name ?? "",
       lat: String(item.lat ?? ""),
@@ -152,6 +207,13 @@ async function nominatimLookup(
       },
     };
   } catch {
+    trackUsage({
+      provider: "nominatim",
+      flow: "enrichment",
+      route: "/api/enrich/nominatim",
+      durationMs: Date.now() - started,
+      ok: false,
+    });
     return null;
   }
 }
@@ -202,29 +264,66 @@ async function scbPopulationLookup(city: string): Promise<ScbPopulation | null> 
       ],
     });
 
-    const res = await fetch(
-      `https://statistikdatabasen.scb.se/api/v2/tables/${encodeURIComponent(
-        SCB_TABLE_ID
-      )}/data?lang=sv&outputFormat=json-stat2`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-        signal: AbortSignal.timeout(5500),
+    const started = Date.now();
+    try {
+      const res = await fetch(
+        `https://statistikdatabasen.scb.se/api/v2/tables/${encodeURIComponent(
+          SCB_TABLE_ID
+        )}/data?lang=sv&outputFormat=json-stat2`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          signal: AbortSignal.timeout(5500),
+        }
+      );
+      if (!res.ok) {
+        trackUsage({
+          provider: "scb",
+          flow: "enrichment",
+          route: "/api/enrich/scb",
+          durationMs: Date.now() - started,
+          ok: false,
+        });
+        return null;
       }
-    );
-    if (!res.ok) return null;
 
-    const data = await res.json();
-    const values = Array.isArray((data as any)?.value) ? (data as any).value : [];
-    if (values.length === 0) return null;
+      const data = await res.json();
+      const values = Array.isArray((data as any)?.value) ? (data as any).value : [];
+      if (values.length === 0) {
+        trackUsage({
+          provider: "scb",
+          flow: "enrichment",
+          route: "/api/enrich/scb",
+          durationMs: Date.now() - started,
+          ok: false,
+        });
+        return null;
+      }
 
-    let total = 0;
-    for (const raw of values) {
-      const value = typeof raw === "number" ? raw : Number.parseFloat(String(raw));
-      if (Number.isFinite(value)) total += value;
+      let total = 0;
+      for (const raw of values) {
+        const value = typeof raw === "number" ? raw : Number.parseFloat(String(raw));
+        if (Number.isFinite(value)) total += value;
+      }
+      trackUsage({
+        provider: "scb",
+        flow: "enrichment",
+        route: "/api/enrich/scb",
+        durationMs: Date.now() - started,
+        ok: true,
+      });
+      return Math.round(total);
+    } catch {
+      trackUsage({
+        provider: "scb",
+        flow: "enrichment",
+        route: "/api/enrich/scb",
+        durationMs: Date.now() - started,
+        ok: false,
+      });
+      return null;
     }
-    return Math.round(total);
   };
 
   try {
@@ -416,6 +515,7 @@ async function personLookup(pnr: string, apiBaseUrl: string): Promise<{
   const clean = pnr.replace(/\s|-/g, "");
   if (!/^\d{12}$/.test(clean)) return null;
   const enrichSecret = (process.env.ENRICH_API_SECRET ?? "").trim();
+  const started = Date.now();
   try {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (enrichSecret) headers["Authorization"] = `Bearer ${enrichSecret}`;
@@ -428,8 +528,24 @@ async function personLookup(pnr: string, apiBaseUrl: string): Promise<{
       signal: AbortSignal.timeout(40000),
     });
     const data = await res.json();
-    if (data?.found && (data.firstName || data.lastName || data.fromStreet)) return data;
-  } catch {}
+    const found = Boolean(data?.found && (data.firstName || data.lastName || data.fromStreet));
+    trackUsage({
+      provider: "ratsit",
+      flow: "enrichment",
+      route: "/api/enrich/person",
+      durationMs: Date.now() - started,
+      ok: found,
+    });
+    if (found) return data;
+  } catch {
+    trackUsage({
+      provider: "ratsit",
+      flow: "enrichment",
+      route: "/api/enrich/person",
+      durationMs: Date.now() - started,
+      ok: false,
+    });
+  }
   return null;
 }
 
@@ -498,7 +614,10 @@ export async function enrichContext(
     const searchTerms = ["matbutik", "vardcentral", "apotek"];
     for (const term of searchTerms) {
       lookups.push(
-        eniroCompanySearch(term, fields.toCity).then((r) => {
+        eniroCompanySearch(term, fields.toCity, {
+          flow: "enrichment",
+          route: "/api/enrich/eniro",
+        }).then((r) => {
           result.eniroResults.push(...r);
         })
       );

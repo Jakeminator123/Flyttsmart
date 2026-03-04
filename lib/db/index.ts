@@ -43,4 +43,14 @@ export function getDb() {
   return dbInstance;
 }
 
+/** Run raw SQL. LibSQL driver supports this at runtime; types may not expose it. */
+export async function runSql<T = unknown>(query: unknown): Promise<T[]> {
+  const db = getDb();
+  const result = (await (db as unknown as { execute: (q: unknown) => Promise<unknown> }).execute(query)) as
+    | T[]
+    | { rows: T[] };
+  if (Array.isArray(result)) return result;
+  return (result as { rows: T[] }).rows ?? [];
+}
+
 export { schema };

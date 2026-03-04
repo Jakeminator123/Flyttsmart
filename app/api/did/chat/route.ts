@@ -31,6 +31,7 @@ import {
   updateFormField,
   getFormContext,
 } from "@/lib/did/session-store";
+import { extractTokenUsage, trackUsage, type UsageFlow } from "@/lib/usage/tracker";
 
 const DID_BRIDGE_SECRET = process.env.DID_BRIDGE_SECRET ?? "";
 const TEST_TAL_ENABLED = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
@@ -148,6 +149,12 @@ function extractFieldValue(body: Record<string, unknown>): string {
 function toLastWord(value: string): string {
   const words = value.trim().split(/\s+/).filter(Boolean);
   return words[words.length - 1] ?? "";
+}
+
+function gatewayFlowFromIntent(intent: string): UsageFlow {
+  if (intent === "simple") return "gateway_simple";
+  if (intent === "comparison") return "gateway_comparison";
+  return "gateway_general";
 }
 
 function buildSystemMessage(
@@ -411,7 +418,10 @@ export async function POST(req: NextRequest) {
       pushMessage(sessionId, "user", userMessage);
       try {
         const searchReply =
-          (await runExplicitWebSearch(userMessage)) ||
+          (await runExplicitWebSearch(userMessage, {
+            route: "/api/did/chat",
+            sessionId,
+          })) ||
           "Jag kunde inte fa fram nagot tydligt webbsokresultat just nu. Forsok igen med en mer specifik fraga.";
         pushMessage(sessionId, "assistant", searchReply);
         return NextResponse.json(
@@ -547,6 +557,8 @@ export async function POST(req: NextRequest) {
     ];
 
     const chatModel = getModelForIntent(intent);
+    const gatewayFlow = gatewayFlowFromIntent(intent);
+    const gatewayStarted = Date.now();
 
     async function callGateway(msgs: Array<{ role: string; content: string }>) {
       const timeoutSignal =
@@ -591,6 +603,15 @@ export async function POST(req: NextRequest) {
 
       if (!gatewayResponse.ok) {
         const retryDetail = await gatewayResponse.text().catch(() => "");
+        trackUsage({
+          provider: "openclaw_gateway",
+          flow: gatewayFlow,
+          route: "/api/did/chat",
+          model: chatModel,
+          sessionId,
+          durationMs: Date.now() - gatewayStarted,
+          ok: false,
+        });
         return NextResponse.json(
           {
             error: "OpenClaw gateway request failed",
@@ -606,6 +627,19 @@ export async function POST(req: NextRequest) {
     }
 
     const gatewayJson = await gatewayResponse.json().catch(() => null);
+    const gatewayUsage = extractTokenUsage((gatewayJson as any)?.usage);
+    trackUsage({
+      provider: "openclaw_gateway",
+      flow: gatewayFlow,
+      route: "/api/did/chat",
+      model: chatModel,
+      sessionId,
+      inputTokens: gatewayUsage.inputTokens,
+      outputTokens: gatewayUsage.outputTokens,
+      totalTokens: gatewayUsage.totalTokens,
+      durationMs: Date.now() - gatewayStarted,
+      ok: true,
+    });
     let reply = extractOpenClawText(gatewayJson);
 
     if (!reply) {

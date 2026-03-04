@@ -23,6 +23,7 @@ import {
   getActiveTaskKeys,
   type CompareResult,
 } from "@/lib/comparison/compare";
+import { extractTokenUsage, trackUsage, type UsageFlow } from "@/lib/usage/tracker";
 
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
@@ -37,6 +38,12 @@ function isAbortError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const name = (error as { name?: string }).name;
   return name === "AbortError" || name === "TimeoutError";
+}
+
+function gatewayFlowFromIntent(intent: string): UsageFlow {
+  if (intent === "simple") return "gateway_simple";
+  if (intent === "comparison") return "gateway_comparison";
+  return "gateway_general";
 }
 
 // ─── Comparison pre-fetch ────────────────────────────────
@@ -217,7 +224,10 @@ export async function POST(req: NextRequest) {
     if (latestUserMessage && shouldRunExplicitWebSearch(latestUserMessage.content)) {
       try {
         const searchReply =
-          (await runExplicitWebSearch(latestUserMessage.content)) ||
+          (await runExplicitWebSearch(latestUserMessage.content, {
+            route: "/api/openclaw/chat",
+            sessionId,
+          })) ||
           "Jag kunde inte fa fram nagot tydligt webbsokresultat just nu. Forsok igen med en mer specifik fraga.";
         return NextResponse.json({
           role: "assistant",
@@ -336,6 +346,9 @@ export async function POST(req: NextRequest) {
         content: m.content,
       })),
     ];
+    const gatewayFlow = gatewayFlowFromIntent(intent);
+    const gatewayStarted = Date.now();
+    const gatewayModel = getModelForIntent(intent);
 
     const timeoutSignal =
       typeof (AbortSignal as { timeout?: (ms: number) => AbortSignal }).timeout === "function"
@@ -352,7 +365,7 @@ export async function POST(req: NextRequest) {
           "x-openclaw-agent-id": AGENT_ID,
         },
         body: JSON.stringify({
-          model: getModelForIntent(intent),
+          model: gatewayModel,
           stream: true,
           user: sessionId,
           messages: openaiMessages,
@@ -361,6 +374,15 @@ export async function POST(req: NextRequest) {
       });
     } catch (error) {
       if (isAbortError(error)) {
+        trackUsage({
+          provider: "openclaw_gateway",
+          flow: gatewayFlow,
+          route: "/api/openclaw/chat",
+          model: gatewayModel,
+          sessionId,
+          durationMs: Date.now() - gatewayStarted,
+          ok: false,
+        });
         return NextResponse.json(
           {
             content: "Aida tog för lång tid att svara. Försök igen direkt så fortsätter vi.",
@@ -371,6 +393,15 @@ export async function POST(req: NextRequest) {
         );
       }
       console.error("[v0] OpenClaw chat fetch error:", error);
+      trackUsage({
+        provider: "openclaw_gateway",
+        flow: gatewayFlow,
+        route: "/api/openclaw/chat",
+        model: gatewayModel,
+        sessionId,
+        durationMs: Date.now() - gatewayStarted,
+        ok: false,
+      });
       return NextResponse.json(
         {
           content: "Aida kunde inte nås just nu. Försök igen om en stund.",
@@ -386,6 +417,15 @@ export async function POST(req: NextRequest) {
       console.error(
         `[v0] OpenClaw chat error ${agentResponse.status}: ${errText}`
       );
+      trackUsage({
+        provider: "openclaw_gateway",
+        flow: gatewayFlow,
+        route: "/api/openclaw/chat",
+        model: gatewayModel,
+        sessionId,
+        durationMs: Date.now() - gatewayStarted,
+        ok: false,
+      });
       return NextResponse.json(
         {
           content: `Aida kunde inte svara just nu (${agentResponse.status}). Forsok igen om en stund.`,
@@ -466,6 +506,16 @@ export async function POST(req: NextRequest) {
         }
       })();
 
+      trackUsage({
+        provider: "openclaw_gateway",
+        flow: gatewayFlow,
+        route: "/api/openclaw/chat",
+        model: gatewayModel,
+        sessionId,
+        durationMs: Date.now() - gatewayStarted,
+        ok: true,
+      });
+
       return new Response(readable, {
         headers: {
           "Content-Type": "text/event-stream",
@@ -477,6 +527,19 @@ export async function POST(req: NextRequest) {
 
     // Non-streaming JSON fallback
     const data = await agentResponse.json().catch(() => null);
+    const usage = extractTokenUsage((data as any)?.usage);
+    trackUsage({
+      provider: "openclaw_gateway",
+      flow: gatewayFlow,
+      route: "/api/openclaw/chat",
+      model: gatewayModel,
+      sessionId,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+      durationMs: Date.now() - gatewayStarted,
+      ok: true,
+    });
 
     const reply = extractOpenClawText(data) || data?.content || "Inget svar fran agenten.";
 

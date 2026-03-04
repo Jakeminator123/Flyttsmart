@@ -11,6 +11,7 @@ import {
   FileText,
   ArrowLeft,
   Users,
+  DollarSign,
 } from "lucide-react";
 import {
   Sidebar,
@@ -34,6 +35,7 @@ const navItems = [
   { title: "API", href: "/admin/api", icon: Code2 },
   { title: "Jämförelser", href: "/admin/comparisons", icon: GitCompareArrows },
   { title: "SKV", href: "/admin/skv", icon: FileText },
+  { title: "Kostnader", href: "/admin/kostnader", icon: DollarSign },
 ];
 
 export function AdminSidebar() {

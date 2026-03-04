@@ -10,7 +10,10 @@ async function eniroLocalHandler(
   const city = input.toCity?.trim();
   if (!city) return null;
 
-  const results = await eniroCompanySearch(searchWord, city);
+  const results = await eniroCompanySearch(searchWord, city, {
+    flow: "comparison",
+    route: `/api/compare/${input.taskKey}`,
+  });
   if (results.length === 0) return null;
 
   const providers: CompareProvider[] = results.map((r) => ({

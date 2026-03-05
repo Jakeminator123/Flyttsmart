@@ -506,15 +506,21 @@ html.lenis, html.lenis body {
    Glass morphism card
    ──────────────────────────────────────── */
 .glass {
-  background: oklch(1 0 0 / 0.6);
-  backdrop-filter: blur(20px) saturate(1.5);
-  -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  border: 1px solid oklch(1 0 0 / 0.2);
+  background: oklch(1 0 0 / 0.5);
+  backdrop-filter: blur(18px) saturate(1.8);
+  -webkit-backdrop-filter: blur(18px) saturate(1.8);
+  border: 1px solid oklch(1 0 0 / 0.24);
+  box-shadow:
+    0 12px 35px -20px oklch(0.5 0.24 264 / 0.18),
+    inset 0 1px 0 oklch(1 0 0 / 0.45);
 }
 
 .dark .glass {
-  background: oklch(0.16 0.025 265 / 0.6);
-  border-color: oklch(1 0 0 / 0.08);
+  background: oklch(0.16 0.025 265 / 0.52);
+  border-color: oklch(1 0 0 / 0.12);
+  box-shadow:
+    0 14px 38px -20px oklch(0 0 0 / 0.45),
+    inset 0 1px 0 oklch(1 0 0 / 0.08);
 }
 
 /* ────────────────────────────────────────
@@ -548,9 +554,10 @@ html.lenis, html.lenis body {
    Noise texture overlay
    ──────────────────────────────────────── */
 .noise-overlay {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
+  opacity: 0.6;
 }
 
 /* ────────────────────────────────────────
@@ -662,7 +669,37 @@ html.lenis, html.lenis body {
    ──────────────────────────────────────── */
 .section-divider {
   height: 1px;
-  background: linear-gradient(to right, transparent 5%, oklch(0.50 0.24 264 / 0.12) 20%, oklch(0.50 0.24 264 / 0.35) 50%, oklch(0.50 0.24 264 / 0.12) 80%, transparent 95%);
+  background: linear-gradient(
+    to right,
+    transparent 4%,
+    oklch(0.50 0.24 264 / 0.08) 22%,
+    oklch(0.50 0.24 264 / 0.2) 50%,
+    oklch(0.50 0.24 264 / 0.08) 78%,
+    transparent 96%
+  );
+}
+
+/* ────────────────────────────────────────
+   3D card interaction
+   ──────────────────────────────────────── */
+.card-3d {
+  transform-style: preserve-3d;
+  transform: perspective(800px) rotateX(0deg) rotateY(0deg) translateY(0);
+  transition:
+    transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.card-3d:hover {
+  transform: perspective(800px) rotateX(3deg) rotateY(-3deg) translateY(-4px);
+  box-shadow:
+    0 30px 55px -22px oklch(0.5 0.24 264 / 0.18),
+    0 12px 20px -10px oklch(0.5 0.24 264 / 0.1);
+}
+
+.card-3d > * {
+  transform: translateZ(0);
 }
 
 /* ────────────────────────────────────────
@@ -721,6 +758,31 @@ html.lenis, html.lenis body {
 }
 
 /* ────────────────────────────────────────
+   Blur reveal utility
+   ──────────────────────────────────────── */
+@keyframes blur-reveal {
+  0% {
+    opacity: 0;
+    filter: blur(28px);
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.blur-reveal {
+  animation: blur-reveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.blur-reveal-delay-100 { animation-delay: 100ms; }
+.blur-reveal-delay-200 { animation-delay: 200ms; }
+.blur-reveal-delay-300 { animation-delay: 300ms; }
+.blur-reveal-delay-400 { animation-delay: 400ms; }
+
+/* ────────────────────────────────────────
    Reduced motion
    ──────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
@@ -755,6 +817,17 @@ html.lenis, html.lenis body {
     animation: none;
   }
   .card-hover:hover {
+    transform: none;
+  }
+  .card-3d,
+  .card-3d:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  .blur-reveal {
+    animation: none;
+    opacity: 1;
+    filter: none;
     transform: none;
   }
   .lively-word,

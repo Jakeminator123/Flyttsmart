@@ -86,6 +86,7 @@ export function TrustSection() {
         <div className="section-orb-1 -bottom-1/3 -right-1/3 h-125 w-125" />
       </motion.div>
       <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.05]" />
+      <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.03]" />
 
       <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
         {/* Header */}
@@ -147,7 +148,7 @@ export function TrustSection() {
         <div className="mt-14">
           <Marquee speed={30} className="py-4">
             {marqueeItems.map((item) => (
-              <div key={item.text} className="flex items-center gap-2.5 rounded-full border border-border/50 bg-card/80 px-5 py-2.5 text-sm font-medium text-muted-foreground backdrop-blur-sm">
+              <div key={item.text} className="flex items-center gap-2.5 rounded-full border border-border/50 bg-card/82 px-5 py-2.5 text-sm font-medium text-muted-foreground backdrop-blur-md">
                 <item.icon className="h-4 w-4 text-primary" />
                 {item.text}
               </div>
@@ -165,7 +166,7 @@ export function TrustSection() {
         >
           {trustSignals.map((signal) => (
             <motion.div key={signal.title} variants={fadeUp}>
-              <div className="gradient-border card-hover group flex h-full flex-col items-center rounded-2xl border border-border/50 bg-card p-9 text-center">
+              <div className="gradient-border card-3d card-hover group flex h-full flex-col items-center rounded-2xl border border-border/50 bg-card/90 p-9 text-center backdrop-blur-sm">
                 <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-all duration-500 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-xl group-hover:shadow-primary/25 group-hover:scale-110">
                   <signal.icon className="h-8 w-8" />
                 </div>
@@ -188,7 +189,7 @@ export function TrustSection() {
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className="gradient-border relative overflow-hidden rounded-2xl shadow-2xl shadow-primary/10">
+          <div className="gradient-border card-3d relative overflow-hidden rounded-2xl shadow-2xl shadow-primary/10">
             <Image
               src="/images/secure-form.jpg"
               alt="En laptop med ett säkert formulär på skärmen bredvid en kopp kaffe på ett ljust skrivbord"

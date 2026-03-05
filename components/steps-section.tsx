@@ -169,12 +169,12 @@ export function StepsSection() {
           variants={fadeUp}
         >
           <Tabs defaultValue="bankid" className="gap-0">
-            <TabsList className="mx-auto mb-10 grid h-auto w-full max-w-2xl grid-cols-4 rounded-2xl bg-muted/80 p-2 backdrop-blur-sm">
+            <TabsList className="mx-auto mb-10 grid h-auto w-full max-w-2xl grid-cols-4 rounded-2xl border border-border/50 bg-background/75 p-2 backdrop-blur-md">
               {steps.map((step) => (
                 <TabsTrigger
                   key={step.id}
                   value={step.id}
-                  className="flex items-center gap-2 rounded-xl py-3.5 text-xs data-[state=active]:bg-card data-[state=active]:shadow-lg data-[state=active]:shadow-primary/10 sm:text-sm transition-all duration-300"
+                  className="flex items-center gap-2 rounded-xl py-3.5 text-xs transition-all duration-300 data-[state=active]:bg-card/95 data-[state=active]:shadow-lg data-[state=active]:shadow-primary/10 sm:text-sm"
                 >
                   <step.icon className="h-4 w-4" />
                   <span className="hidden sm:inline">{step.title.split(" ").slice(0, 2).join(" ")}</span>
@@ -185,7 +185,7 @@ export function StepsSection() {
             {steps.map((step) => (
               <TabsContent key={step.id} value={step.id}>
                 <motion.div
-                  className="gradient-border flex items-start gap-12 rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-10 lg:p-14"
+                  className="gradient-border card-3d flex items-start gap-12 rounded-2xl border border-border/50 bg-card/82 p-10 backdrop-blur-md lg:p-14"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
@@ -247,7 +247,7 @@ export function StepsSection() {
         >
           {steps.map((step, i) => (
             <motion.div key={step.number} variants={fadeUp}>
-              <div className="gradient-border card-hover group relative flex h-full flex-col rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-6">
+              <div className="gradient-border card-3d card-hover group relative flex h-full flex-col rounded-2xl border border-border/50 bg-card/82 p-6 backdrop-blur-md">
                 <div className="mb-4 flex items-center gap-3">
                   <span className="font-heading text-4xl font-bold text-primary/10 transition-colors duration-500 group-hover:text-primary/25">
                     {step.number}

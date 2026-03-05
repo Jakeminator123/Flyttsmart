@@ -58,10 +58,10 @@ export function CtaSection() {
     >
       <div className="section-divider absolute top-0 left-0 right-0" />
 
-      <div className="hero-mesh opacity-50" />
-      <div className="hero-mesh-accent opacity-30" />
+      <div className="hero-mesh opacity-70" />
+      <div className="hero-mesh-accent opacity-45" />
       <motion.div
-        className="pointer-events-none absolute inset-0 -top-[10%] -bottom-[10%] opacity-[0.12]"
+        className="pointer-events-none absolute inset-0 -top-[10%] -bottom-[10%] opacity-[0.16]"
         style={{ y: linesY }}
       >
         <FloatingLines
@@ -87,7 +87,7 @@ export function CtaSection() {
       >
         {/* "Before" contrast card */}
         <motion.div variants={fadeUp}>
-          <div className="mx-auto mb-10 flex max-w-md items-center gap-5 rounded-2xl border border-border/40 bg-card/60 p-4 text-left shadow-lg backdrop-blur-sm card-hover">
+          <div className="glass card-3d card-hover mx-auto mb-10 flex max-w-md items-center gap-5 rounded-2xl border border-border/40 p-4 text-left shadow-lg">
             <Image
               src="/media/images/ledsen_man.webp"
               alt="En stressad man omgiven av pappersarbete"
@@ -129,7 +129,7 @@ export function CtaSection() {
         </motion.p>
 
         <motion.div variants={fadeUp}>
-          <div className="glass mx-auto mt-12 max-w-lg rounded-2xl p-8 shadow-xl">
+          <div className="glass card-3d mx-auto mt-12 max-w-lg rounded-2xl border border-foreground/10 p-8 shadow-2xl shadow-primary/10">
             <div className="grid w-full grid-cols-2 gap-4">
               {highlights.map((h, i) => (
                 <motion.div
@@ -164,7 +164,7 @@ export function CtaSection() {
                 asChild
                 variant="outline"
                 size="lg"
-                className="rounded-full text-base bg-transparent backdrop-blur-sm"
+                className="rounded-full border-border/60 bg-background/70 text-base backdrop-blur-md"
               >
                 <a href="#kontakt">
                   <MessageCircle className="mr-2 h-4 w-4" />

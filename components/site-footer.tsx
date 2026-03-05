@@ -11,14 +11,15 @@ export function SiteFooter() {
   return (
     <footer
       id="kontakt"
-      className="relative overflow-hidden border-t border-border/50 bg-card py-20"
+      className="relative overflow-hidden border-t border-border/50 bg-section-alt/80 py-20"
     >
       {/* Animated background orbs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div className="section-orb-1 -bottom-1/4 left-1/4 h-100 w-100" />
         <div className="section-orb-2 -top-1/4 -right-1/4 h-75 w-75" />
       </div>
-      <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.015]" />
+      <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.04]" />
+      <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.025]" />
 
       <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
         <ScrollReveal>
@@ -53,7 +54,7 @@ export function SiteFooter() {
             </div>
 
             {/* Link columns */}
-            <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
+            <div className="glass card-3d grid grid-cols-2 gap-8 rounded-2xl border border-border/50 p-6 sm:grid-cols-3 sm:p-7">
               <div>
                 <h3 className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-foreground">
                   Tjänster

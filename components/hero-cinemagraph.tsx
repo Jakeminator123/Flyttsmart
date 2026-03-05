@@ -252,7 +252,7 @@ export function HeroCinemagraph({ className }: HeroCinemagraphProps) {
       {/* People loop zone (disabled on mobile for performance) */}
       {showPeopleLoop && (
         <motion.div
-          className="absolute inset-0 z-3"
+          className="absolute inset-0 z-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.9, ease: "easeInOut" }}

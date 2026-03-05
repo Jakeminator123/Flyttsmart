@@ -1,22 +1,31 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
-  async rewrites() {
-    const demoUrl = process.env.DEMO_ALTERNATIV_URL?.trim();
-    if (demoUrl) {
-      const base = demoUrl.replace(/\/$/, "");
-      return [
-        { source: "/demo", destination: `${base}/` },
-        { source: "/demo/:path*", destination: `${base}/:path*` },
-      ];
-    }
-    return [];
-  },
   images: {
     formats: ['image/avif', 'image/webp'],
   },
   async redirects() {
     return [
+      {
+        source: "/demo",
+        destination: "https://new-front-nine.vercel.app/",
+        permanent: false,
+      },
+      {
+        source: "/demo/:path*",
+        destination: "https://new-front-nine.vercel.app/:path*",
+        permanent: false,
+      },
+      {
+        source: "/bigdata",
+        destination: "https://full-scraper-dashboard.vercel.app/",
+        permanent: false,
+      },
+      {
+        source: "/bigdata/:path*",
+        destination: "https://full-scraper-dashboard.vercel.app/:path*",
+        permanent: false,
+      },
       {
         source: "/addressandring",
         destination: "/adressandring",

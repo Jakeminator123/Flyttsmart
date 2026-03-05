@@ -8,7 +8,7 @@ import os
 import time
 import json
 import re
-from typing import Callable, Optional, Dict
+from typing import Callable, Optional, Dict, Any
 
 DEFAULT_MOCKUP_DATA = {
     "inflyttningsdatum": "2026-01-15",
@@ -104,6 +104,29 @@ def _resolve_field_data(
     return {}
 
 
+def _build_filler_result(
+    status: str,
+    resolved_data: Dict[str, str],
+    fillable_fields: set[str],
+    filled_fields: set[str],
+    rounds: int,
+    idle_rounds: int,
+) -> Dict[str, Any]:
+    filled_sorted = sorted(filled_fields)
+    unfilled_sorted = sorted(fillable_fields - filled_fields)
+    return {
+        "status": status,
+        "resolvedData": resolved_data,
+        "fillableFields": sorted(fillable_fields),
+        "filledFields": filled_sorted,
+        "filledData": {name: resolved_data.get(name, "") for name in filled_sorted},
+        "unfilledFields": unfilled_sorted,
+        "unfilledData": {name: resolved_data.get(name, "") for name in unfilled_sorted},
+        "rounds": rounds,
+        "idleRounds": idle_rounds,
+    }
+
+
 def run_flytt_form_filler(
     page,
     cancel_check: Callable[[], bool],
@@ -111,7 +134,7 @@ def run_flytt_form_filler(
     form_data: Optional[Dict[str, str]] = None,
     payload_path: Optional[str] = None,
     allow_mockup_data: bool = False,
-) -> None:
+) -> Dict[str, Any]:
     def _default_log(msg: str) -> None:
         try:
             with open(LOG_FILE, "a", encoding="utf-8") as f:
@@ -133,9 +156,19 @@ def run_flytt_form_filler(
 
     data = _resolve_field_data(form_data, payload_path, allow_mockup_data, log)
     fillable_fields = {k for k, v in data.items() if (v or "").strip()}
+    filled: set[str] = set()
+    idle_rounds = 0
+    rounds_completed = 0
     if not fillable_fields:
         log("No fillable fields resolved. Exiting filler.")
-        return
+        return _build_filler_result(
+            status="no_fillable_fields",
+            resolved_data=data,
+            fillable_fields=fillable_fields,
+            filled_fields=filled,
+            rounds=rounds_completed,
+            idle_rounds=idle_rounds,
+        )
 
     log("Flytt form filler started (scan-fill-advance mode)\n")
 
@@ -146,14 +179,20 @@ def run_flytt_form_filler(
     except Exception:
         pass
 
-    filled = set()
-    idle_rounds = 0
     first_next_gate_done = False
 
     for rnd in range(MAX_ROUNDS):
+        rounds_completed = rnd + 1
         if cancel_check():
             log("Cancelled.")
-            return
+            return _build_filler_result(
+                status="cancelled",
+                resolved_data=data,
+                fillable_fields=fillable_fields,
+                filled_fields=filled,
+                rounds=rounds_completed,
+                idle_rounds=idle_rounds,
+            )
 
         round_filled = 0
 
@@ -210,6 +249,14 @@ def run_flytt_form_filler(
             break
 
     log(f"\nFlytt form filler finished. Filled: {sorted(filled)}")
+    return _build_filler_result(
+        status="completed" if len(filled) >= len(fillable_fields) else "partial",
+        resolved_data=data,
+        fillable_fields=fillable_fields,
+        filled_fields=filled,
+        rounds=rounds_completed,
+        idle_rounds=idle_rounds,
+    )
 
 
 def _try_check_confirm(page, log) -> bool:

@@ -1,6 +1,5 @@
 import { createClient } from "@libsql/client";
-import { readFileSync } from "fs";
-import { resolve } from "path";
+import { loadEnvConfig } from "@next/env";
 
 function sanitizeEnvValue(value: string): string {
   return value
@@ -11,20 +10,8 @@ function sanitizeEnvValue(value: string): string {
     .replace(/(%0d|%0a)/gi, "");
 }
 
-// Load .env.local since tsx doesn't do it automatically
-try {
-  const envPath = resolve(process.cwd(), ".env.local");
-  const envFile = readFileSync(envPath, "utf-8");
-  for (const line of envFile.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIdx = trimmed.indexOf("=");
-    if (eqIdx === -1) continue;
-    const key = trimmed.slice(0, eqIdx);
-    const val = trimmed.slice(eqIdx + 1);
-    if (!process.env[key]) process.env[key] = val;
-  }
-} catch {}
+// Mirror Next.js env loading so migrations target the same DB as runtime.
+loadEnvConfig(process.cwd());
 
 const url = process.env.TURSO_DATABASE_URL
   ? sanitizeEnvValue(process.env.TURSO_DATABASE_URL)
@@ -111,6 +98,35 @@ async function migrate() {
     CREATE UNIQUE INDEX IF NOT EXISTS reminder_logs_move_kind_schedule_idx
       ON reminder_logs(move_id, kind, scheduled_for);
 
+    CREATE TABLE IF NOT EXISTS skv_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      move_id INTEGER REFERENCES moves(id),
+      job_id TEXT NOT NULL,
+      source_data TEXT,
+      normalized_payload TEXT,
+      status TEXT NOT NULL DEFAULT 'queued',
+      message TEXT,
+      remote INTEGER NOT NULL DEFAULT 0,
+      clone_qr_enabled INTEGER NOT NULL DEFAULT 0,
+      clone_qr_state_url TEXT,
+      clone_qr_image_url TEXT,
+      screenshot_path TEXT,
+      details TEXT,
+      started_at TEXT,
+      ended_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS skv_runs_job_id_idx
+      ON skv_runs(job_id);
+    CREATE INDEX IF NOT EXISTS skv_runs_created_at_idx
+      ON skv_runs(created_at);
+    CREATE INDEX IF NOT EXISTS skv_runs_move_id_idx
+      ON skv_runs(move_id);
+    CREATE INDEX IF NOT EXISTS skv_runs_status_updated_at_idx
+      ON skv_runs(status, updated_at);
+
     CREATE TABLE IF NOT EXISTS usage_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       provider TEXT NOT NULL,
@@ -178,6 +194,46 @@ async function migrate() {
 
   await ensureUserColumn("first_name");
   await ensureUserColumn("last_name");
+
+  async function ensureSkvRunColumn(columnName: string, sqlType = "TEXT") {
+    const info = await client.execute("PRAGMA table_info(skv_runs)");
+    const exists = info.rows.some(
+      (row) => String((row as Record<string, unknown>).name) === columnName
+    );
+    if (!exists) {
+      await client.execute(`ALTER TABLE skv_runs ADD COLUMN ${columnName} ${sqlType}`);
+    }
+  }
+
+  await ensureSkvRunColumn("move_id", "INTEGER REFERENCES moves(id)");
+  await ensureSkvRunColumn("job_id");
+  await ensureSkvRunColumn("source_data");
+  await ensureSkvRunColumn("normalized_payload");
+  await ensureSkvRunColumn("status", "TEXT NOT NULL DEFAULT 'queued'");
+  await ensureSkvRunColumn("message");
+  await ensureSkvRunColumn("remote", "INTEGER NOT NULL DEFAULT 0");
+  await ensureSkvRunColumn("clone_qr_enabled", "INTEGER NOT NULL DEFAULT 0");
+  await ensureSkvRunColumn("clone_qr_state_url");
+  await ensureSkvRunColumn("clone_qr_image_url");
+  await ensureSkvRunColumn("screenshot_path");
+  await ensureSkvRunColumn("details");
+  await ensureSkvRunColumn("started_at");
+  await ensureSkvRunColumn("ended_at");
+  await ensureSkvRunColumn("created_at");
+  await ensureSkvRunColumn("updated_at");
+
+  await client.execute(
+    "CREATE UNIQUE INDEX IF NOT EXISTS skv_runs_job_id_idx ON skv_runs(job_id)"
+  );
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS skv_runs_created_at_idx ON skv_runs(created_at)"
+  );
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS skv_runs_move_id_idx ON skv_runs(move_id)"
+  );
+  await client.execute(
+    "CREATE INDEX IF NOT EXISTS skv_runs_status_updated_at_idx ON skv_runs(status, updated_at)"
+  );
 
   async function ensureChecklistColumn(columnName: string, sqlType = "TEXT") {
     const info = await client.execute("PRAGMA table_info(checklist_items)");

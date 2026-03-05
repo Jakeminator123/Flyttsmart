@@ -43,14 +43,43 @@ export function getDb() {
   return dbInstance;
 }
 
-/** Run raw SQL. LibSQL driver supports this at runtime; types may not expose it. */
+function toLibsqlStatement(db: ReturnType<typeof drizzle>, query: unknown): string | { sql: string; args: unknown[] } {
+  if (typeof query === "string") return query;
+
+  if (query && typeof query === "object") {
+    const q = query as { sql?: unknown; args?: unknown; params?: unknown };
+    if (typeof q.sql === "string") {
+      if (Array.isArray(q.args)) return { sql: q.sql, args: q.args };
+      if (Array.isArray(q.params)) return { sql: q.sql, args: q.params };
+      return q.sql;
+    }
+  }
+
+  const dialect = (db as unknown as { dialect?: { sqlToQuery?: (q: unknown) => unknown } }).dialect;
+  if (dialect?.sqlToQuery) {
+    const built = dialect.sqlToQuery(query) as { sql?: unknown; params?: unknown };
+    if (typeof built?.sql === "string") {
+      const args = Array.isArray(built.params) ? built.params : [];
+      return { sql: built.sql, args };
+    }
+  }
+
+  throw new Error("Unsupported SQL query format for runSql()");
+}
+
+/** Run raw SQL via the underlying LibSQL client (works for Drizzle sql`...` too). */
 export async function runSql<T = unknown>(query: unknown): Promise<T[]> {
   const db = getDb();
-  const result = (await (db as unknown as { execute: (q: unknown) => Promise<unknown> }).execute(query)) as
-    | T[]
-    | { rows: T[] };
+
+  const client = (db as unknown as { $client?: { execute?: (q: unknown) => Promise<unknown> } }).$client;
+  if (!client?.execute) {
+    throw new Error("Database client does not support execute()");
+  }
+
+  const statement = toLibsqlStatement(db, query);
+  const result = (await client.execute(statement)) as T[] | { rows?: T[] };
   if (Array.isArray(result)) return result;
-  return (result as { rows: T[] }).rows ?? [];
+  return (result as { rows?: T[] }).rows ?? [];
 }
 
 export { schema };

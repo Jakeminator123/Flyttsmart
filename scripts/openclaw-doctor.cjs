@@ -102,8 +102,8 @@ async function request(url, options) {
 
 async function main() {
   // Mirror Next.js local env precedence for this diagnostics script.
-  loadEnvFile(path.join(process.cwd(), ".env"));
   loadEnvFile(path.join(process.cwd(), ".env.local"));
+  loadEnvFile(path.join(process.cwd(), ".env"));
 
   const appUrl = normalizeBaseUrl(
     readArg("--app-url", process.env.OPENCLAW_DOCTOR_APP_URL || "http://localhost:3000")

@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
-  Bookmark,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
@@ -90,6 +89,7 @@ function DashboardContent() {
   const [skvStatus, setSkvStatus] = useState<string | null>(null);
   const [cloneQrStateUrl, setCloneQrStateUrl] = useState<string | null>(null);
   const [cloneQrImageUrl, setCloneQrImageUrl] = useState<string | null>(null);
+  const [int7StatusUrl, setInt7StatusUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!moveId) {
@@ -147,6 +147,7 @@ function DashboardContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          moveId: data.move.id,
           formData: {
             name: data.user.name,
             firstName: first,
@@ -168,6 +169,7 @@ function DashboardContent() {
       if (!res.ok || !body?.ok) {
         throw new Error(body?.error || "Kunde inte starta Skatteverket-flödet.");
       }
+      setInt7StatusUrl(typeof body?.statusUrl === "string" ? body.statusUrl : null);
       if (body?.cloneQrEnabled && body?.cloneQrStateUrl) {
         setCloneQrStateUrl(body.cloneQrStateUrl);
         setCloneQrImageUrl(body.cloneQrImageUrl ?? null);
@@ -552,9 +554,11 @@ function DashboardContent() {
                       <BankIdQrMirror
                         cloneQrStateUrl={cloneQrStateUrl}
                         cloneQrImageUrl={cloneQrImageUrl}
+                        statusUrl={int7StatusUrl ?? undefined}
                         onDismiss={() => {
                           setCloneQrStateUrl(null);
                           setCloneQrImageUrl(null);
+                          setInt7StatusUrl(null);
                         }}
                       />
                     </div>

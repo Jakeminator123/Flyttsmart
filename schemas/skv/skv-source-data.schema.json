@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flytta.nu/schemas/skv/skv-source-data.schema.json",
+  "title": "SkvSourceData",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": ["string", "null"] },
+    "firstName": { "type": ["string", "null"] },
+    "lastName": { "type": ["string", "null"] },
+    "personalNumber": { "type": ["string", "null"] },
+    "email": { "type": ["string", "null"] },
+    "phone": { "type": ["string", "null"] },
+    "toStreet": { "type": ["string", "null"] },
+    "toPostal": { "type": ["string", "null"] },
+    "toCity": { "type": ["string", "null"] },
+    "moveDate": { "type": ["string", "null"] },
+    "apartmentNumber": { "type": ["string", "null"] },
+    "propertyDesignation": { "type": ["string", "null"] },
+    "propertyOwner": { "type": ["string", "null"] }
+  }
+}

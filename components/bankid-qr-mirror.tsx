@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { AlertTriangle, CheckCircle2, Loader2, ShieldCheck, X } from "lucide-react";
 
 interface BankIdQrMirrorProps {
   cloneQrStateUrl: string;
   cloneQrImageUrl: string;
+  statusUrl?: string;
   onDismiss?: () => void;
 }
 
@@ -19,19 +21,27 @@ interface CloneState {
   error?: string;
 }
 
+interface Int7Status {
+  state?: string;
+  message?: string;
+}
+
 const TERMINAL_STATES = new Set(["error", "timeout", "cancelled"]);
 
 export function BankIdQrMirror({
   cloneQrStateUrl,
   cloneQrImageUrl,
+  statusUrl,
   onDismiss,
 }: BankIdQrMirrorProps) {
   const [state, setState] = useState<CloneState | null>(null);
+  const [int7Status, setInt7Status] = useState<Int7Status | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const isTerminal = state?.jobState ? TERMINAL_STATES.has(state.jobState) : false;
+  const effectiveJobState = int7Status?.state ?? state?.jobState;
+  const isTerminal = effectiveJobState ? TERMINAL_STATES.has(effectiveJobState) : false;
 
   const poll = useCallback(async () => {
     if (!cloneQrStateUrl) return;
@@ -43,7 +53,20 @@ export function BankIdQrMirror({
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Anslutning misslyckades");
     }
-  }, [cloneQrStateUrl]);
+
+    if (!statusUrl) return;
+    try {
+      const statusRes = await fetch(statusUrl, { cache: "no-store" });
+      if (!statusRes.ok) return;
+      const statusData = await statusRes.json();
+      setInt7Status({
+        state: typeof statusData?.state === "string" ? statusData.state : undefined,
+        message: typeof statusData?.message === "string" ? statusData.message : undefined,
+      });
+    } catch {
+      // Optional status channel; ignore polling errors here.
+    }
+  }, [cloneQrStateUrl, statusUrl]);
 
   useEffect(() => {
     poll();
@@ -57,7 +80,7 @@ export function BankIdQrMirror({
     return () => clearInterval(id);
   }, [state?.qrImageReady]);
 
-  const done = state?.apiReady || state?.jobState === "matched";
+  const done = state?.apiReady || effectiveJobState === "matched";
   if (dismissed) return null;
 
   if (done) {
@@ -106,14 +129,16 @@ export function BankIdQrMirror({
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <p className="font-medium">
-              {state?.jobState === "timeout"
+              {effectiveJobState === "timeout"
                 ? "Tidsgränsen nåddes"
-                : state?.jobState === "cancelled"
+                : effectiveJobState === "cancelled"
                   ? "Avbruten"
                   : "Något gick fel"}
             </p>
             <p className="mt-0.5 text-xs text-red-700">
-              {state?.error || "Starta om SKV-int7 och försök igen."}
+              {int7Status?.message ||
+                state?.error ||
+                "Starta om SKV-int7 och försök igen."}
             </p>
           </div>
         </div>
@@ -132,11 +157,18 @@ export function BankIdQrMirror({
         </div>
       )}
 
+      {int7Status?.message && !isTerminal && (
+        <p className="mt-2 text-xs text-muted-foreground">{int7Status.message}</p>
+      )}
+
       {state?.qrImageReady && !isTerminal && (
         <div className="flex justify-center rounded-lg border border-border/50 bg-white p-4">
-          <img
+          <Image
             src={`${cloneQrImageUrl}${cloneQrImageUrl.includes("?") ? "&" : "?"}t=${refreshTick}`}
             alt="BankID QR-kod – skanna med Mobilt BankID"
+            width={320}
+            height={320}
+            unoptimized
             className="max-h-[360px] w-auto rounded-lg"
           />
         </div>

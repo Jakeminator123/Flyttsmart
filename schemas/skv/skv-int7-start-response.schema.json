@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flytta.nu/schemas/skv/skv-int7-start-response.schema.json",
+  "title": "SkvInt7StartResponse",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["ok"],
+  "properties": {
+    "ok": { "type": "boolean" },
+    "started": { "type": "boolean" },
+    "alreadyRunning": { "type": "boolean" },
+    "remote": { "type": "boolean" },
+    "jobId": { "type": "string" },
+    "pid": { "type": "number" },
+    "startedAt": { "type": ["string", "null"] },
+    "script": { "type": "string" },
+    "payload": {
+      "type": "object",
+      "description": "Normaliserad payload som skickas till SKV Playwright."
+    },
+    "cloneQrEnabled": { "type": "boolean" },
+    "cloneQrStateUrl": { "type": "string" },
+    "cloneQrImageUrl": { "type": "string" },
+    "statusUrl": { "type": ["string", "null"] },
+    "payloadUrl": { "type": ["string", "null"] },
+    "error": { "type": "string" }
+  }
+}

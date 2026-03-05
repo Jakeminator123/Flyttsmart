@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { qrTokens } from "@/lib/db/schema";
+import { qrTokens, skvRuns } from "@/lib/db/schema";
 import { count, sql } from "drizzle-orm";
 import {
   isCloneQrToSiteEnabled,
@@ -17,6 +17,25 @@ export async function GET() {
     const [tokenCount] = await db
       .select({ value: count() })
       .from(qrTokens);
+
+    const [runCount] = await db
+      .select({ value: count() })
+      .from(skvRuns);
+
+    const [runningCount] = await db
+      .select({ value: count() })
+      .from(skvRuns)
+      .where(sql`${skvRuns.status} IN ('queued', 'running')`);
+
+    const [matchedCount] = await db
+      .select({ value: count() })
+      .from(skvRuns)
+      .where(sql`${skvRuns.status} = 'matched'`);
+
+    const [failedCount] = await db
+      .select({ value: count() })
+      .from(skvRuns)
+      .where(sql`${skvRuns.status} IN ('timeout', 'error', 'cancelled')`);
 
     const recentTokens = await db
       .select({
@@ -36,6 +55,10 @@ export async function GET() {
 
     return NextResponse.json({
       qrTokenCount: tokenCount.value,
+      runCount: runCount.value,
+      runningCount: runningCount.value,
+      matchedCount: matchedCount.value,
+      failedCount: failedCount.value,
       recentTokens,
       configAvailable,
       cloneQrToSiteEnabled,

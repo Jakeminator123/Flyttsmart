@@ -116,6 +116,43 @@ export const reminderLogs = sqliteTable(
   })
 );
 
+// ── SKV Runs (INT7 / Playwright job tracking) ───────────────────────────────
+export const skvRuns = sqliteTable(
+  "skv_runs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    moveId: integer("move_id").references(() => moves.id),
+    jobId: text("job_id").notNull(),
+    sourceData: text("source_data"), // JSON from request body/formData
+    normalizedPayload: text("normalized_payload"), // JSON sent to /api/run payload
+    status: text("status").notNull().default("queued"),
+    message: text("message"),
+    remote: integer("remote", { mode: "boolean" }).notNull().default(false),
+    cloneQrEnabled: integer("clone_qr_enabled", { mode: "boolean" }).notNull().default(false),
+    cloneQrStateUrl: text("clone_qr_state_url"),
+    cloneQrImageUrl: text("clone_qr_image_url"),
+    screenshotPath: text("screenshot_path"),
+    details: text("details"), // JSON from /api/status details + fillerResult
+    startedAt: text("started_at"),
+    endedAt: text("ended_at"),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    jobIdUnique: uniqueIndex("skv_runs_job_id_idx").on(table.jobId),
+    createdAtIdx: index("skv_runs_created_at_idx").on(table.createdAt),
+    moveIdIdx: index("skv_runs_move_id_idx").on(table.moveId),
+    statusUpdatedAtIdx: index("skv_runs_status_updated_at_idx").on(
+      table.status,
+      table.updatedAt,
+    ),
+  }),
+);
+
 // ── Usage Events (cost/tokens tracking) ────────────────────────────────
 export const usageEvents = sqliteTable(
   "usage_events",
@@ -163,5 +200,7 @@ export type QrToken = typeof qrTokens.$inferSelect;
 export type NewQrToken = typeof qrTokens.$inferInsert;
 export type ReminderLog = typeof reminderLogs.$inferSelect;
 export type NewReminderLog = typeof reminderLogs.$inferInsert;
+export type SkvRun = typeof skvRuns.$inferSelect;
+export type NewSkvRun = typeof skvRuns.$inferInsert;
 export type UsageEvent = typeof usageEvents.$inferSelect;
 export type NewUsageEvent = typeof usageEvents.$inferInsert;

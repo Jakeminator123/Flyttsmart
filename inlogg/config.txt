@@ -1,4 +1,8 @@
 POPUP_BROWSER_NORMAL_WINDOW=y
+# Lokal debug: n = visa webblasarfonster (headless off)
+SKV_HEADLESS=n
+# Lokal debug: hall QR-fliken i fokus nar mojligt
+SKV_SYNLIGT_SKV=y
 # Opens a clone Playwright tab to show QR if no popup appeared (fallback for scanning)
 CLONE_TAB_FALLBACK=n
 # Browser window diagnostics in skv6_session_log.txt (all open tabs, focus, URL snapshots)

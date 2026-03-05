@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+  CheckCircle2,
   FileText,
   QrCode,
   ShieldCheck,
   Clock,
   RefreshCw,
+  AlertTriangle,
+  PlayCircle,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,24 +29,120 @@ interface SkvStats {
   cloneQrToSiteEnabled: boolean;
   skvServiceUrl: string;
   remoteSkvService: boolean;
+  runCount: number;
+  runningCount: number;
+  matchedCount: number;
+  failedCount: number;
+}
+
+interface SkvRun {
+  id: number;
+  moveId: number | null;
+  jobId: string;
+  status: string;
+  message: string | null;
+  remote: boolean;
+  cloneQrEnabled: boolean;
+  screenshotPath: string | null;
+  sourceData: unknown;
+  normalizedPayload: unknown;
+  details: unknown;
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  moveStatus: string | null;
+  moveDate: string | null;
+  fromCity: string | null;
+  toCity: string | null;
+  userName: string | null;
+  userEmail: string | null;
 }
 
 export default function SkvPage() {
   const [stats, setStats] = useState<SkvStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [runs, setRuns] = useState<SkvRun[]>([]);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingRuns, setLoadingRuns] = useState(true);
+  const [runsError, setRunsError] = useState<string | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
-  function fetchStats() {
-    setLoading(true);
+  const fetchStats = useCallback(() => {
+    setLoadingStats(true);
     fetch("/api/admin/skv/stats")
       .then((r) => r.json())
       .then(setStats)
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => setLoadingStats(false));
+  }, []);
+
+  const fetchRuns = useCallback(() => {
+    setLoadingRuns(true);
+    fetch("/api/admin/skv/runs?limit=200")
+      .then((r) => {
+        if (!r.ok) throw new Error("Kunde inte hämta SKV-körningar");
+        return r.json();
+      })
+      .then((data) => {
+        const nextRuns = (data?.runs ?? []) as SkvRun[];
+        setRuns(nextRuns);
+        setRunsError(null);
+        setSelectedJobId((prev) => {
+          if (prev && nextRuns.some((run) => run.jobId === prev)) return prev;
+          return nextRuns[0]?.jobId ?? null;
+        });
+      })
+      .catch((error: unknown) => {
+        setRunsError(error instanceof Error ? error.message : "Okänt fel");
+      })
+      .finally(() => setLoadingRuns(false));
+  }, []);
+
+  const refreshAll = useCallback(() => {
+    fetchStats();
+    fetchRuns();
+  }, [fetchRuns, fetchStats]);
+
+  function statusLabel(status: string) {
+    const map: Record<string, string> = {
+      queued: "Köad",
+      running: "Pågår",
+      matched: "Klar",
+      timeout: "Timeout",
+      error: "Fel",
+      cancelled: "Avbruten",
+      unknown: "Okänd",
+    };
+    return map[status] ?? status;
+  }
+
+  function statusClass(status: string) {
+    const map: Record<string, string> = {
+      queued: "bg-muted text-muted-foreground",
+      running: "bg-blue-100 text-blue-700",
+      matched: "bg-green-100 text-green-700",
+      timeout: "bg-amber-100 text-amber-700",
+      error: "bg-red-100 text-red-700",
+      cancelled: "bg-orange-100 text-orange-700",
+      unknown: "bg-muted text-muted-foreground",
+    };
+    return map[status] ?? map.unknown;
+  }
+
+  function prettyJson(value: unknown) {
+    if (value === null || value === undefined) return "–";
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
   }
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    refreshAll();
+  }, [refreshAll]);
+
+  const selectedRun = runs.find((run) => run.jobId === selectedJobId) ?? null;
 
   return (
     <div className="space-y-6">
@@ -61,7 +160,7 @@ export default function SkvPage() {
             <QrCode className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {loadingStats ? (
               <Skeleton className="h-8 w-16" />
             ) : (
               <p className="text-2xl font-bold">
@@ -76,7 +175,7 @@ export default function SkvPage() {
             <ShieldCheck className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {loadingStats ? (
               <Skeleton className="h-6 w-20" />
             ) : (
               <Badge variant={stats?.configAvailable ? "default" : "secondary"}>
@@ -87,16 +186,14 @@ export default function SkvPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">QR Signing</CardTitle>
-            <ShieldCheck className="size-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">SKV-körningar</CardTitle>
+            <PlayCircle className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-6 w-20" />
+            {loadingStats ? (
+              <Skeleton className="h-8 w-20" />
             ) : (
-              <Badge variant={stats?.configAvailable ? "default" : "destructive"}>
-                {stats?.configAvailable ? "Aktiv" : "Saknas"}
-              </Badge>
+              <p className="text-2xl font-bold">{stats?.runCount ?? 0}</p>
             )}
           </CardContent>
         </Card>
@@ -106,7 +203,7 @@ export default function SkvPage() {
             <QrCode className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {loadingStats ? (
               <Skeleton className="h-6 w-20" />
             ) : (
               <Badge variant={stats?.cloneQrToSiteEnabled ? "default" : "secondary"}>
@@ -117,10 +214,158 @@ export default function SkvPage() {
         </Card>
       </div>
 
-      <Button variant="outline" size="sm" onClick={fetchStats}>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Pågående</CardTitle>
+            <Clock className="size-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loadingStats ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <p className="text-2xl font-bold">{stats?.runningCount ?? 0}</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Klara</CardTitle>
+            <CheckCircle2 className="size-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loadingStats ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <p className="text-2xl font-bold">{stats?.matchedCount ?? 0}</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Fel / timeout</CardTitle>
+            <AlertTriangle className="size-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loadingStats ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <p className="text-2xl font-bold">{stats?.failedCount ?? 0}</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Button variant="outline" size="sm" onClick={refreshAll}>
         <RefreshCw className="mr-2 size-4" />
         Uppdatera
       </Button>
+
+      <Separator />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="size-4" />
+              Körningslogg
+            </CardTitle>
+            <CardDescription>
+              Historik för startade SKV-int7-jobb (påbörjade, klara, fel, timeout).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingRuns ? (
+              <div className="space-y-2">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-14 w-full" />
+                ))}
+              </div>
+            ) : runsError ? (
+              <p className="text-sm text-destructive">{runsError}</p>
+            ) : runs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Inga SKV-körningar sparade ännu.</p>
+            ) : (
+              <div className="max-h-[520px] space-y-2 overflow-auto pr-1">
+                {runs.map((run) => (
+                  <button
+                    key={run.id}
+                    type="button"
+                    onClick={() => setSelectedJobId(run.jobId)}
+                    className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                      selectedJobId === run.jobId ? "bg-muted" : "hover:bg-muted/40"
+                    }`}
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <p className="font-mono text-xs">{run.jobId}</p>
+                      <Badge variant="secondary" className={statusClass(run.status)}>
+                        {statusLabel(run.status)}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(run.createdAt).toLocaleString("sv-SE")} ·{" "}
+                      {run.remote ? "Remote" : "Local"} · {run.userName ?? "Okänd användare"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {run.fromCity ?? "–"} → {run.toCity ?? "–"}
+                      {run.moveStatus ? ` · Flyttstatus: ${run.moveStatus}` : ""}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="size-4" />
+              Körningsdetalj
+            </CardTitle>
+            <CardDescription>
+              Sparad payload och resultat från externa Playwright-autofyllaren.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!selectedRun ? (
+              <p className="text-sm text-muted-foreground">Välj en körning i listan.</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium">Jobb-ID</p>
+                  <p className="font-mono text-xs">{selectedRun.jobId}</p>
+                  <Badge variant="secondary" className={statusClass(selectedRun.status)}>
+                    {statusLabel(selectedRun.status)}
+                  </Badge>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  <p>Startad: {selectedRun.startedAt ? new Date(selectedRun.startedAt).toLocaleString("sv-SE") : "–"}</p>
+                  <p>Avslutad: {selectedRun.endedAt ? new Date(selectedRun.endedAt).toLocaleString("sv-SE") : "–"}</p>
+                  <p>Uppdaterad: {new Date(selectedRun.updatedAt).toLocaleString("sv-SE")}</p>
+                  {selectedRun.message && <p>Meddelande: {selectedRun.message}</p>}
+                  {selectedRun.screenshotPath && <p>Screenshot: {selectedRun.screenshotPath}</p>}
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">Payload till SKV</p>
+                  <pre className="max-h-48 overflow-auto rounded-lg bg-muted p-3 text-[11px] leading-relaxed">
+                    {prettyJson(selectedRun.normalizedPayload)}
+                  </pre>
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">Resultat från Playwright</p>
+                  <pre className="max-h-48 overflow-auto rounded-lg bg-muted p-3 text-[11px] leading-relaxed">
+                    {prettyJson(selectedRun.details)}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <Separator />
 
@@ -172,7 +417,7 @@ export default function SkvPage() {
             <CardDescription>De senast skapade BankID QR-tokens</CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {loadingStats ? (
               <div className="space-y-2">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <Skeleton key={i} className="h-10 w-full" />

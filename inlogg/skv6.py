@@ -39,11 +39,29 @@ APP_HOST = os.environ.get("SKV_HOST", "127.0.0.1")
 APP_PORT = int(os.environ.get("PORT", "8767"))
 SKV_API_KEY = os.environ.get("SKV_API_KEY", "").strip()
 
+
+def _config_truthy(key: str) -> bool:
+    cfg = _load_config()
+    return is_truthy(cfg.get(key, ""))
+
+
 def _resolve_headless() -> bool:
     explicit = os.environ.get("SKV_HEADLESS", "").strip().lower()
     if explicit:
         return is_truthy(explicit)
+    cfg = _load_config()
+    if "SKV_HEADLESS" in cfg:
+        return is_truthy(cfg.get("SKV_HEADLESS", ""))
     return not bool(os.environ.get("DISPLAY"))
+
+
+def _is_synligt_skv_enabled() -> bool:
+    explicit = os.environ.get("SKV_SYNLIGT_SKV", "").strip().lower()
+    if explicit:
+        return is_truthy(explicit)
+    return _config_truthy("SKV_SYNLIGT_SKV")
+
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULT_DIR = os.path.join(SCRIPT_DIR, "results")
 os.makedirs(RESULT_DIR, exist_ok=True)
@@ -685,6 +703,9 @@ def _run_playwright_job(
     if not job:
         return
 
+    job.details = job.details or {}
+    if payload_file:
+        job.details["payloadFile"] = payload_file
     job.state = "running"
     job.started_at = time.time()
     job.message = "Startar webbläsare..."
@@ -1031,7 +1052,7 @@ def _run_playwright_job(
                             _log_qr_data("BANKID_URL_AVAILABLE", {"url": bankid_url})
 
                         # Dev signal: keep focus on BankID QR window when requested.
-                        if is_truthy(os.environ.get("SKV_SYNLIGT_SKV", "")) and popup_page_ref and not popup_page_ref.is_closed():
+                        if _is_synligt_skv_enabled() and popup_page_ref and not popup_page_ref.is_closed():
                             try:
                                 popup_page_ref.bring_to_front()
                                 _log_qr_data("QR_FOCUSED_FOR_DEV", {"enabled": True})
@@ -1409,27 +1430,41 @@ def _run_playwright_job(
 
             # Phase 2: Run form filler (output goes to session log)
             if flytt_page:
+                filler_log_lines: list[str] = []
                 try:
                     from formulär.flytt_form_filler import run_flytt_form_filler
 
                     def _form_log(msg: str) -> None:
-                        _log_session(msg.strip(), "FORM")
+                        line = msg.strip()
+                        if not line:
+                            return
+                        filler_log_lines.append(line)
+                        if len(filler_log_lines) > 200:
+                            del filler_log_lines[: len(filler_log_lines) - 200]
+                        _log_session(line, "FORM")
 
                     job.message = "Fyller flyttformulär..."
                     _set_job(job)
                     _log_session("Starting form filler", "FORM")
                     payload_file = payload_file or os.environ.get("SKV_PAYLOAD_FILE", DEFAULT_PAYLOAD_FILE)
                     allow_mockup = is_truthy(os.environ.get("SKV_ALLOW_MOCKUP_DATA", "y"))
-                    run_flytt_form_filler(
+                    filler_result = run_flytt_form_filler(
                         flytt_page,
                         lambda: _is_cancelled(job_id),
                         log_callback=_form_log,
                         payload_path=payload_file,
                         allow_mockup_data=allow_mockup,
                     )
+                    job.details = job.details or {}
+                    if isinstance(filler_result, dict):
+                        job.details["fillerResult"] = filler_result
+                    if filler_log_lines:
+                        job.details["fillerLogTail"] = filler_log_lines
                     _form_filler_done = True
                 except Exception as e:
                     job.details = job.details or {}
+                    if filler_log_lines:
+                        job.details["fillerLogTail"] = filler_log_lines
                     job.details["flytt_filler_error"] = str(e)
                     _log_session(f"Form filler error: {e}", "FORM")
 
@@ -1895,7 +1930,14 @@ def api_run():
     if not url.startswith(("http://", "https://")):
         return jsonify({"error": "URL måste börja med http:// eller https://"}), 400
 
-    job = JobStatus(job_id=job_id, state="queued", message="Köad...")
+    job_details: Optional[Dict[str, Any]] = None
+    if payload and isinstance(payload, dict):
+        job_details = {
+            "inputPayload": payload,
+            "payloadFile": os.path.basename(job_payload_file),
+        }
+
+    job = JobStatus(job_id=job_id, state="queued", message="Köad...", details=job_details)
     _set_job(job)
 
     t = threading.Thread(
@@ -1928,6 +1970,24 @@ def api_status(job_id: str):
     if not job:
         return jsonify({"error": "job not found"}), 404
     return jsonify(asdict(job))
+
+
+@app.get("/api/payload/<job_id>")
+def api_payload(job_id: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):
+        return jsonify({"ok": False, "error": "invalid job id"}), 400
+
+    payload_path = os.path.join(RUNTIME_DIR, f"payload_{job_id}.json")
+    if not os.path.isfile(payload_path):
+        return jsonify({"ok": False, "error": "payload not found", "jobId": job_id}), 404
+
+    try:
+        with open(payload_path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"failed to read payload: {e}", "jobId": job_id}), 500
+
+    return jsonify({"ok": True, "jobId": job_id, "payload": payload})
 
 
 @app.post("/api/cancel/<job_id>")

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flytta.nu/schemas/skv/skv-int7-status-response.schema.json",
+  "title": "SkvInt7StatusResponse",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["job_id", "state", "message"],
+  "properties": {
+    "job_id": { "type": "string" },
+    "state": {
+      "type": "string",
+      "enum": ["queued", "running", "matched", "timeout", "error", "cancelled"]
+    },
+    "message": { "type": "string" },
+    "started_at": { "type": ["number", "null"] },
+    "ended_at": { "type": ["number", "null"] },
+    "screenshot_path": { "type": ["string", "null"] },
+    "details": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "payloadFile": { "type": "string" },
+        "inputPayload": { "type": "object", "additionalProperties": true },
+        "fillerLogTail": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "flytt_filler_error": { "type": "string" },
+        "fillerResult": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "status",
+            "resolvedData",
+            "fillableFields",
+            "filledFields",
+            "filledData",
+            "unfilledFields",
+            "unfilledData",
+            "rounds",
+            "idleRounds"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "no_fillable_fields",
+                "cancelled",
+                "completed",
+                "partial"
+              ]
+            },
+            "resolvedData": { "type": "object", "additionalProperties": { "type": "string" } },
+            "fillableFields": { "type": "array", "items": { "type": "string" } },
+            "filledFields": { "type": "array", "items": { "type": "string" } },
+            "filledData": { "type": "object", "additionalProperties": { "type": "string" } },
+            "unfilledFields": { "type": "array", "items": { "type": "string" } },
+            "unfilledData": { "type": "object", "additionalProperties": { "type": "string" } },
+            "rounds": { "type": "integer", "minimum": 0 },
+            "idleRounds": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}

@@ -14,6 +14,28 @@ const {
   hooksToken: HOOKS_TOKEN,
 } = getOpenClawTokens();
 
+const DEFAULT_HOOK_PATHS = ["/hooks/agent", "/hooks"];
+
+let cachedHookPath: string | null = null;
+let hasLoggedMissingHookEndpoint = false;
+let hasLoggedAutoDetectedHookPath = false;
+
+function normalizeHookPath(pathValue: string): string {
+  const trimmed = pathValue.trim();
+  if (!trimmed) return "";
+  const withLeadingSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  const withoutTrailingSlash = withLeadingSlash.replace(/\/+$/, "");
+  return withoutTrailingSlash || "/";
+}
+
+function resolveHookPathCandidates(): string[] {
+  const configured = normalizeHookPath(process.env.OPENCLAW_HOOKS_PATH ?? "");
+  const candidates = configured
+    ? [configured, ...DEFAULT_HOOK_PATHS]
+    : [...DEFAULT_HOOK_PATHS];
+  return [...new Set(candidates)];
+}
+
 /**
  * Verify the HMAC-SHA256 signature sent from the client.
  * If no secret is configured, verification is skipped (dev/testing mode).
@@ -125,38 +147,79 @@ export async function POST(req: NextRequest) {
       siteAccess
     );
 
-    // POST to OpenClaw hooks/agent endpoint
-    const hooksUrl = `${GATEWAY_BASE_URL}/hooks/agent`;
-    const agentResponse = await fetch(hooksUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-openclaw-token": HOOKS_TOKEN,
-      },
-      body: JSON.stringify({
-        message: hookMessage,
-        name: "FormMirror",
-        agentId: AGENT_ID,
-        sessionKey: `hook:flyttanu:${sessionId}`,
-        wakeMode: "now",
-        deliver: false,
-      }),
+    const hookBody = JSON.stringify({
+      message: hookMessage,
+      name: "FormMirror",
+      agentId: AGENT_ID,
+      sessionKey: `hook:flyttanu:${sessionId}`,
+      wakeMode: "now",
+      deliver: false,
     });
 
-    if (!agentResponse.ok) {
+    const candidatePaths = cachedHookPath
+      ? [cachedHookPath]
+      : resolveHookPathCandidates();
+    let lastStatus = 404;
+    let lastErrorText = "Not Found";
+
+    for (const hookPath of candidatePaths) {
+      const hooksUrl = `${GATEWAY_BASE_URL}${hookPath}`;
+      const agentResponse = await fetch(hooksUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-openclaw-token": HOOKS_TOKEN,
+        },
+        body: hookBody,
+      });
+
+      if (agentResponse.ok) {
+        cachedHookPath = hookPath;
+        if (hookPath !== "/hooks/agent" && !hasLoggedAutoDetectedHookPath) {
+          console.warn(
+            `[OpenClaw] Auto-detected hooks endpoint at '${hookPath}'`
+          );
+          hasLoggedAutoDetectedHookPath = true;
+        }
+        const agentData = await agentResponse.json().catch(() => null);
+        return NextResponse.json({
+          ok: true,
+          hookResponse: agentData ?? null,
+        });
+      }
+
       const errText = await agentResponse.text().catch(() => "Unknown error");
+      lastStatus = agentResponse.status;
+      lastErrorText = errText;
+
+      // Continue probing on 404 to find a valid hooks path.
+      if (agentResponse.status === 404) {
+        if (cachedHookPath === hookPath) {
+          cachedHookPath = null;
+        }
+        continue;
+      }
+
       console.error(
-        `[OpenClaw] hooks/agent returned ${agentResponse.status}: ${errText}`
+        `[OpenClaw] ${hookPath} returned ${agentResponse.status}: ${errText}`
       );
       // Still return 200 to the client so the form is not blocked
       return NextResponse.json({ ok: true, agentStatus: agentResponse.status });
     }
 
-    const agentData = await agentResponse.json().catch(() => null);
+    if (!hasLoggedMissingHookEndpoint) {
+      console.warn(
+        `[OpenClaw] Hooks endpoint not found (tried: ${resolveHookPathCandidates().join(", ")}). ` +
+          "OpenClaw form mirroring is disabled until hooks are enabled/configured in the gateway."
+      );
+      hasLoggedMissingHookEndpoint = true;
+    }
 
     return NextResponse.json({
       ok: true,
-      hookResponse: agentData ?? null,
+      mode: "hooks_endpoint_not_found",
+      agentStatus: lastStatus,
+      hookError: lastErrorText,
     });
   } catch (error) {
     console.error("[OpenClaw] Webhook error:", error);

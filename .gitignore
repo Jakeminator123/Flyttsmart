@@ -13,7 +13,6 @@ new_front/**
 
 # Prevent accidental binary dumps in repo root
 /*.webp
-/*.mp4
 
 # production
 /build

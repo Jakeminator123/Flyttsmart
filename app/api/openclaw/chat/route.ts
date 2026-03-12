@@ -151,11 +151,12 @@ function buildSystemMessage(
     "Fyll i 'to' med anvandarens e-post om den finns i formularkontexten (email-faltet). Annars lamna tom.\n" +
     "Anvandaren far bekrafta innan mejlet skickas.\n\n" +
     "## Formularets steg-struktur\n" +
-    "Formularet har 5 steg: 1) Identifiering (namn, personnummer, e-post, telefon), " +
+    "Formularet har 4 steg: 1) Start och identifiering (namn, personnummer, e-post, telefon), " +
     "2) Adresser (fran/till-adress), 3) Flyttdetaljer (datum, lagenhetsnr, fastighetsbeteckning), " +
-    "4) Checklista (uppgifter att gora), 5) Bekrafta.\n" +
+    "4) Bekrafta.\n" +
     "Anvandaren ser bara falt for det aktuella steget i DOM. " +
     "Falt fran tidigare steg ar SPARADE i sessionen och finns i formularkontexten nedan. " +
+    "Checklistan ar inte langre ett eget steg i formularet utan skapas efter registrering och visas i dashboarden. " +
     "Anta INTE att falt saknas bara for att de inte syns — kolla hela kontexten.\n\n" +
     "## Proaktivt beteende\n" +
     "- Om du ser saknade falt i kontexten, paminn anvandaren och forklara vad de betyder.\n" +
@@ -278,7 +279,7 @@ export async function POST(req: NextRequest) {
 
     if (latestUserMessage && isGreetingOnlyMessage(latestUserMessage.content)) {
       const greetingReply =
-        "Hej! Jag är med. Säg bara vad du vill göra i flyttformuläret så hjälper jag direkt.";
+        "Hej! Jag är med. Säg bara vad du vill göra i flyttflödet så hjälper jag direkt.";
       return NextResponse.json({
         role: "assistant",
         content: greetingReply,
@@ -288,7 +289,7 @@ export async function POST(req: NextRequest) {
 
     if (latestUserMessage && isSiteCapabilitiesQuestion(latestUserMessage.content)) {
       const capabilitiesReply =
-        "Här kan du göra din flyttanmälan steg för steg: fylla i person- och adressuppgifter, få hjälp med vad fälten betyder, få smarta förslag i formuläret och jämföra flyttrelaterade tjänster. Jag kan guida dig genom varje steg och föreslå vad som saknas.";
+        "Här kan du göra din flyttanmälan steg för steg, få hjälp med fälten, få smarta förslag i formuläret och sedan fortsätta till dashboard med checklista, påminnelser och jämförelser. Jag kan guida dig genom det som saknas just nu.";
       return NextResponse.json({
         role: "assistant",
         content: capabilitiesReply,
@@ -299,8 +300,8 @@ export async function POST(req: NextRequest) {
     if (!GATEWAY_BASE_URL) {
       return NextResponse.json({
         content:
-          "Hej! Jag ar Aida, men jag ar inte helt konfigurerad annu. " +
-          "Be administratoren satta OPENCLAW_GATEWAY_URL eller OPENCLAW_AGENT_URL i miljovariablerna.",
+          "Hej! Jag är Aida, men jag är inte helt konfigurerad ännu. " +
+          "Be administratören sätta OPENCLAW_GATEWAY_URL eller OPENCLAW_AGENT_URL i miljövariablerna.",
         role: "assistant",
       });
     }
@@ -308,8 +309,8 @@ export async function POST(req: NextRequest) {
     if (!GATEWAY_TOKEN) {
       return NextResponse.json({
         content:
-          "Hej! Jag ar Aida, men jag saknar gateway-token. " +
-          "Be administratoren satta OPENCLAW_GATEWAY_TOKEN (eller OPENCLAW_AGENT_TOKEN i enkel setup).",
+          "Hej! Jag är Aida, men jag saknar gateway-token. " +
+          "Be administratören sätta OPENCLAW_GATEWAY_TOKEN (eller OPENCLAW_AGENT_TOKEN i enkel setup).",
         role: "assistant",
       });
     }

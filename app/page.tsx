@@ -3,7 +3,6 @@ import { HeroSection } from "@/components/hero-section";
 import { StepsSection } from "@/components/steps-section"
 import { TrustSection } from "@/components/trust-section"
 import { FaqSection } from "@/components/faq-section"
-import { CtaSection } from "@/components/cta-section"
 import { SiteFooter } from "@/components/site-footer"
 import { MobileCta } from "@/components/mobile-cta"
 import { OpenClawChatWidget } from "@/components/openclaw-chat-widget"
@@ -17,7 +16,6 @@ export default function HomePage() {
         <StepsSection />
         <TrustSection />
         <FaqSection />
-        <CtaSection />
       </main>
       <SiteFooter />
       <MobileCta />

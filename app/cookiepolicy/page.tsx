@@ -1,14 +1,21 @@
-import type { Metadata } from "next"
 import { LegalPageLayout, LegalSection } from "@/components/legal-page-layout"
+import { createPageMetadata } from "@/lib/site-config"
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
   title: "Cookiepolicy – Flytt.io",
-  description: "Cookiepolicy för Flytt.io – hur vi använder cookies.",
-}
+  description:
+    "Cookiepolicy för Flytt.io och hur nödvändiga cookies, analys och framtida erbjudandefunktioner hanteras.",
+  path: "/cookiepolicy",
+  keywords: ["cookiepolicy", "cookies", "samtycke"],
+})
 
 export default function CookiepolicyPage() {
   return (
-    <LegalPageLayout badge="Cookies" title="Cookiepolicy för Flytt.io">
+    <LegalPageLayout
+      badge="Cookies"
+      title="Cookiepolicy för Flytt.io"
+      lastUpdated="12 mars 2026"
+    >
       <p>
         Denna cookiepolicy beskriver hur Flytt.io använder cookies och liknande tekniker på webbplatsen flytt.io.
         Genom att använda webbplatsen samtycker du till vår användning av cookies i enlighet med denna policy, i den mån samtycke krävs enligt lag.
@@ -24,16 +31,13 @@ export default function CookiepolicyPage() {
 
       <LegalSection heading="2. Varför vi använder cookies">
         <p><strong>2.1 Nödvändiga cookies</strong></p>
-        <p>Dessa cookies är nödvändiga för att webbplatsen ska fungera korrekt och kan inte väljas bort. De används till exempel för att möjliggöra säker inloggning med BankID, komma ihåg dina inställningar och säkerställa teknisk funktionalitet.</p>
+        <p>Dessa cookies är nödvändiga för att webbplatsen ska fungera korrekt och kan inte väljas bort. De används till exempel för att möjliggöra säker inloggning, komma ihåg tekniska val och säkerställa att formulär, navigation och guidefunktioner fungerar som de ska.</p>
 
-        <p><strong>2.2 Funktionella cookies</strong></p>
-        <p>Dessa cookies används för att förbättra din upplevelse av webbplatsen, till exempel genom att spara val du gör i Tjänsten och anpassa innehåll efter din flytt.</p>
+        <p><strong>2.2 Analyscookies</strong></p>
+        <p>Dessa cookies eller liknande tekniker används för att förstå hur webbplatsen används, till exempel vilka sidor som besöks och hur användare navigerar. Analys aktiveras endast om du väljer att tillåta analys i cookieinställningarna.</p>
 
-        <p><strong>2.3 Analyscookies</strong></p>
-        <p>Vi använder analyscookies för att förstå hur webbplatsen används – vilka sidor som besöks och hur användare navigerar. Uppgifterna används på aggregerad nivå.</p>
-
-        <p><strong>2.4 Marknadsföringscookies</strong></p>
-        <p>Marknadsföringscookies kan användas för att visa relevanta erbjudanden och mäta effekten av marknadsföring. Dessa används endast i den utsträckning det är tillåtet enligt lag och, när så krävs, efter ditt samtycke.</p>
+        <p><strong>2.3 Erbjudanden och marknadsföring</strong></p>
+        <p>Om vi i framtiden använder cookies eller liknande tekniker för att mäta eller personalisera erbjudanden från oss eller våra partners, sker det endast i den utsträckning det är tillåtet enligt lag och, när så krävs, efter ditt samtycke.</p>
       </LegalSection>
 
       <LegalSection heading="3. Tredjepartscookies">
@@ -41,7 +45,7 @@ export default function CookiepolicyPage() {
       </LegalSection>
 
       <LegalSection heading="4. Samtycke och val">
-        <p>När du besöker webbplatsen första gången får du möjlighet att acceptera alla cookies, avvisa icke-nödvändiga cookies eller göra egna val. Du kan när som helst ändra eller återkalla ditt samtycke via cookieinställningar på webbplatsen.</p>
+        <p>När du besöker webbplatsen första gången får du möjlighet att acceptera alla cookies, avvisa icke-nödvändiga cookies eller göra egna val. Du kan när som helst ändra eller återkalla ditt samtycke via cookieinställningar i sidfoten eller via den banner som visas på webbplatsen.</p>
       </LegalSection>
 
       <LegalSection heading="5. Hantera cookies i din webbläsare">

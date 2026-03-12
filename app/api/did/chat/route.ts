@@ -209,11 +209,12 @@ function buildSystemMessage(
     "Anvandaren maste sjalv trycka pa en bekraftelseknapp for att mejlet ska skickas. " +
     "Du har INGEN formaga att skicka mejl direkt.\n\n" +
     "## Formularets steg-struktur\n" +
-    "Formularet har 5 steg: 1) Identifiering (namn, personnummer, e-post, telefon), " +
+    "Formularet har 4 steg: 1) Start och identifiering (namn, personnummer, e-post, telefon), " +
     "2) Adresser (fran/till-adress), 3) Flyttdetaljer (datum, lagenhetsnr, fastighetsbeteckning), " +
-    "4) Checklista (uppgifter att gora), 5) Bekrafta.\n" +
+    "4) Bekrafta.\n" +
     "Anvandaren ser bara falt for det aktuella steget i DOM. " +
     "Falt fran tidigare steg ar SPARADE i sessionen och finns i formularkontexten nedan. " +
+    "Checklistan ar inte langre ett eget steg i formularet utan skapas efter registrering och visas i dashboarden. " +
     "Anta INTE att falt saknas bara for att de inte syns — kolla hela kontexten.\n\n" +
     "## Proaktivt beteende\n" +
     "- Om du ser saknade falt i kontexten, paminn anvandaren.\n" +
@@ -381,7 +382,7 @@ export async function POST(req: NextRequest) {
 
     if (isGreetingOnlyMessage(userMessage)) {
       const greetingReply =
-        "Hej! Jag är med. Säg bara vad du vill göra i flyttformuläret så hjälper jag direkt.";
+        "Hej! Jag är med. Säg bara var du vill ha guidning i flyttflödet så hjälper jag direkt.";
       pushMessage(sessionId, "user", userMessage);
       pushMessage(sessionId, "assistant", greetingReply);
       return NextResponse.json(
@@ -400,7 +401,7 @@ export async function POST(req: NextRequest) {
 
     if (isSiteCapabilitiesQuestion(userMessage)) {
       const capabilitiesReply =
-        "Här kan du göra din flyttanmälan steg för steg: fylla i person- och adressuppgifter, få hjälp med vad fälten betyder, få smarta förslag i formuläret och jämföra flyttrelaterade tjänster. Jag kan guida dig genom varje steg och föreslå vad som saknas.";
+        "Här kan du göra din flyttanmälan steg för steg, få hjälp med formulärfälten och sedan fortsätta till dashboard med checklista, påminnelser och jämförelser. Jag kan guida dig genom varje steg och hjälpa dig vidare om du kör fast.";
       pushMessage(sessionId, "user", userMessage);
       pushMessage(sessionId, "assistant", capabilitiesReply);
       return NextResponse.json(

@@ -189,7 +189,11 @@ export function Logo({
               </motion.span>
             ))
           ) : (
-            <>flytt<span style={{ color: "#5C7FF3" }}>.io</span></>
+            <>
+              flytt
+              <span style={{ color: "#FD3C73" }}>.</span>
+              <span style={{ color: "#5C7FF3" }}>io</span>
+            </>
           )}
         </span>
       )}

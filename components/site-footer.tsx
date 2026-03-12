@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { ScrollReveal } from "@/components/scroll-reveal"
 import { Logo } from "@/components/logo"
+import { ManageCookiesButton } from "@/components/manage-cookies-button"
 import { Mail, MapPin, ArrowUpRight } from "lucide-react"
 
 export function SiteFooter() {
@@ -59,11 +60,11 @@ export function SiteFooter() {
                 <h3 className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-foreground">
                   Tjänster
                 </h3>
-                <ul className="flex flex-col gap-3">
+                <ul className="flex flex-col gap-1.5">
                   <li>
                     <Link
                       href="/adressandring"
-                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline inline-flex rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background/70 hover:text-primary"
                     >
                       Adressändring
                     </Link>
@@ -71,7 +72,7 @@ export function SiteFooter() {
                   <li>
                     <a
                       href="#hur-det-funkar"
-                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline inline-flex rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background/70 hover:text-primary"
                     >
                       Så funkar det
                     </a>
@@ -79,7 +80,7 @@ export function SiteFooter() {
                   <li>
                     <a
                       href="#faq"
-                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline inline-flex rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background/70 hover:text-primary"
                     >
                       Vanliga frågor
                     </a>
@@ -91,11 +92,11 @@ export function SiteFooter() {
                 <h3 className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-foreground">
                   Juridiskt
                 </h3>
-                <ul className="flex flex-col gap-3">
+                <ul className="flex flex-col gap-1.5">
                   <li>
                     <Link
                       href="/anvandarvillkor"
-                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline inline-flex rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background/70 hover:text-primary"
                     >
                       Användarvillkor
                     </Link>
@@ -103,7 +104,7 @@ export function SiteFooter() {
                   <li>
                     <Link
                       href="/integritetspolicy"
-                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline inline-flex rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background/70 hover:text-primary"
                     >
                       Integritetspolicy
                     </Link>
@@ -111,7 +112,7 @@ export function SiteFooter() {
                   <li>
                     <Link
                       href="/cookiepolicy"
-                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline inline-flex rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background/70 hover:text-primary"
                     >
                       Cookies
                     </Link>
@@ -123,11 +124,11 @@ export function SiteFooter() {
                 <h3 className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-foreground">
                   Om oss
                 </h3>
-                <ul className="flex flex-col gap-3">
+                <ul className="flex flex-col gap-1.5">
                   <li>
                     <Link
                       href="/om"
-                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline inline-flex rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background/70 hover:text-primary"
                     >
                       Om Flytt.io
                     </Link>
@@ -135,7 +136,7 @@ export function SiteFooter() {
                   <li>
                     <a
                       href="mailto:info@flytt.io"
-                      className="link-underline text-sm text-muted-foreground transition-colors hover:text-primary"
+                      className="link-underline inline-flex rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-background/70 hover:text-primary"
                     >
                       Kontakta oss
                     </a>
@@ -153,7 +154,7 @@ export function SiteFooter() {
           <p className="text-xs text-muted-foreground">
             &copy; 2026 Flytt.io. Alla rättigheter förbehållna.
           </p>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground sm:justify-end">
             <Link href="/anvandarvillkor" className="transition-colors hover:text-primary">
               Villkor
             </Link>
@@ -165,6 +166,8 @@ export function SiteFooter() {
             <Link href="/cookiepolicy" className="transition-colors hover:text-primary">
               Cookies
             </Link>
+            <Separator orientation="vertical" className="h-3" />
+            <ManageCookiesButton />
           </div>
         </div>
       </div>

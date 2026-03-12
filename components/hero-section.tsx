@@ -1,20 +1,18 @@
 "use client"
 
-import { useRef, type MouseEvent as ReactMouseEvent } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, ChevronDown, CheckCircle, Shield, Fingerprint } from "lucide-react"
-import { motion, useScroll, useTransform, useReducedMotion, useMotionValue, useSpring } from "framer-motion"
+import { ArrowRight, Fingerprint, Shield, Sparkles } from "lucide-react"
+import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
-import { HeroVisual } from "@/components/hero-visual"
+import { Input } from "@/components/ui/input"
+import { HeroLanyard } from "@/components/hero-lanyard"
 import { TextReveal } from "@/components/text-reveal"
-import { MagneticButton } from "@/components/magnetic-button"
-import { HeroCinemagraph } from "@/components/hero-cinemagraph"
-import { HeroWaveElectrons } from "@/components/hero-wave-electrons"
+import { parseStartIntent } from "@/lib/start-intent"
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 30, filter: "blur(6px)" },
+  hidden: { opacity: 0, y: 24, filter: "blur(6px)" },
   visible: {
     opacity: 1,
     y: 0,
@@ -23,249 +21,186 @@ const fadeUp = {
   },
 }
 
-const stagger = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.15, delayChildren: 0.1 } },
-}
+const trustItems = [
+  { icon: Fingerprint, label: "BankID och trygg identifiering" },
+  { icon: Shield, label: "Skatteverket och GDPR i samma flöde" },
+  { icon: Sparkles, label: "AI-hjälp nu, checklista efter flytten" },
+]
 
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.85, filter: "blur(8px)" },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    filter: "blur(0px)",
-    transition: { duration: 1, ease: [0.16, 1, 0.3, 1] as const, delay: 0.4 },
-  },
-}
-
-const TRUST_ITEMS = [
-  { icon: CheckCircle, label: "Gratis", tip: "Tjänsten kostar inget för dig" },
-  { icon: Fingerprint, label: "Säker BankID", tip: "Identifiera dig tryggt med Mobilt BankID" },
-  { icon: Shield, label: "GDPR-godkänd", tip: "Din data hanteras enligt dataskyddsförordningen" },
+const quickExamples = [
+  "Storgatan 12, Göteborg",
+  "Vi flyttar 1 juni till Malmö",
+  "Börja flyttanmälan",
 ]
 
 export function HeroSection() {
-  const sectionRef = useRef<HTMLElement>(null)
-  const prefersReducedMotion = useReducedMotion()
-  const pointerX = useMotionValue(0)
-  const pointerY = useMotionValue(0)
-  const springX = useSpring(pointerX, { stiffness: 140, damping: 20, mass: 0.6 })
-  const springY = useSpring(pointerY, { stiffness: 140, damping: 20, mass: 0.6 })
+  const [startInput, setStartInput] = useState("")
 
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ["start start", "end start"],
-  })
-
-  const videoY = useTransform(scrollYProgress, [0, 1], ["0%", prefersReducedMotion ? "0%" : "18%"])
-  const videoScale = useTransform(scrollYProgress, [0, 1], [1, prefersReducedMotion ? 1 : 1.08])
-  const contentY = useTransform(scrollYProgress, [0, 1], ["0%", prefersReducedMotion ? "0%" : "12%"])
-  const overlayOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0])
-  const handlePointerMove = (event: ReactMouseEvent<HTMLElement>) => {
-    if (prefersReducedMotion || !sectionRef.current) return
-    const rect = sectionRef.current.getBoundingClientRect()
-    const offsetX = event.clientX - rect.left - rect.width / 2
-    const offsetY = event.clientY - rect.top - rect.height / 2
-    pointerX.set((offsetX / rect.width) * 12)
-    pointerY.set((offsetY / rect.height) * 10)
-  }
-
-  const handlePointerLeave = () => {
-    pointerX.set(0)
-    pointerY.set(0)
-  }
+  const parsedStart = useMemo(() => parseStartIntent(startInput), [startInput])
 
   return (
     <section
-      ref={sectionRef}
       id="hero"
-      className="relative min-h-svh overflow-hidden bg-foreground/5"
+      className="relative overflow-x-hidden bg-linear-to-b from-hero-gradient-from via-background to-background"
       style={{ position: "relative" }}
-      onMouseMove={handlePointerMove}
-      onMouseLeave={handlePointerLeave}
     >
-      {/* Cinemagraph background with parallax */}
-      <motion.div
-        className="absolute inset-0 top-[2%] h-[116%] sm:top-[1%] md:top-0 md:h-[120%] lg:-top-[5%] lg:h-[125%]"
-        style={{ y: videoY, scale: videoScale }}
-      >
-        <HeroCinemagraph className="relative h-full w-full" />
-      </motion.div>
+      <div className="hero-mesh opacity-80" />
+      <div className="hero-mesh-accent opacity-50" />
+      <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.18]" />
+      <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.03]" />
 
-      {/* Minimal overlays for readability without killing the video */}
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-background/42 via-background/10 to-background/74" />
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-r from-background/58 via-background/20 to-transparent lg:from-background/52" />
-
-      {/* Animated wave pattern with electron dots */}
-      <div className="pointer-events-none absolute inset-0 z-1" aria-hidden="true">
-        <HeroWaveElectrons className="h-full w-full" />
-      </div>
-
-      {/* Kinetic wordmark */}
-      <motion.div
-        className="pointer-events-none absolute inset-x-0 top-4 z-10 flex justify-center overflow-hidden"
-        style={{ y: prefersReducedMotion ? 0 : contentY }}
-        aria-hidden="true"
-      >
-        <span className="hero-wordmark">flytt.io</span>
-      </motion.div>
-
-      {/* Content */}
-      <motion.div
-        style={{ y: contentY, opacity: overlayOpacity }}
-        className="relative z-20 mx-auto flex max-w-7xl flex-col items-center gap-10 px-4 pt-32 pb-24 sm:pt-36 sm:pb-20 lg:flex-row lg:items-center lg:gap-16 lg:px-8 lg:pt-44 lg:pb-28 xl:gap-20"
-      >
-        {/* Left column: text */}
+      <div className="relative mx-auto max-w-7xl px-4 pt-28 pb-16 sm:pt-32 lg:px-8 lg:pt-40 lg:pb-24">
         <motion.div
-          className="relative flex flex-1 flex-col items-center text-center lg:items-start lg:text-left"
-          variants={stagger}
+          className="flex flex-col items-start"
           initial="hidden"
           animate="visible"
+          variants={{ visible: { transition: { staggerChildren: 0.12 } } }}
         >
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -inset-x-3 -inset-y-4 -z-10 rounded-3xl bg-linear-to-br from-background/78 via-background/56 to-background/16 backdrop-blur-[1.5px] lg:-inset-x-6"
-          />
           <motion.div variants={fadeUp}>
-            <Badge variant="outline" className="gap-2 rounded-full border-foreground/15 bg-background/80 px-4 py-1.5 text-sm font-medium text-foreground backdrop-blur-md">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-              </span>
-              Helt gratis flyttanmälan
+            <Badge variant="outline" className="rounded-full border-primary/15 bg-background/85 px-4 py-1.5 text-sm font-medium text-foreground shadow-sm">
+              Flytt.io förenklar flytten innan, under och efter registreringen
             </Badge>
           </motion.div>
 
-          {/* 3D-interactive heading */}
-          <motion.div
-            className="mt-6 sm:mt-8"
-            style={{ x: springX, y: springY }}
-          >
+          <div className="mt-7 max-w-4xl">
             <TextReveal
               as="h1"
               splitBy="word"
-              delay={0.3}
-              staggerDelay={0.08}
-              className="hero-title text-4xl font-bold leading-[1.08] tracking-tight text-foreground text-balance sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl"
+              delay={0.18}
+              staggerDelay={0.06}
+              className="hero-title text-5xl font-bold leading-[1.02] tracking-tight text-foreground text-balance sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
             >
-              Flytta utan krångel.
+              Flytta med mindre stress.
             </TextReveal>
             <TextReveal
               as="h1"
               splitBy="word"
-              delay={0.7}
-              staggerDelay={0.08}
-              className="hero-title mt-1 text-4xl font-bold leading-[1.08] tracking-tight text-gradient-hero sm:mt-2 sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl"
+              delay={0.4}
+              staggerDelay={0.06}
+              className="hero-title mt-2 text-5xl font-bold leading-[1.02] tracking-tight text-gradient-hero text-balance sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
             >
-              Klar på 2 minuter.
+              Klar snabbare med BankID.
             </TextReveal>
-          </motion.div>
+          </div>
 
           <motion.p
             variants={fadeUp}
-            className="mt-6 max-w-xl text-base leading-relaxed text-foreground/80 text-pretty sm:mt-8 sm:text-lg lg:text-xl"
+            className="mt-7 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg lg:text-xl"
           >
-            Vi gör din flyttanmälan till Skatteverket automatiskt – och hjälper
-            dig komma igång på nya adressen med el, bredband och försäkring.
+            Skriv in det du vet, få hjälp att fylla i resten och gå vidare med
+            en trygg flyttanmälan. När flytten är registrerad tar checklista,
+            påminnelser och smarta erbjudanden vid.
           </motion.p>
 
-          <motion.div variants={fadeUp} className="mt-8 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:items-center sm:gap-4">
-            <MagneticButton strength={0.15}>
-              <div className="relative">
-                <div className="absolute -inset-1 rounded-full bg-primary/20 animate-pulse-ring" />
+          <motion.div
+            variants={fadeUp}
+            className="mt-8 w-full max-w-2xl rounded-[28px] border border-border/70 bg-card/90 p-4 shadow-lg shadow-primary/10 backdrop-blur sm:p-5"
+          >
+            <form
+              action="/adressandring"
+              method="GET"
+              className="flex flex-col gap-3.5"
+            >
+              <div className="flex flex-col gap-1.5">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Börja här
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Skriv adress, ort eller flyttdatum. Vi tar med det vi kan direkt.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Input
+                  name="start"
+                  value={startInput}
+                  onChange={(e) => setStartInput(e.target.value)}
+                  placeholder={'Skriv t.ex. "Storgatan 12, Göteborg" eller "Vi flyttar 1 juni till Malmö"'}
+                  className="h-12 rounded-2xl border-border/70 bg-background/85 px-4 text-base"
+                />
+
                 <Button
-                  asChild
+                  type="submit"
                   size="lg"
-                  className="shimmer-btn relative rounded-full px-8 text-base font-semibold shadow-xl shadow-primary/25 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/35 hover:-translate-y-1"
+                  disabled={!startInput.trim()}
+                  className="shimmer-btn h-12 rounded-2xl px-5 text-base font-semibold shadow-lg shadow-primary/15 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/20 sm:px-6"
                 >
-                  <Link href="/adressandring">
-                    Starta din flytt med BankID
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
+                  Fortsätt
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
-            </MagneticButton>
+
+              <div className="flex flex-wrap gap-2">
+                {quickExamples.map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    onClick={() => setStartInput(example)}
+                    className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+
+              <div className="min-h-5 text-xs leading-relaxed text-muted-foreground">
+                {parsedStart.summary.length > 0
+                  ? `Vi kan redan ta med ${parsedStart.summary.join(", ")}.`
+                  : "Du kan börja enkelt här och komplettera resten steg för steg."}
+              </div>
+            </form>
+          </motion.div>
+
+          <motion.div variants={fadeUp} className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
               asChild
-              variant="ghost"
               size="lg"
-              className="rounded-full text-base text-foreground/70 hover:text-foreground"
+              className="shimmer-btn rounded-full px-8 text-base font-semibold shadow-xl shadow-primary/15 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-primary/20"
             >
-              <a href="#hur-det-funkar">
-                Så funkar det
-                <ChevronDown className="ml-1 h-4 w-4" />
-              </a>
+              <Link href="/adressandring">
+                Starta din flytt
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="rounded-full border-border/70 bg-background/80 px-8 text-base"
+            >
+              <a href="#hur-det-funkar">Se hur det fungerar</a>
             </Button>
           </motion.div>
 
-          <motion.div variants={fadeUp}>
-            <TooltipProvider>
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-sm sm:mt-10 lg:justify-start lg:gap-4">
-                {TRUST_ITEMS.map((item, i) => (
-                  <Tooltip key={item.label}>
-                    <TooltipTrigger asChild>
-                      <motion.div
-                        className="flex cursor-default items-center gap-2 rounded-full border border-foreground/15 bg-background/72 px-3 py-1.5 text-xs text-foreground/85 backdrop-blur-md transition-all duration-300 hover:bg-background/90 hover:-translate-y-0.5 sm:px-3.5 sm:py-2 sm:text-sm"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 1.4 + i * 0.1, duration: 0.5 }}
-                      >
-                        <item.icon className="h-3.5 w-3.5 text-primary sm:h-4 sm:w-4" />
-                        <span>{item.label}</span>
-                      </motion.div>
-                    </TooltipTrigger>
-                    <TooltipContent>{item.tip}</TooltipContent>
-                  </Tooltip>
-                ))}
+          <motion.div variants={fadeUp} className="mt-7 grid gap-3 sm:mt-8 sm:grid-cols-3">
+            {trustItems.map((item) => (
+              <div
+                key={item.label}
+                className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/90 px-4 py-3 text-sm text-foreground shadow-sm"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <item.icon className="h-4 w-4" />
+                </div>
+                <span className="leading-snug">{item.label}</span>
               </div>
-            </TooltipProvider>
+            ))}
           </motion.div>
         </motion.div>
 
-        {/* Right column: app preview */}
         <motion.div
-          variants={scaleIn}
-          initial="hidden"
-          animate="visible"
-          className="hidden w-full flex-1 sm:block lg:max-w-md"
+          className="relative mt-14 w-full overflow-visible sm:mt-16"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
         >
-          <div className="relative">
-            <div className="absolute -inset-8 rounded-4xl bg-primary/8 blur-3xl animate-float-slow" />
-            <HeroVisual />
+          <div className="relative overflow-visible">
+            <div className="absolute inset-x-8 -top-10 bottom-8 rounded-[3rem] bg-ring/10 blur-3xl sm:inset-x-12 lg:inset-x-20" />
+            <HeroLanyard />
           </div>
         </motion.div>
-      </motion.div>
-
-      {/* Scroll indicator */}
-      <motion.div
-        className="absolute bottom-8 left-1/2 hidden -translate-x-1/2 sm:flex flex-col items-center gap-3"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 2, duration: 1 }}
-      >
-        <motion.span
-          className="text-xs font-medium uppercase tracking-widest text-foreground/45"
-          animate={{ opacity: [0.3, 0.7, 0.3] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        >
-          Scrolla
-        </motion.span>
-        <motion.div
-          animate={{ y: [0, 8, 0] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <div className="flex h-10 w-6 items-start justify-center rounded-full border-2 border-foreground/20 pt-2">
-            <motion.div
-              className="h-1.5 w-1.5 rounded-full bg-primary"
-              animate={{ y: [0, 12, 0], opacity: [1, 0.3, 1] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </div>
-        </motion.div>
-      </motion.div>
-
-      {/* Bottom fade */}
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-background to-transparent" />
+      </div>
     </section>
   )
 }

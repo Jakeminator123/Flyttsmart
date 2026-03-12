@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { parseOpenClawResponse, type EmailRequestBlock } from "@/lib/openclaw/response";
 import { cn } from "@/lib/utils";
+import { useDIDStream } from "@/lib/did-stream-context";
 
 const DID_CLIENT_KEY = process.env.NEXT_PUBLIC_DID_CLIENT_KEY ?? "";
 const DID_AGENT_ID = process.env.NEXT_PUBLIC_DID_AGENT_ID ?? "";
@@ -125,6 +127,9 @@ const QUICK_PROMPTS = [
   "Har du tips inför flyttdatumet?",
 ];
 
+const AIDA_PLACEHOLDER_SRC = "/media/images/aida-placeholder.svg";
+const AIDA_CONNECT_CTA_DELAY_MS = 8000;
+
 type ConnectionState = "idle" | "connecting" | "connected" | "disconnected" | "error";
 
 type BridgeMessage = {
@@ -181,18 +186,41 @@ function createMessageId(): string {
   }
 }
 
+function AidaPortrait({
+  className,
+  imageClassName,
+  alt = "Illustration av Aida",
+}: {
+  className?: string;
+  imageClassName?: string;
+  alt?: string;
+}) {
+  return (
+    <div className={cn("overflow-hidden", className)}>
+      <img
+        src={AIDA_PLACEHOLDER_SRC}
+        alt={alt}
+        className={cn("h-full w-full object-cover", imageClassName)}
+      />
+    </div>
+  );
+}
+
 export function DidOpenClawBridgeWidget() {
   const sessionIdRef = useRef("");
   const agentRef = useRef<any>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const badgeVideoRef = useRef<HTMLVideoElement>(null);
+  const panelVideoRef = useRef<HTMLVideoElement>(null);
   const recognitionRef = useRef<any>(null);
   const sdkModuleRef = useRef<any>(null);
   const connectInFlightRef = useRef(false);
+  const autoConnectRequestedRef = useRef(false);
   const pendingSpeakRef = useRef<string | null>(null);
   const srcObjectRef = useRef<MediaStream | null>(null);
   const lastFieldValuesRef = useRef<Map<string, string>>(new Map());
   const lastFieldTimesRef = useRef<Map<string, number>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const didStreamCtx = useDIDStream();
 
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [open, setOpen] = useState(false);
@@ -207,16 +235,24 @@ export function DidOpenClawBridgeWidget() {
       id: "welcome",
       role: "assistant",
       content:
-        "Hej! Jag är Aida. Jag kan guida dig i formuläret, svara på frågor om flytten och föreslå fält att fylla i.",
+        "Hej! Jag är Aida, din röstguide. Jag kan lotsa dig genom flytten, och OpenClaw hjälper mig i bakgrunden med svar, förslag och sammanhang.",
     },
   ]);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailOverrideTo, setEmailOverrideTo] = useState("");
+  const [avatarReady, setAvatarReady] = useState(false);
+  const [showManualConnect, setShowManualConnect] = useState(false);
   const messagesRef = useRef(messages);
+  const prefersReducedMotion = useReducedMotion();
   messagesRef.current = messages;
 
+  const getVisibleVideoElement = useCallback(() => {
+    if (open) return panelVideoRef.current ?? badgeVideoRef.current;
+    return badgeVideoRef.current ?? panelVideoRef.current;
+  }, [open]);
+
   const syncVideoPlayback = useCallback(() => {
-    const videoEl = videoRef.current;
+    const videoEl = getVisibleVideoElement();
     if (!videoEl) return;
 
     if (srcObjectRef.current) {
@@ -234,7 +270,7 @@ export function DidOpenClawBridgeWidget() {
       videoEl.src = idleVideo;
       void videoEl.play().catch(() => {});
     }
-  }, []);
+  }, [getVisibleVideoElement]);
 
   useEffect(() => {
     sessionIdRef.current = getDidSessionId();
@@ -295,6 +331,9 @@ export function DidOpenClawBridgeWidget() {
       const callbacks = {
         onSrcObjectReady(value: MediaStream) {
           srcObjectRef.current = value;
+          setAvatarReady(true);
+          didStreamCtx.setStream(value);
+          didStreamCtx.setAvatarReady(true);
           syncVideoPlayback();
         },
         onConnectionStateChange(state: string) {
@@ -305,10 +344,11 @@ export function DidOpenClawBridgeWidget() {
         onVideoStateChange(state: string) {
           if (state === "STOP") {
             setSpeaking(false);
-            if (videoRef.current && agentRef.current?.agent?.presenter?.idle_video) {
-              videoRef.current.srcObject = null;
-              videoRef.current.src = agentRef.current.agent.presenter.idle_video;
-              void videoRef.current.play().catch(() => {});
+            const videoEl = getVisibleVideoElement();
+            if (videoEl && agentRef.current?.agent?.presenter?.idle_video) {
+              videoEl.srcObject = null;
+              videoEl.src = agentRef.current.agent.presenter.idle_video;
+              void videoEl.play().catch(() => {});
             }
           } else {
             setSpeaking(state === "speaking");
@@ -328,14 +368,7 @@ export function DidOpenClawBridgeWidget() {
         streamOptions,
       });
       agentRef.current = agent;
-
-      const idleVideo = agent.agent?.presenter?.idle_video;
-      if (idleVideo && videoRef.current) {
-        videoRef.current.srcObject = null;
-        videoRef.current.src = idleVideo;
-        void videoRef.current.play().catch(() => {});
-      }
-
+      syncVideoPlayback();
       setConnectionState("idle");
     } catch (err) {
       console.error("[DID SDK] init error:", err);
@@ -343,7 +376,7 @@ export function DidOpenClawBridgeWidget() {
     } finally {
       connectInFlightRef.current = false;
     }
-  }, [loadDidSdk, syncVideoPlayback]);
+  }, [getVisibleVideoElement, loadDidSdk, syncVideoPlayback]);
 
   const disconnectAgent = useCallback(async () => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -359,7 +392,15 @@ export function DidOpenClawBridgeWidget() {
   useEffect(() => {
     if (!DID_BRIDGE_ENABLED || !DID_CLIENT_KEY || !DID_AGENT_ID) return;
 
-    const warmup = () => { void initAgent(); };
+    const warmup = () => {
+      void (async () => {
+        await initAgent();
+        if (!autoConnectRequestedRef.current && agentRef.current) {
+          autoConnectRequestedRef.current = true;
+          void connectStream();
+        }
+      })();
+    };
 
     const idleWindow = window as Window & {
       requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
@@ -382,16 +423,35 @@ export function DidOpenClawBridgeWidget() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [initAgent]);
+  }, [connectStream, initAgent]);
 
   useEffect(() => {
     return () => { void disconnectAgent(); };
   }, [disconnectAgent]);
 
   useEffect(() => {
-    if (!open) return;
-    syncVideoPlayback();
+    const frameId = window.requestAnimationFrame(() => {
+      syncVideoPlayback();
+    });
+    return () => window.cancelAnimationFrame(frameId);
   }, [open, connectionState, speaking, syncVideoPlayback]);
+
+  useEffect(() => {
+    if (connectionState === "connected") {
+      setShowManualConnect(false);
+      return;
+    }
+    if (connectionState === "error") {
+      setShowManualConnect(true);
+      return;
+    }
+    if (avatarReady) return;
+    setShowManualConnect(false);
+    const timer = window.setTimeout(() => {
+      setShowManualConnect(true);
+    }, AIDA_CONNECT_CTA_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [avatarReady, connectionState]);
 
   useEffect(() => {
     if (connectionState !== "connected") return;
@@ -701,21 +761,152 @@ export function DidOpenClawBridgeWidget() {
           ? "bg-red-500"
           : "bg-gray-400";
 
+  const badgeStatusText =
+    connectionState === "connected"
+      ? "Aida är redo att guida dig"
+      : connectionState === "connecting"
+        ? "Aida vaknar och kopplar upp sig"
+        : connectionState === "error"
+          ? "Aida behöver ett nytt försök"
+          : "Aida laddar sin guideprofil";
+
+  const badgeBodyText =
+    avatarReady
+      ? "D-ID-strömmen är klar. Tryck för att öppna Aida live."
+      : "OpenClaw förbereder hjärnan medan avataren gör sig redo.";
+
+  const badgeFooterText =
+    connectionState === "connected"
+      ? "Startklar för flyttguidning"
+      : connectionState === "error"
+        ? "Behöver en ny anslutning"
+        : connectionState === "connecting"
+          ? "Kopplar upp live-avatar"
+          : "Laddar agent och avatar";
+
   if (!open) {
     return (
-      <div className="fixed bottom-4 right-4 z-50 sm:bottom-5 sm:right-5">
-        <button
-          onClick={handleOpen}
-          className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/30 active:translate-y-0"
-          aria-label="Prata med Aida"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-          <span className={cn("absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full border-2 border-background", stateDotClass)} />
-        </button>
-        <div className="mt-2 rounded-full border border-border/60 bg-card/95 px-3 py-1 text-[11px] font-medium text-foreground shadow-sm backdrop-blur">
-          {connectionState === "connected" ? "Aida är redo" : "Startar Aida..."}
+      <motion.div
+        className="hidden"
+        aria-hidden="true"
+        initial={false}
+        animate={{ opacity: 0, y: 0, rotate: 0, scale: 1 }}
+      >
+        <div className="relative pt-8">
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center">
+            <div className="flex items-end gap-7">
+              <span className="aida-lanyard-string h-9 w-px rotate-[7deg]" />
+              <span className="aida-lanyard-string h-9 w-px -rotate-[7deg]" />
+            </div>
+            <div className="mt-1 flex h-6 w-6 items-center justify-center rounded-full border border-border/70 bg-card/95 shadow-md shadow-primary/10 backdrop-blur">
+              <span className="h-2.5 w-2.5 rounded-full border border-primary/40" />
+            </div>
+          </div>
+
+          <button
+            onClick={handleOpen}
+            tabIndex={-1}
+            className="group relative block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            aria-label="Öppna Aida guide"
+          >
+            <div className="aida-flip-scene aspect-3/4">
+              <motion.div
+                className="aida-flip-card h-full w-full"
+                animate={prefersReducedMotion ? undefined : { rotateY: avatarReady ? 180 : 0 }}
+                transition={{ type: "spring", stiffness: 92, damping: 18, mass: 0.95 }}
+              >
+                <div className="aida-flip-face overflow-hidden rounded-4xl border border-border/60 bg-[radial-gradient(circle_at_top,rgba(126,232,162,0.18),transparent_46%),linear-gradient(160deg,rgba(16,21,34,0.92),rgba(33,45,64,0.96))] shadow-[0_28px_60px_-24px_rgba(18,26,39,0.72)]">
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent_18%,transparent_78%,rgba(8,12,20,0.42))]" />
+                  <div className="relative flex h-full flex-col px-4 pb-4 pt-4 text-white">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-white/80">
+                          Aida guide
+                        </span>
+                        <p className="mt-3 max-w-44 text-lg font-semibold leading-tight">
+                          Din hängande guide väntar på att kliva fram.
+                        </p>
+                      </div>
+                      <span className="inline-flex items-center gap-1 rounded-full border border-white/14 bg-black/15 px-2 py-1 text-[10px] font-medium text-white/75 backdrop-blur">
+                        <span className={cn("h-2 w-2 rounded-full", stateDotClass)} />
+                        {stateLabel}
+                      </span>
+                    </div>
+
+                    <AidaPortrait
+                      className="relative mt-4 flex-1 rounded-[1.6rem] border border-white/10 bg-black/20 shadow-inner shadow-black/20"
+                      imageClassName="object-cover object-top"
+                    />
+
+                    <div className="relative mt-4 rounded-[1.4rem] border border-white/10 bg-black/25 px-4 py-3 backdrop-blur-md">
+                      <p className="text-sm font-medium text-white/95">{badgeStatusText}</p>
+                      <p className="mt-1 text-[12px] leading-relaxed text-white/72">
+                        {badgeBodyText}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="aida-flip-face aida-flip-face-back overflow-hidden rounded-4xl border border-border/60 bg-[#060814] shadow-[0_28px_60px_-24px_rgba(18,26,39,0.72)]">
+                  <video
+                    ref={badgeVideoRef}
+                    autoPlay
+                    playsInline
+                    poster={AIDA_PLACEHOLDER_SRC}
+                    muted={connectionState !== "connected"}
+                    onLoadedMetadata={(e) => {
+                      if (connectionState === "connected" || srcObjectRef.current) {
+                        setAvatarReady(true);
+                      }
+                      void (e.currentTarget as HTMLVideoElement).play().catch(() => {});
+                    }}
+                    className="h-full w-full object-cover object-top"
+                  />
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_28%,transparent_60%,rgba(1,4,10,0.72))]" />
+                  <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-3">
+                    <span className="inline-flex rounded-full border border-white/15 bg-black/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-white/80 backdrop-blur">
+                      Live med D-ID
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-white/14 bg-black/30 px-2 py-1 text-[10px] font-medium text-white/75 backdrop-blur">
+                      <span className={cn("h-2 w-2 rounded-full", stateDotClass)} />
+                      {stateLabel}
+                    </span>
+                  </div>
+                  <div className="absolute inset-x-4 bottom-4 rounded-[1.4rem] border border-white/10 bg-black/30 px-4 py-3 backdrop-blur-md">
+                    <p className="text-sm font-medium text-white">Aida är här.</p>
+                    <p className="mt-1 text-[12px] leading-relaxed text-white/72">
+                      Tryck för att öppna hennes fulla guidepanel med röst, autofyllnad och chatt.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </button>
+
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-full border border-border/60 bg-card/92 px-3 py-2 shadow-lg shadow-primary/8 backdrop-blur-xl">
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-semibold text-foreground">Aida badge</p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {badgeFooterText}
+              </p>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2 py-1 text-[10px] font-medium text-muted-foreground">
+              <span className={cn("h-2 w-2 rounded-full", stateDotClass)} />
+              {stateLabel}
+            </span>
+          </div>
+
+          {showManualConnect && !avatarReady && (
+            <button
+              type="button"
+              onClick={() => void connectStream()}
+              className="mt-2 inline-flex items-center rounded-full border border-border/60 bg-background/85 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm backdrop-blur transition-colors hover:border-primary/35 hover:text-primary"
+            >
+              Klicka för att ansluta Aida nu
+            </button>
+          )}
         </div>
-      </div>
+      </motion.div>
     );
   }
 
@@ -723,12 +914,14 @@ export function DidOpenClawBridgeWidget() {
     <div className="fixed bottom-3 right-3 z-50 flex w-[calc(100vw-1.5rem)] max-w-[430px] flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/95 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 zoom-in-95 duration-300 sm:bottom-5 sm:right-5 max-h-[min(90vh,720px)]">
       <div className="flex items-center justify-between border-b border-border/50 bg-linear-to-r from-primary/15 via-primary/5 to-transparent px-4 py-3">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-          </div>
+          <AidaPortrait
+            alt=""
+            className="h-9 w-9 rounded-2xl border border-primary/15 bg-primary/10"
+            imageClassName="object-cover object-top"
+          />
           <div>
             <p className="text-sm font-semibold leading-none text-foreground">Aida</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Röstassistent för flytten</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Visuell guide med OpenClaw som hjärna</p>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-card/80 px-2 py-1 text-[10px] font-medium text-muted-foreground">
             <span className={cn("h-2 w-2 rounded-full", stateDotClass)} />
@@ -746,27 +939,35 @@ export function DidOpenClawBridgeWidget() {
 
       <div className="relative h-[220px] shrink-0 bg-black sm:h-[260px]">
         <video
-          ref={videoRef}
+          ref={panelVideoRef}
           autoPlay
           playsInline
+          poster={AIDA_PLACEHOLDER_SRC}
           muted={connectionState !== "connected"}
-          onLoadedMetadata={(e) => void (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
+          onLoadedMetadata={(e) => {
+            if (connectionState === "connected" || srcObjectRef.current) {
+              setAvatarReady(true);
+            }
+            void (e.currentTarget as HTMLVideoElement).play().catch(() => {});
+          }}
           className="h-full w-full object-contain object-top"
         />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-black/40 to-transparent" />
         {connectionState !== "connected" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-linear-to-b from-gray-800/90 to-gray-900/95 text-center text-white/90">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/80"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-            </div>
+            <AidaPortrait
+              alt=""
+              className="h-16 w-16 rounded-2xl border border-white/10 bg-white/10 backdrop-blur"
+              imageClassName="object-cover object-top"
+            />
             <div className="flex items-center gap-2">
               <span className={cn("h-2 w-2 rounded-full", stateDotClass)} />
               <span className="text-xs font-medium">
                 {connectionState === "connecting"
-                  ? "Kopplar upp avataren..."
+                  ? "Kopplar upp guiden..."
                   : connectionState === "error"
-                    ? "Kunde inte ansluta till Aida"
-                    : "Forbereder Aida..."}
+                    ? "Kunde inte ansluta till Aida guide"
+                    : "Förbereder Aida guide..."}
               </span>
             </div>
           </div>
@@ -840,7 +1041,7 @@ export function DidOpenClawBridgeWidget() {
                       onClick={() => void handleSendEmail(message.id, message.emailRequest!)}
                       className="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground shadow-sm disabled:opacity-50"
                     >
-                      {sendingEmail ? "Skickar..." : "Bekrafta och skicka"}
+                      {sendingEmail ? "Skickar..." : "Bekräfta och skicka"}
                     </button>
                     <button
                       type="button"
@@ -905,7 +1106,7 @@ export function DidOpenClawBridgeWidget() {
           <input
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
-            placeholder="Skriv till Aida eller använd mikrofonen..."
+            placeholder="Skriv till Aida guide eller använd mikrofonen..."
             className="h-9 flex-1 rounded-xl border border-border/60 bg-muted/40 px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 transition-colors focus:border-primary/40 focus:bg-background disabled:opacity-50"
             disabled={thinking}
           />
@@ -918,7 +1119,7 @@ export function DidOpenClawBridgeWidget() {
           </button>
         </form>
         <p className="mt-1.5 text-[11px] text-muted-foreground">
-          Tips: du kan fråga fritt eller be Aida fylla saknade fält.
+          Tips: ta fram Aida när du vill bli lotsad steg för steg eller har fastnat.
         </p>
       </div>
     </div>

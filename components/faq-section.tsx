@@ -9,6 +9,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { motion } from "framer-motion"
 import { TextReveal } from "@/components/text-reveal"
+import { createFaqStructuredData } from "@/lib/structured-data"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30, filter: "blur(4px)" },
@@ -52,12 +53,23 @@ const faqs = [
   },
 ]
 
+const faqStructuredData = createFaqStructuredData(
+  faqs.map((faq) => ({
+    question: faq.question,
+    answer: faq.answer,
+  })),
+)
+
 export function FaqSection() {
   return (
     <section
       id="faq"
       className="relative overflow-hidden bg-section-alt py-28 lg:py-36"
     >
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }}
+      />
       <div className="section-divider absolute top-0 left-0 right-0" />
 
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">

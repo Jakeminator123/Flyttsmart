@@ -120,8 +120,8 @@ export function BankIdQrMirror({
       </div>
 
       <p className="mb-3 text-xs text-muted-foreground">
-        Skanna QR-koden nedan med Mobilt BankID för att logga in på Skatteverket.
-        Detta är <strong>inte</strong> samma QR som Data-QR för mobilhandoff.
+        Skanna QR-koden nedan med Mobilt BankID för att fortsätta i
+        Skatteverkets inloggning på desktop.
       </p>
 
       {isTerminal && (

@@ -135,6 +135,10 @@ function DashboardContent() {
   const status = (move.status || "draft") as MoveStatus;
   const days = daysUntilMove(move.moveDate);
   const completedCount = checklist.filter((c) => c.completed).length;
+  const compareReadyCount = checklist.filter(
+    (c) => Boolean(c.taskKey) || (Array.isArray(c.comparisonHints) && c.comparisonHints.length > 0),
+  ).length;
+  const helpFlagCount = checklist.filter((c) => c.needHelp).length;
   const firstName = user.name.split(" ")[0];
 
   async function handleStartSkv() {
@@ -293,7 +297,7 @@ function DashboardContent() {
         </div>
 
         {/* ── Tabs ─────────────────────────────────────────────── */}
-        <Tabs defaultValue="overview" className="space-y-6">
+        <Tabs defaultValue="skatteverket" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 h-12">
             <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm">
               <Home className="h-4 w-4" />
@@ -301,7 +305,7 @@ function DashboardContent() {
             </TabsTrigger>
             <TabsTrigger value="checklist" className="gap-1.5 text-xs sm:text-sm">
               <ClipboardList className="h-4 w-4" />
-              Checklista
+              AI-checklista
             </TabsTrigger>
             <TabsTrigger value="skatteverket" className="gap-1.5 text-xs sm:text-sm">
               <Landmark className="h-4 w-4" />
@@ -441,7 +445,35 @@ function DashboardContent() {
           </TabsContent>
 
           {/* ── Checklist ─────────────────────────────────────── */}
-          <TabsContent value="checklist">
+          <TabsContent value="checklist" className="space-y-6">
+            <div className="rounded-2xl border bg-linear-to-br from-primary/5 via-background to-accent/10 p-6">
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary">
+                  Efter flytten
+                </Badge>
+                <Badge variant="outline" className="border-border/70 bg-background/80">
+                  {completedCount}/{checklist.length} klara
+                </Badge>
+                <Badge variant="outline" className="border-border/70 bg-background/80">
+                  {compareReadyCount} kan jämföras
+                </Badge>
+                {helpFlagCount > 0 && (
+                  <Badge variant="outline" className="border-violet-300 bg-violet-50 text-violet-700">
+                    {helpFlagCount} markerade för hjälp
+                  </Badge>
+                )}
+              </div>
+              <h2 className="mt-4 text-lg font-bold text-foreground">
+                Din AI-checklista efter registreringen
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                Här samlas det som faktiskt skapar värde efter flytten: vad som är
+                klart, vad som är näst på tur och vilka delar som är värda att
+                jämföra när du är redo. Öppna jämför-knapparna bara där det är
+                relevant för dig.
+              </p>
+            </div>
+
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
@@ -451,8 +483,8 @@ function DashboardContent() {
                   </CardTitle>
                 </div>
                 <CardDescription>
-                  Använd jämför-knapparna för att hitta bästa elavtal, bredband
-                  och mer.{" "}
+                  Använd checklistan som din efterflytt-plan. Öppna jämför där du
+                  vill se el, bredband och fler relevanta val.{" "}
                   {move.moveDate && (
                     <span>
                       Anpassad efter inflyttning{" "}
@@ -492,17 +524,17 @@ function DashboardContent() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-foreground">
-                    Flyttanmälan till Skatteverket
+                    Nästa steg: Skatteverket och BankID
                   </h2>
                   <p className="text-xs text-muted-foreground">
-                    Anmäl din flytt via BankID eller fyll i steg för steg
+                    Fortsätt från din registrering med snabbaste vägen överst
                   </p>
                 </div>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Du måste anmäla din flytt till Skatteverket senast en vecka efter
-                inflyttning. Välj ett av sätten nedan — vi fyller i alla
-                uppgifter åt dig.
+                inflyttning. Vi har redan förberett uppgifterna så att du kan
+                gå vidare med BankID eller ta den manuella vägen vid behov.
               </p>
             </div>
 
@@ -512,7 +544,7 @@ function DashboardContent() {
               <Card className="border-primary/30 relative overflow-hidden">
                 <div className="absolute top-0 right-0">
                   <Badge className="rounded-none rounded-bl-lg bg-primary text-primary-foreground text-[10px]">
-                    Snabbast
+                    Rekommenderad
                   </Badge>
                 </div>
                 <CardHeader className="pb-3">
@@ -523,8 +555,8 @@ function DashboardContent() {
                     </CardTitle>
                   </div>
                   <CardDescription className="text-xs">
-                    Vi startar Skatteverkets BankID-flöde och fyller i allt
-                    automatiskt. Skanna QR-koden för att signera.
+                    Vi startar Skatteverkets BankID-flöde och förbereder allt
+                    automatiskt. Skanna QR-koden för att fortsätta.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -542,7 +574,7 @@ function DashboardContent() {
                     )}
                     {skvStarting
                       ? "Startar..."
-                      : "Starta flyttanmälan (BankID)"}
+                      : "Fortsätt med BankID"}
                   </Button>
                   {skvStatus && (
                     <p className="mt-2 text-xs text-muted-foreground">

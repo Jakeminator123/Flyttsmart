@@ -115,6 +115,53 @@ const NEXT_STATUS: Record<string, ChecklistItem["status"]> = {
   done: "todo",
 };
 
+const LEGACY_TEXT_REPLACEMENTS: Array<[string, string]> = [
+  ["Folkbokforing/adressandring", "Folkbokföring/adressändring"],
+  ["Eftersandning", "Eftersändning"],
+  ["myndigheter/tjanster", "myndigheter/tjänster"],
+  ["Uppsagning", "Uppsägning"],
+  ["forsaljning", "försäljning"],
+  ["bostadsratt", "bostadsrätt"],
+  ["overlamning", "överlämning"],
+  ["Flyttstadning", "Flyttstädning"],
+  ["Stadfirma", "Städfirma"],
+  ["Forsakring", "Försäkring"],
+  ["varme", "värme"],
+  ["hemforsakring", "hemförsäkring"],
+  ["Hemforsakring", "Hemförsäkring"],
+  ["flyttanmalan", "flyttanmälan"],
+  ["saga upp", "säga upp"],
+  ["Rorligt", "Rörligt"],
+  ["Paslag", "Påslag"],
+  ["Sjalvrisk", "Självrisk"],
+  ["skyddsniva", "skyddsnivå"],
+  ["fjarrvarme", "fjärrvärme"],
+  ["kopplat", "kopplade"],
+  ["pa nya adressen", "på nya adressen"],
+  ["Tillgangliga leverantorer", "Tillgängliga leverantörer"],
+  ["Stod for", "Stöd för"],
+  ["Uppsagning nuvarande avtal / flytt av tjanst", "Uppsägning nuvarande avtal / flytt av tjänst"],
+  ["Bestalla", "Beställa"],
+  ["tackningstest", "täckningstest"],
+  ["slap", "släp"],
+  ["Omdomen", "Omdömen"],
+  ["Parkeringstillstand", "Parkeringstillstånd"],
+  ["Sakerhet", "Säkerhet"],
+  ["las", "lås"],
+  ["Slutavstamning", "Slutavstämning"],
+  ["ratt", "rätt"],
+  ["stammer", "stämmer"],
+];
+
+function normalizeLegacyText(value?: string) {
+  if (!value) return value;
+
+  return LEGACY_TEXT_REPLACEMENTS.reduce(
+    (text, [from, to]) => text.replaceAll(from, to),
+    value,
+  );
+}
+
 function dueDateInfo(dueDate?: string) {
   if (!dueDate) return null;
   const now = new Date();
@@ -384,14 +431,18 @@ export function ChecklistView({
 
   const normalize = (item: ChecklistItem): ChecklistItem => ({
     ...item,
-    section: item.section || "Övrigt",
+    section: normalizeLegacyText(item.section) || "Övrigt",
     sectionKey: item.sectionKey || "other",
+    title: normalizeLegacyText(item.title) || item.title,
+    description: normalizeLegacyText(item.description),
+    comparisonHints: Array.isArray(item.comparisonHints)
+      ? item.comparisonHints
+          .map((hint) => normalizeLegacyText(hint))
+          .filter((hint): hint is string => Boolean(hint))
+      : [],
     needHelp: item.needHelp === true,
     wantCompare: item.wantCompare === true,
     status: item.status || (item.completed ? "done" : "todo"),
-    comparisonHints: Array.isArray(item.comparisonHints)
-      ? item.comparisonHints
-      : [],
   });
 
   const updateItem = (index: number, changes: Partial<ChecklistItem>) => {
@@ -488,9 +539,9 @@ export function ChecklistView({
   }
 
   return (
-    <div className={cn("space-y-5", className)}>
+    <div className={cn("space-y-4", className)}>
       {/* ── Progress ──────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border bg-linear-to-r from-primary/5 via-background to-primary/5 p-5">
+      <div className="relative overflow-hidden rounded-[26px] border border-border/70 bg-linear-to-r from-primary/5 via-card to-primary/5 p-5 shadow-sm shadow-primary/6">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-2xl font-bold tabular-nums text-foreground">
@@ -555,10 +606,10 @@ export function ChecklistView({
               type="button"
               onClick={() => toggleSection(sectionKey)}
               className={cn(
-                "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all duration-200",
+                "flex w-full items-center gap-3 rounded-2xl border border-border/70 px-4 py-3.5 text-left transition-all duration-200 shadow-sm shadow-primary/5",
                 open
-                  ? "rounded-b-none border-b-transparent bg-card shadow-sm"
-                  : "bg-card/60 hover:bg-card hover:shadow-sm",
+                  ? "rounded-b-none border-b-transparent bg-card"
+                  : "bg-card/80 hover:bg-card hover:border-primary/15",
                 allDone &&
                   "border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/50 dark:bg-emerald-950/10",
               )}
@@ -593,7 +644,7 @@ export function ChecklistView({
 
             {/* Items */}
             {open && (
-              <div className="animate-in fade-in slide-in-from-top-1 duration-200 divide-y rounded-b-xl border border-t-0 bg-card">
+              <div className="animate-in fade-in slide-in-from-top-1 duration-200 divide-y divide-border/60 rounded-b-2xl border border-t-0 border-border/70 bg-card/95 shadow-sm shadow-primary/5">
                 {sectionItems.map((item) => {
                   const gi = normalizedItems.findIndex(
                     (c) =>
@@ -613,7 +664,7 @@ export function ChecklistView({
                       key={`${item.taskKey || item.title}-${item.sortOrder || 0}`}
                       className={cn("border-l-[3px] transition-colors", sc.border)}
                     >
-                      <div className="flex items-start gap-3 px-4 py-3.5">
+                      <div className="flex items-start gap-3 px-4 py-4 sm:px-5">
                         {/* Status icon (click to cycle) */}
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -647,7 +698,7 @@ export function ChecklistView({
                         <div className="flex-1 min-w-0">
                           <p
                             className={cn(
-                              "text-sm font-medium leading-snug",
+                              "text-sm font-semibold leading-snug",
                               item.status === "done"
                                 ? "line-through text-muted-foreground"
                                 : "text-foreground",
@@ -657,18 +708,18 @@ export function ChecklistView({
                           </p>
 
                           {!compact && item.description && (
-                            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                               {item.description}
                             </p>
                           )}
 
                           {/* Action row */}
-                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
                             {due && item.status !== "done" && (
                               <Badge
                                 variant="outline"
                                 className={cn(
-                                  "gap-1 border-0 text-[10px] font-normal",
+                                  "gap-1 rounded-full border-0 px-2.5 py-1 text-[10px] font-medium",
                                   due.cls,
                                 )}
                               >
@@ -690,10 +741,10 @@ export function ChecklistView({
                                       });
                                     }}
                                     className={cn(
-                                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-all",
+                                      "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all",
                                       item.needHelp
-                                        ? "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
-                                        : "bg-muted/50 text-muted-foreground hover:bg-muted",
+                                        ? "border-violet-200 bg-violet-100 text-violet-700 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-300"
+                                        : "border-border/70 bg-muted/50 text-muted-foreground hover:bg-muted",
                                     )}
                                   >
                                     <HelpCircle className="h-3 w-3" />
@@ -710,7 +761,7 @@ export function ChecklistView({
                               item.needHelp && (
                                 <Badge
                                   variant="outline"
-                                  className="gap-1 border-violet-200 text-[10px] text-violet-600 dark:border-violet-800 dark:text-violet-400"
+                                className="gap-1 rounded-full border-violet-200 px-2.5 py-1 text-[10px] text-violet-600 dark:border-violet-800 dark:text-violet-400"
                                 >
                                   <HelpCircle className="h-3 w-3" />
                                   Vill ha hjälp
@@ -724,7 +775,7 @@ export function ChecklistView({
                                 variant={isCompOpen ? "default" : "outline"}
                                 size="sm"
                                 className={cn(
-                                  "h-6 gap-1 rounded-full px-2.5 text-[10px] font-semibold transition-all",
+                                  "h-7 gap-1 rounded-full px-3 text-[10px] font-semibold transition-all",
                                   !isCompOpen &&
                                     "hover:border-primary hover:text-primary",
                                 )}
@@ -750,7 +801,7 @@ export function ChecklistView({
 
                       {/* Comparison panel (expandable) */}
                       {isCompOpen && item.taskKey && (
-                        <div className="px-4 pb-4">
+                        <div className="px-4 pb-4 sm:px-5">
                           <ComparisonPanel
                             result={compareData[item.taskKey]}
                             loading={compareLoading.has(item.taskKey)}

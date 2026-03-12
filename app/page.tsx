@@ -9,7 +9,7 @@ import { OpenClawChatWidget } from "@/components/openclaw-chat-widget"
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col overflow-x-hidden">
+    <div className="flex min-h-screen flex-col overflow-x-visible">
       <Header />
       <main className="flex-1">
         <HeroSection />

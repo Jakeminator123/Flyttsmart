@@ -41,7 +41,7 @@ export function HeroSection() {
   return (
     <section
       id="hero"
-      className="relative overflow-x-hidden bg-linear-to-b from-hero-gradient-from via-background to-background"
+      className="relative overflow-y-hidden overflow-x-visible bg-linear-to-b from-hero-gradient-from via-background to-background"
       style={{ position: "relative" }}
     >
       <div className="hero-mesh opacity-80" />
@@ -49,9 +49,20 @@ export function HeroSection() {
       <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.18]" />
       <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.03]" />
 
-      <div className="relative mx-auto max-w-7xl px-4 pt-28 pb-16 sm:pt-32 lg:px-8 lg:pt-40 lg:pb-24">
+      <div className="relative mx-auto max-w-7xl px-4 pt-28 pb-20 sm:pt-32 lg:px-8 lg:pt-40 lg:pb-28">
         <motion.div
-          className="flex flex-col items-start"
+          className="absolute inset-0 z-10 hidden lg:block"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
+        >
+          <div className="absolute inset-0 overflow-visible">
+            <HeroLanyard />
+          </div>
+        </motion.div>
+
+        <motion.div
+          className="relative z-20 flex max-w-3xl flex-col items-start"
           initial="hidden"
           animate="visible"
           variants={{ visible: { transition: { staggerChildren: 0.12 } } }}
@@ -190,7 +201,7 @@ export function HeroSection() {
         </motion.div>
 
         <motion.div
-          className="relative mt-14 w-full overflow-visible sm:mt-16"
+          className="relative z-10 mt-12 w-full overflow-visible lg:hidden"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}

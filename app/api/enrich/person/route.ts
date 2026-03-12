@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizePersonalNumber } from "@/lib/personal-number";
 
 export const maxDuration = 60;
 
@@ -31,10 +32,24 @@ function isAuthorized(req: NextRequest): boolean {
   return false;
 }
 
-function normalizePnr(v: string): string | null {
-  const s = String(v || "").replace(/\s|-/g, "");
-  if (/^\d{12}$/.test(s)) return `${s.slice(0, 8)}-${s.slice(8)}`;
-  return null;
+function resolveConfidence(fields: {
+  firstName?: string;
+  lastName?: string;
+  fromStreet?: string;
+  fromCity?: string;
+  fromPostal?: string | null;
+}) {
+  const score = [
+    fields.firstName,
+    fields.lastName,
+    fields.fromStreet,
+    fields.fromCity,
+    fields.fromPostal,
+  ].filter(Boolean).length;
+
+  if (score >= 4) return "high" as const;
+  if (score >= 2) return "medium" as const;
+  return "low" as const;
 }
 
 /** POST /api/enrich/person — personnummer lookup via rats_meri_docker_scraper */
@@ -45,10 +60,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const pnr = normalizePnr(body?.personalNumber ?? body?.pnr ?? body?.personnummer ?? "");
+    const pnr = normalizePersonalNumber(
+      body?.personalNumber ?? body?.pnr ?? body?.personnummer ?? "",
+    );
     if (!pnr) {
       return NextResponse.json(
-        { error: "personnummer krävs (12 siffror, format YYYYMMDD-NNNN)" },
+        { error: "personnummer krävs (giltigt svenskt personnummer)" },
         { status: 400 }
       );
     }
@@ -64,6 +81,9 @@ export async function POST(req: NextRequest) {
       const data = await res.json().catch(() => ({}));
       return NextResponse.json({
         found: false,
+        source: "rats_meri_docker_scraper",
+        confidence: "low",
+        missing: ["firstName", "lastName", "fromStreet", "fromCity", "fromPostal"],
         error: data?.error ?? "Person hittades inte",
       });
     }
@@ -87,20 +107,53 @@ export async function POST(req: NextRequest) {
       personnummer?: string;
     };
 
+    const firstName =
+      data.givenName || data.firstName || data.name?.split(" ")[0] || "";
+    const lastName =
+      data.lastName || data.name?.split(" ").slice(1).join(" ") || "";
+    const fromStreet =
+      data.streetAddress || data.address?.split(",")[0]?.trim() || "";
+    const fromCity = data.city?.trim() || "";
+    const fromPostal = null;
+    const missing = [
+      !firstName ? "firstName" : null,
+      !lastName ? "lastName" : null,
+      !fromStreet ? "fromStreet" : null,
+      !fromCity ? "fromCity" : null,
+      !fromPostal ? "fromPostal" : null,
+    ].filter((value): value is string => Boolean(value));
+
     return NextResponse.json({
       found: true,
-      firstName: data.givenName || data.firstName || (data.name?.split(" ")[0]),
-      lastName: data.lastName || data.name?.split(" ").slice(1).join(" "),
+      source: "rats_meri_docker_scraper",
+      confidence: resolveConfidence({
+        firstName,
+        lastName,
+        fromStreet,
+        fromCity,
+        fromPostal,
+      }),
+      displayName: data.name || [firstName, lastName].filter(Boolean).join(" "),
+      missing,
+      firstName,
+      lastName,
       personalNumber: data.personnummer || pnr,
-      fromStreet: data.streetAddress || data.address?.split(",")[0]?.trim(),
-      fromCity: data.city,
-      fromPostal: null,
+      fromStreet,
+      fromCity,
+      fromPostal,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     console.error("[enrich/person]", msg);
     return NextResponse.json(
-      { error: "Personuppslag misslyckades", details: msg },
+      {
+        found: false,
+        source: "rats_meri_docker_scraper",
+        confidence: "low",
+        missing: ["firstName", "lastName", "fromStreet", "fromCity", "fromPostal"],
+        error: "Personuppslag misslyckades",
+        details: msg,
+      },
       { status: 500 }
     );
   }

@@ -5,6 +5,11 @@ import { motion, useReducedMotion } from "framer-motion";
 import { parseOpenClawResponse, type EmailRequestBlock } from "@/lib/openclaw/response";
 import { cn } from "@/lib/utils";
 import { useDIDStream } from "@/lib/did-stream-context";
+import {
+  MINI_MIF_EVENT,
+  readMiniMifContext,
+  type MiniMifContext,
+} from "@/lib/mif/prefill";
 
 const DID_CLIENT_KEY = process.env.NEXT_PUBLIC_DID_CLIENT_KEY ?? "";
 const DID_AGENT_ID = process.env.NEXT_PUBLIC_DID_AGENT_ID ?? "";
@@ -159,6 +164,7 @@ async function sendChatMessage(
       message,
       source: "did-sdk-voice",
       formContext,
+      mifContext: readMiniMifContext(),
       ...(clientHistory?.length ? { clientHistory } : {}),
     }),
   });
@@ -242,6 +248,7 @@ export function DidOpenClawBridgeWidget() {
   const [emailOverrideTo, setEmailOverrideTo] = useState("");
   const [avatarReady, setAvatarReady] = useState(false);
   const [showManualConnect, setShowManualConnect] = useState(false);
+  const [miniMifContext, setMiniMifContext] = useState<MiniMifContext | null>(null);
   const messagesRef = useRef(messages);
   const prefersReducedMotion = useReducedMotion();
   messagesRef.current = messages;
@@ -275,6 +282,18 @@ export function DidOpenClawBridgeWidget() {
   useEffect(() => {
     sessionIdRef.current = getDidSessionId();
     setSttSupported(getSpeechRecognition() !== null);
+    setMiniMifContext(readMiniMifContext());
+  }, []);
+
+  useEffect(() => {
+    const syncMiniMif = () => setMiniMifContext(readMiniMifContext());
+    syncMiniMif();
+    window.addEventListener(MINI_MIF_EVENT, syncMiniMif as EventListener);
+    window.addEventListener("storage", syncMiniMif);
+    return () => {
+      window.removeEventListener(MINI_MIF_EVENT, syncMiniMif as EventListener);
+      window.removeEventListener("storage", syncMiniMif);
+    };
   }, []);
 
   useEffect(() => {
@@ -682,6 +701,7 @@ export function DidOpenClawBridgeWidget() {
             fieldValue,
             source: "did-field-blur",
             formContext,
+            mifContext: readMiniMifContext(),
           }),
         });
       } catch { /* silent */ }
@@ -700,6 +720,7 @@ export function DidOpenClawBridgeWidget() {
           eventType: "form_sync",
           sessionId: sessionIdRef.current,
           formContext: ctx,
+          mifContext: readMiniMifContext(),
         }),
       }).catch(() => {});
     }, 15_000);
@@ -771,9 +792,11 @@ export function DidOpenClawBridgeWidget() {
           : "Aida laddar sin guideprofil";
 
   const badgeBodyText =
-    avatarReady
-      ? "D-ID-strömmen är klar. Tryck för att öppna Aida live."
-      : "OpenClaw förbereder hjärnan medan avataren gör sig redo.";
+    miniMifContext?.personLookup?.found
+      ? "Personnummer uppslaget. Aida fokuserar nu på det som fortfarande saknas för SKV."
+      : avatarReady
+        ? "D-ID-strömmen är klar. Tryck för att öppna Aida live."
+        : "OpenClaw förbereder hjärnan medan avataren gör sig redo.";
 
   const badgeFooterText =
     connectionState === "connected"
@@ -783,6 +806,22 @@ export function DidOpenClawBridgeWidget() {
         : connectionState === "connecting"
           ? "Kopplar upp live-avatar"
           : "Laddar agent och avatar";
+
+  const quickPrompts = miniMifContext?.missingCritical.length
+    ? [
+        "Vad saknas fortfarande för SKV?",
+        "Hjälp mig fylla nästa blockerande fält",
+        "Förklara vad vi behöver efter personnumret",
+      ]
+    : QUICK_PROMPTS;
+
+  const miniMifStatusText = miniMifContext
+    ? miniMifContext.personLookup?.found
+      ? `Mini-MIF: namn hämtat${miniMifContext.fields.fromStreet ? " och nuvarande adress sparad" : ""}.`
+      : miniMifContext.mode === "free_text"
+        ? "Mini-MIF: fri text tolkad och sparad."
+        : "Mini-MIF: personnummer sparat, men mer data behövs fortfarande."
+    : null;
 
   if (!open) {
     return (
@@ -974,9 +1013,9 @@ export function DidOpenClawBridgeWidget() {
         )}
       </div>
 
-      <div className="border-b border-border/40 bg-muted/20 px-4 py-2">
+          <div className="border-b border-border/40 bg-muted/20 px-4 py-2">
         <div className="flex flex-wrap gap-1.5">
-          {QUICK_PROMPTS.map((prompt) => (
+          {quickPrompts.map((prompt) => (
             <button
               key={prompt}
               type="button"
@@ -989,6 +1028,12 @@ export function DidOpenClawBridgeWidget() {
           ))}
         </div>
       </div>
+
+      {miniMifStatusText && (
+        <div className="border-b border-border/40 bg-emerald-500/5 px-4 py-2 text-[11px] text-muted-foreground">
+          {miniMifStatusText}
+        </div>
+      )}
 
       <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3 sm:px-4">
         {messages.map((message) => (

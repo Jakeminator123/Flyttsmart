@@ -14,6 +14,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { parseOpenClawResponse } from "@/lib/openclaw/response";
+import {
+  MINI_MIF_EVENT,
+  readMiniMifContext,
+  type MiniMifContext,
+} from "@/lib/mif/prefill";
 
 const MERGE_OC_DID =
   process.env.NEXT_PUBLIC_MERGE_OC_DID?.toLowerCase() === "y";
@@ -106,6 +111,7 @@ function OpenClawChatWidgetInner({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
+  const [miniMifContext, setMiniMifContext] = useState<MiniMifContext | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const sessionIdRef = useRef<string>("");
@@ -113,6 +119,18 @@ function OpenClawChatWidgetInner({
   // Initialise shared session ID
   useEffect(() => {
     sessionIdRef.current = getSessionId();
+    setMiniMifContext(readMiniMifContext());
+  }, []);
+
+  useEffect(() => {
+    const syncMiniMif = () => setMiniMifContext(readMiniMifContext());
+    syncMiniMif();
+    window.addEventListener(MINI_MIF_EVENT, syncMiniMif as EventListener);
+    window.addEventListener("storage", syncMiniMif);
+    return () => {
+      window.removeEventListener(MINI_MIF_EVENT, syncMiniMif as EventListener);
+      window.removeEventListener("storage", syncMiniMif);
+    };
   }, []);
 
   // Auto-scroll to latest message
@@ -152,6 +170,7 @@ function OpenClawChatWidgetInner({
             fields: formData ?? {},
             currentStep: currentStep ?? null,
           },
+          mifContext: miniMifContext,
         }),
       });
 

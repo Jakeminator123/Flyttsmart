@@ -1,7 +1,6 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import Link from "next/link"
 import { ArrowRight, Fingerprint, Shield, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -30,10 +29,14 @@ const trustItems = [
 const quickExamples = [
   "Storgatan 12, Göteborg",
   "Vi flyttar 1 juni till Malmö",
-  "Börja flyttanmälan",
+  "19900101-1234",
 ]
 
-export function HeroSection() {
+interface HeroSectionProps {
+  onOpenMiniMif?: (initialValue?: string) => void
+}
+
+export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
   const [startInput, setStartInput] = useState("")
 
   const parsedStart = useMemo(() => parseStartIntent(startInput), [startInput])
@@ -74,24 +77,40 @@ export function HeroSection() {
           </motion.div>
 
           <div className="mt-7 max-w-4xl">
-            <TextReveal
-              as="h1"
-              splitBy="word"
-              delay={0.18}
-              staggerDelay={0.06}
-              className="hero-title text-5xl font-bold leading-[1.02] tracking-tight text-foreground text-balance sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
-            >
-              Flytta med mindre stress.
-            </TextReveal>
-            <TextReveal
-              as="h1"
-              splitBy="word"
-              delay={0.4}
-              staggerDelay={0.06}
-              className="hero-title mt-2 text-5xl font-bold leading-[1.02] tracking-tight text-gradient-hero text-balance sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
-            >
-              Klar snabbare med BankID.
-            </TextReveal>
+            <div className="flex flex-wrap items-end">
+              <TextReveal
+                as="h1"
+                splitBy="word"
+                delay={0.18}
+                staggerDelay={0.06}
+                className="hero-title text-5xl font-bold leading-[1.02] tracking-tight text-foreground text-balance sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
+              >
+                Flytta med mindre stress
+              </TextReveal>
+              <span
+                aria-hidden="true"
+                className="logo-red-dot hero-title ml-1 text-5xl font-bold leading-[1.02] sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
+              >
+                .
+              </span>
+            </div>
+            <div className="mt-2 flex flex-wrap items-end">
+              <TextReveal
+                as="h1"
+                splitBy="word"
+                delay={0.4}
+                staggerDelay={0.06}
+                className="hero-title text-5xl font-bold leading-[1.02] tracking-tight text-gradient-hero text-balance sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
+              >
+                Klar snabbare med BankID
+              </TextReveal>
+              <span
+                aria-hidden="true"
+                className="logo-red-dot hero-title ml-1 text-5xl font-bold leading-[1.02] sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
+              >
+                .
+              </span>
+            </div>
           </div>
 
           <motion.p
@@ -108,8 +127,10 @@ export function HeroSection() {
             className="mt-8 w-full max-w-2xl rounded-[28px] border border-border/70 bg-card/90 p-4 shadow-lg shadow-primary/10 backdrop-blur sm:p-5"
           >
             <form
-              action="/adressandring"
-              method="GET"
+              onSubmit={(event) => {
+                event.preventDefault()
+                onOpenMiniMif?.(startInput)
+              }}
               className="flex flex-col gap-3.5"
             >
               <div className="flex flex-col gap-1.5">
@@ -118,7 +139,7 @@ export function HeroSection() {
                     Börja här
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Skriv adress, ort eller flyttdatum. Vi tar med det vi kan direkt.
+                    Börja helst med personnummer. Annars kan du skriva adress, ort eller flyttdatum.
                   </p>
                 </div>
               </div>
@@ -128,7 +149,7 @@ export function HeroSection() {
                   name="start"
                   value={startInput}
                   onChange={(e) => setStartInput(e.target.value)}
-                  placeholder={'Skriv t.ex. "Storgatan 12, Göteborg" eller "Vi flyttar 1 juni till Malmö"'}
+                  placeholder={'Skriv t.ex. "19900101-1234" eller "Storgatan 12, Göteborg"'}
                   className="h-12 rounded-2xl border-border/70 bg-background/85 px-4 text-base"
                 />
 
@@ -166,14 +187,15 @@ export function HeroSection() {
 
           <motion.div variants={fadeUp} className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
-              asChild
+              type="button"
               size="lg"
+              onClick={() => onOpenMiniMif?.()}
               className="shimmer-btn rounded-full px-8 text-base font-semibold shadow-xl shadow-primary/15 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-primary/20"
             >
-              <Link href="/adressandring">
+              <>
                 Starta din flytt
                 <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
+              </>
             </Button>
             <Button
               asChild

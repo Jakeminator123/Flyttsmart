@@ -7,7 +7,6 @@ import { CookieConsentBanner } from '@/components/cookie-consent-banner'
 import { JsonLd } from '@/components/json-ld'
 import { DIDStreamProvider } from '@/lib/did-stream-context'
 import { SmoothScroll } from '@/components/smooth-scroll'
-import { CursorGlow } from '@/components/cursor-glow'
 import { ScrollProgress } from '@/components/scroll-progress'
 import { absoluteUrl, siteConfig } from '@/lib/site-config'
 import {
@@ -98,7 +97,6 @@ export default function RootLayout({
         <DIDStreamProvider>
           <SmoothScroll />
           <ScrollProgress />
-          <CursorGlow />
           {children}
           <DidOpenClawBridgeWidget />
           <CookieConsentBanner />

@@ -398,74 +398,135 @@ function FallbackCard({ isMobile, frontTex, backTex }: { isMobile: boolean; fron
     c.width = 512;
     c.height = 720;
     const ctx = c.getContext('2d')!;
+
     const bg = ctx.createLinearGradient(0, 0, 0, 720);
-    bg.addColorStop(0, '#17223d');
-    bg.addColorStop(0.5, '#0d1730');
-    bg.addColorStop(1, '#070b16');
+    bg.addColorStop(0, '#0f172a');
+    bg.addColorStop(0.4, '#0c1425');
+    bg.addColorStop(1, '#060a14');
     ctx.fillStyle = bg;
     roundRectPath(ctx, 0, 0, 512, 720, 34);
     ctx.fill();
 
-    const glow = ctx.createRadialGradient(400, 120, 0, 400, 120, 260);
-    glow.addColorStop(0, 'rgba(130,165,255,0.22)');
-    glow.addColorStop(1, 'rgba(130,165,255,0)');
-    ctx.fillStyle = glow;
+    const glow1 = ctx.createRadialGradient(100, 80, 0, 100, 80, 300);
+    glow1.addColorStop(0, 'rgba(126,232,162,0.10)');
+    glow1.addColorStop(1, 'rgba(126,232,162,0)');
+    ctx.fillStyle = glow1;
     ctx.fillRect(0, 0, 512, 720);
 
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    roundRectPath(ctx, 20, 20, 472, 680, 28);
+    const glow2 = ctx.createRadialGradient(420, 600, 0, 420, 600, 250);
+    glow2.addColorStop(0, 'rgba(99,102,241,0.08)');
+    glow2.addColorStop(1, 'rgba(99,102,241,0)');
+    ctx.fillStyle = glow2;
+    ctx.fillRect(0, 0, 512, 720);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    roundRectPath(ctx, 16, 16, 480, 688, 30);
+    ctx.stroke();
+
+    const dotR = 5;
+    ctx.fillStyle = '#7ee8a2';
+    ctx.beginPath();
+    ctx.arc(46, 42, dotR, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#dce7ff';
-    ctx.font = '700 22px system-ui, sans-serif';
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '700 20px system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Aida live', 46, 52);
+    ctx.fillText('Aida', 62, 42);
 
-    ctx.fillStyle = 'rgba(140,184,255,0.14)';
-    roundRectPath(ctx, 360, 30, 106, 30, 15);
+    ctx.fillStyle = 'rgba(126,232,162,0.12)';
+    roundRectPath(ctx, 118, 28, 54, 26, 13);
     ctx.fill();
-    ctx.fillStyle = '#98c9ff';
-    ctx.font = '600 13px system-ui, sans-serif';
+    ctx.fillStyle = '#7ee8a2';
+    ctx.font = '600 12px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Avatarfönster', 413, 46);
-
-    const windowX = 42;
-    const windowY = 94;
-    const windowW = 428;
-    const windowH = 484;
-
-    ctx.fillStyle = 'rgba(35,52,92,0.92)';
-    roundRectPath(ctx, windowX, windowY, windowW, windowH, 28);
-    ctx.fill();
-
-    ctx.strokeStyle = 'rgba(152,201,255,0.7)';
-    ctx.lineWidth = 3;
-    roundRectPath(ctx, windowX + 2, windowY + 2, windowW - 4, windowH - 4, 26);
-    ctx.stroke();
-
-    ctx.strokeStyle = 'rgba(94,138,255,0.28)';
-    ctx.lineWidth = 10;
-    roundRectPath(ctx, windowX + 10, windowY + 10, windowW - 20, windowH - 20, 22);
-    ctx.stroke();
-
-    const windowShade = ctx.createLinearGradient(0, windowY, 0, windowY + windowH);
-    windowShade.addColorStop(0, 'rgba(255,255,255,0.06)');
-    windowShade.addColorStop(1, 'rgba(8,13,24,0.3)');
-    ctx.fillStyle = windowShade;
-    roundRectPath(ctx, windowX + 8, windowY + 8, windowW - 16, windowH - 16, 20);
-    ctx.fill();
+    ctx.fillText('LIVE', 145, 42);
+    ctx.textAlign = 'left';
 
     ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    roundRectPath(ctx, 42, 606, 428, 72, 22);
+    roundRectPath(ctx, 370, 26, 106, 30, 15);
     ctx.fill();
+    ctx.fillStyle = 'rgba(226,232,240,0.5)';
+    ctx.font = '500 12px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Din flyttguide', 423, 42);
+
+    const wX = 32;
+    const wY = 72;
+    const wW = 448;
+    const wH = 440;
+
+    ctx.fillStyle = 'rgba(15,23,42,0.95)';
+    roundRectPath(ctx, wX, wY, wW, wH, 24);
+    ctx.fill();
+
+    const borderGrad = ctx.createLinearGradient(wX, wY, wX + wW, wY + wH);
+    borderGrad.addColorStop(0, 'rgba(126,232,162,0.35)');
+    borderGrad.addColorStop(0.5, 'rgba(99,102,241,0.2)');
+    borderGrad.addColorStop(1, 'rgba(126,232,162,0.15)');
+    ctx.strokeStyle = borderGrad;
+    ctx.lineWidth = 2;
+    roundRectPath(ctx, wX + 1, wY + 1, wW - 2, wH - 2, 23);
+    ctx.stroke();
+
+    const innerGlow = ctx.createRadialGradient(256, wY + wH / 2, 0, 256, wY + wH / 2, wW * 0.6);
+    innerGlow.addColorStop(0, 'rgba(126,232,162,0.04)');
+    innerGlow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = innerGlow;
+    roundRectPath(ctx, wX + 4, wY + 4, wW - 8, wH - 8, 20);
+    ctx.fill();
+
+    const chatY = wY + wH + 16;
+    const chatH = 170;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    roundRectPath(ctx, 32, chatY, 448, chatH, 20);
+    ctx.fill();
+
+    const msg1Y = chatY + 20;
+    ctx.fillStyle = 'rgba(126,232,162,0.10)';
+    roundRectPath(ctx, 46, msg1Y, 260, 36, 18);
+    ctx.fill();
+    ctx.fillStyle = '#7ee8a2';
+    ctx.font = '500 14px system-ui, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#edf3ff';
-    ctx.font = '600 18px system-ui, sans-serif';
-    ctx.fillText('Aida vaknar mjukt', 64, 635);
-    ctx.fillStyle = 'rgba(237,243,255,0.72)';
+    ctx.fillText('Hej! Jag hjälper dig med flytten.', 62, msg1Y + 19);
+
+    const msg2Y = msg1Y + 48;
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    roundRectPath(ctx, 200, msg2Y, 262, 36, 18);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(226,232,240,0.7)';
+    ctx.font = '500 14px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Vi flyttar till Göteborg i juni', 448, msg2Y + 19);
+
+    const inputY = chatY + chatH + 14;
+    const inputH = 48;
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    roundRectPath(ctx, 32, inputY, 448, inputH, 24);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(126,232,162,0.20)';
+    ctx.lineWidth = 1.5;
+    roundRectPath(ctx, 32, inputY, 448, inputH, 24);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(226,232,240,0.35)';
     ctx.font = '400 15px system-ui, sans-serif';
-    ctx.fillText('Först stilla, sedan små lugna rörelser innan live-avataren tar över.', 64, 664);
+    ctx.textAlign = 'left';
+    ctx.fillText('Skriv till Aida...', 58, inputY + inputH / 2);
+
+    ctx.fillStyle = '#7ee8a2';
+    ctx.beginPath();
+    const arrX = 452;
+    const arrY2 = inputY + inputH / 2;
+    ctx.moveTo(arrX - 8, arrY2 - 7);
+    ctx.lineTo(arrX + 5, arrY2);
+    ctx.lineTo(arrX - 8, arrY2 + 7);
+    ctx.closePath();
+    ctx.fill();
 
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;

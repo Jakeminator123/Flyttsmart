@@ -74,6 +74,7 @@ export default function HeroLanyardScene({ frontTextureUrl, didStream }: HeroLan
 
     const onReady = () => {
       video.pause();
+      try { video.currentTime = 0.5; } catch {}
       video.playbackRate = IDLE_PLAYBACK_RATE;
 
       const tex = new THREE.VideoTexture(video);
@@ -115,10 +116,6 @@ export default function HeroLanyardScene({ frontTextureUrl, didStream }: HeroLan
     videoRef.current.playbackRate = 1;
     videoRef.current.play().catch(() => {});
   }, [didStream]);
-
-  if (!videoTex) {
-    return null;
-  }
 
   return (
     <Lanyard

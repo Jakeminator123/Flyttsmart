@@ -36,6 +36,13 @@ const OPENCLAW_GATEWAY_TIMEOUT_MS =
   Number.isFinite(GATEWAY_TIMEOUT_MS_RAW) && GATEWAY_TIMEOUT_MS_RAW >= 5000
     ? GATEWAY_TIMEOUT_MS_RAW
     : 25000;
+const MAX_SESSION_ID_CHARS = 120;
+const MAX_MESSAGE_CONTENT_CHARS = 2000;
+const MAX_MESSAGES_FROM_CLIENT = 40;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
 
 function isAbortError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
@@ -112,7 +119,8 @@ async function prefetchComparisons(
 function buildSystemMessage(
   formContext?: Record<string, unknown> | null,
   enrichedData?: string,
-  siteAccess?: Record<string, unknown> | null
+  siteAccess?: Record<string, unknown> | null,
+  mifContext?: Record<string, unknown> | null,
 ) {
   let base =
     "Du ar Aida, en hjalpsam svensk flyttassistent for Flytt.io. " +
@@ -184,6 +192,15 @@ function buildSystemMessage(
     "- Personuppslag via Ratsit/Biluppgifter/Merinfo: personnummer -> namn, adress, stad (koers automatiskt om personnummer finns men namn/adress saknas)\n" +
     "- Brave Search: webbsokning (triggas automatiskt nar anvandaren ber om det)";
 
+  if (mifContext) {
+    base +=
+      "\n\n## Mini-MIF status\n" +
+      "Mini-MIF ar startsidans snabba personnummer/fritext-flode. Om Mini-MIF redan har hittat namn eller nuvarande adress ska du inte fraga efter dem igen. " +
+      "Efter ett lyckat personnummeruppslag ska du prioritera blockerande SKV-falt i denna ordning: toStreet, toPostal/toCity, moveDate. " +
+      "Om Mini-MIF lyckades delvis, utga fran att dessa falt ar mer tillforlitliga an fria gissningar.\n" +
+      JSON.stringify(mifContext, null, 2);
+  }
+
   if (formContext) {
     base +=
       "\n\n## Formularkontext just nu\n" +
@@ -205,8 +222,29 @@ function buildSystemMessage(
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { sessionId, messages, formContext } = body;
+    let body: Record<string, unknown>;
+    try {
+      const parsed = await req.json();
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 }
+        );
+      }
+      body = parsed as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON body" },
+        { status: 400 }
+      );
+    }
+
+    const sessionId =
+      (typeof body.sessionId === "string" ? body.sessionId.trim().slice(0, MAX_SESSION_ID_CHARS) : "") ||
+      `oc-${crypto.randomUUID()}`;
+    const messages = Array.isArray(body.messages) ? body.messages : null;
+    const formContext = body.formContext;
+    const mifContext = isRecord(body.mifContext) ? body.mifContext : null;
 
     if (!sessionId || !messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -215,7 +253,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const latestUserMessage = [...messages]
+    const sanitizedMessages = messages
+      .slice(-MAX_MESSAGES_FROM_CLIENT)
+      .filter(
+        (m): m is { role?: unknown; content?: unknown } =>
+          typeof m === "object" && m !== null,
+      )
+      .map((m) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content:
+          typeof m.content === "string"
+            ? m.content.trim().slice(0, MAX_MESSAGE_CONTENT_CHARS)
+            : "",
+      }))
+      .filter((m) => m.content.length > 0);
+
+    const latestUserMessage = [...sanitizedMessages]
       .reverse()
       .find(
         (m: { role?: unknown; content?: unknown }) =>
@@ -322,7 +375,31 @@ export async function POST(req: NextRequest) {
       ? classifyMessage(latestUserMessage.content)
       : { intent: "general" as const, comparisonTasks: [] as string[] };
 
-    const formFields = formContext?.fields as Record<string, string> | undefined;
+    const mifFields = isRecord(mifContext?.fields)
+      ? Object.fromEntries(
+          Object.entries(mifContext.fields).filter(
+            ([, value]) => typeof value === "string" && value.trim().length > 0,
+          ),
+        )
+      : {};
+
+    const mergedFormContext = isRecord(formContext)
+      ? {
+          ...formContext,
+          fields: {
+            ...mifFields,
+            ...(isRecord(formContext.fields) ? formContext.fields : {}),
+          },
+          mifContext,
+        }
+      : {
+          formType: "mif",
+          fields: mifFields,
+          currentStep: null,
+          mifContext,
+        };
+
+    const formFields = mergedFormContext.fields as Record<string, string> | undefined;
 
     let enrichedData: string | undefined;
     let comparisonData = "";
@@ -333,19 +410,22 @@ export async function POST(req: NextRequest) {
       // Fast path: skip enrichment + comparison for simple knowledge questions
     } else if (intent === "comparison") {
       const [enrichResult, compResult] = await Promise.all([
-        enrichContext(formContext, apiBaseUrl, latestUserMessage?.content),
+        enrichContext(mergedFormContext, apiBaseUrl, latestUserMessage?.content),
         prefetchComparisons(comparisonTasks, formFields ?? null),
       ]);
       enrichedData = enrichResult?.text || undefined;
       comparisonData = compResult;
     } else {
-      const enrichResult = await enrichContext(formContext, apiBaseUrl, latestUserMessage?.content);
+      const enrichResult = await enrichContext(mergedFormContext, apiBaseUrl, latestUserMessage?.content);
       enrichedData = enrichResult?.text || undefined;
     }
 
     const openaiMessages = [
-      { role: "system", content: buildSystemMessage(formContext, enrichedData, siteAccess) + comparisonData },
-      ...messages.slice(-15).map((m: { role: string; content: string }) => ({
+      {
+        role: "system",
+        content: buildSystemMessage(mergedFormContext, enrichedData, siteAccess, mifContext) + comparisonData,
+      },
+      ...sanitizedMessages.slice(-15).map((m) => ({
         role: m.role === "assistant" ? "assistant" : "user",
         content: m.content,
       })),

@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  Fingerprint,
   Shield,
   Lock,
   Home,
@@ -47,6 +48,11 @@ import {
   parseStartIntent,
   type StartIntentPayload,
 } from "@/lib/start-intent";
+import {
+  clearStoredAdressandringPrefill,
+  readStoredAdressandringPrefill,
+  type MiniMifContext,
+} from "@/lib/mif/prefill";
 
 import { SkatteverketGuide } from "@/components/skatteverket-guide";
 import { BookmarkletButton } from "@/components/bookmarklet-button";
@@ -126,6 +132,7 @@ export default function AdressandringPage() {
   } | null>(null);
   const [isDevMode, setIsDevMode] = useState(false);
   const [startIntent, setStartIntent] = useState<StartIntentPayload | null>(null);
+  const [miniMifContext, setMiniMifContext] = useState<MiniMifContext | null>(null);
 
   useEffect(() => {
     setIsDevMode(window.location.hostname === "localhost");
@@ -182,18 +189,23 @@ export default function AdressandringPage() {
         }
       }
 
-      const raw = sessionStorage.getItem("adressandring-prefill");
-      if (raw) {
-        const prefill = JSON.parse(raw) as Partial<FormData>;
-        if (Object.keys(prefill).length > 0) {
-          setForm((prev) => ({ ...prev, ...prefill }));
-          prefillForMirror = prefill;
+      const storedPrefill = readStoredAdressandringPrefill();
+      if (storedPrefill) {
+        if (Object.keys(storedPrefill.fields).length > 0) {
+          setForm((prev) => ({ ...prev, ...storedPrefill.fields }));
+          prefillForMirror = storedPrefill.fields as Partial<FormData>;
+        }
+        if (storedPrefill.miniMif) {
+          setMiniMifContext(storedPrefill.miniMif);
+          if (storedPrefill.miniMif.startIntent?.rawInput) {
+            setStartIntent(parseStartIntent(storedPrefill.miniMif.startIntent.rawInput));
+          }
         }
       }
     } catch {
       /* ignore malformed session payloads */
     } finally {
-      sessionStorage.removeItem("adressandring-prefill");
+      clearStoredAdressandringPrefill();
     }
 
     if (startIntentForMirror) {
@@ -579,6 +591,29 @@ export default function AdressandringPage() {
                     ? `Vi fyllde i ${startIntent.summary.join(", ")} där det kändes säkert. Bekräfta och komplettera resten steg för steg.`
                     : "Vi kunde inte fylla i något säkert ännu, men du är igång. Fortsätt steg för steg så hjälper vi dig vidare."}
                 </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {miniMifContext && miniMifContext.mode === "personnummer" && (
+          <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex items-start gap-3">
+              <Fingerprint className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">
+                  Mini-MIF hämtade det vi kunde från personnumret
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {miniMifContext.summary.length > 0
+                    ? `Vi fyllde i ${miniMifContext.summary.join(", ")} direkt.`
+                    : "Vi sparade personnumret och försöker använda det i nästa steg."}
+                </p>
+                {miniMifContext.missingCritical.length > 0 && (
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Fortfarande viktigt för SKV: {miniMifContext.missingCritical.join(", ")}.
+                  </p>
+                )}
               </div>
             </div>
           </div>

@@ -5,6 +5,8 @@
 
 :root {
   /* flytt.io palette – marine base, mint accent, BankID blue */
+  --logo-red: #fd3c73;
+  --logo-blue: #5c7ff3;
   --background: #fbfaf7;
   --foreground: #1a1a2e;
   --card: #ffffff;
@@ -433,10 +435,32 @@ html.lenis, html.lenis body {
   -webkit-text-fill-color: transparent;
   -webkit-background-clip: text;
   background-clip: text;
-  background-image: linear-gradient(135deg, #1a1a2e, #235971, #4c8da5, #1a1a2e);
+  background-image: linear-gradient(130deg, #1a1a2e, #3f62df, var(--logo-blue), #1a1a2e);
   background-size: 220% auto;
   animation: gradient-shift 14s ease-in-out infinite;
   filter: drop-shadow(0 1px 2px oklch(0 0 0 / 0.12));
+}
+
+@keyframes logo-red-glint {
+  0%, 72%, 100% {
+    color: var(--logo-red);
+    text-shadow: 0 0 0 rgb(253 60 115 / 0);
+  }
+  78% {
+    color: #ff6b97;
+    text-shadow:
+      0 0 10px rgb(253 60 115 / 0.28),
+      0 0 22px rgb(253 60 115 / 0.16);
+  }
+  84% {
+    color: var(--logo-red);
+    text-shadow: 0 0 4px rgb(253 60 115 / 0.14);
+  }
+}
+
+.logo-red-dot {
+  color: var(--logo-red);
+  animation: logo-red-glint 9s ease-in-out infinite;
 }
 
 @keyframes gradient-shift {
@@ -841,6 +865,9 @@ html.lenis, html.lenis body {
   .text-gradient {
     animation: none;
     background-size: 100% auto;
+  }
+  .logo-red-dot {
+    animation: none;
   }
   .gradient-border::before {
     animation: none;

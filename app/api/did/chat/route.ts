@@ -38,6 +38,12 @@ import { extractTokenUsage, trackUsage, type UsageFlow } from "@/lib/usage/track
 
 const DID_BRIDGE_SECRET = process.env.DID_BRIDGE_SECRET ?? "";
 const TEST_TAL_ENABLED = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
+const MAX_SESSION_ID_CHARS = 120;
+const MAX_USER_MESSAGE_CHARS = 2000;
+const MAX_FORM_FIELDS_PER_REQUEST = 120;
+const MAX_FORM_VALUE_CHARS = 300;
+const MAX_HISTORY_ITEMS_FROM_CLIENT = 20;
+const MAX_HISTORY_CONTENT_CHARS = 1500;
 
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
@@ -140,18 +146,35 @@ function extractUserMessage(body: Record<string, unknown>): string {
     (body as any)?.messages?.[(body as any)?.messages?.length - 1]?.content,
   ];
   for (const value of candidates) {
-    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "string" && value.trim()) {
+      return value.trim().slice(0, MAX_USER_MESSAGE_CHARS);
+    }
   }
   return "";
 }
 
 function extractFieldValue(body: Record<string, unknown>): string {
-  return typeof body.fieldValue === "string" ? body.fieldValue.trim() : "";
+  return typeof body.fieldValue === "string"
+    ? body.fieldValue.trim().slice(0, MAX_FORM_VALUE_CHARS)
+    : "";
 }
 
 function toLastWord(value: string): string {
   const words = value.trim().split(/\s+/).filter(Boolean);
   return words[words.length - 1] ?? "";
+}
+
+function sanitizeSessionId(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, MAX_SESSION_ID_CHARS);
+}
+
+function isSafeFormFieldName(value: string): boolean {
+  return /^[a-zA-Z0-9_.:-]{1,64}$/.test(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function gatewayFlowFromIntent(intent: string): UsageFlow {
@@ -164,6 +187,7 @@ function buildSystemMessage(
   formContext?: Record<string, unknown> | null,
   enrichedData?: string | null,
   siteAccess?: Record<string, unknown> | null,
+  mifContext?: Record<string, unknown> | null,
 ) {
   let base =
     "Du ar Aida, en hjalpsam svensk flyttassistent for Flytt.io. " +
@@ -249,6 +273,15 @@ function buildSystemMessage(
     "- Personuppslag via Ratsit/Biluppgifter/Merinfo (personnummer -> namn, adress, stad)\n" +
     "- Brave Search (webbsokning — triggas automatiskt nar anvandaren ber om det)";
 
+  if (mifContext) {
+    base +=
+      "\n\n## Mini-MIF status\n" +
+      "Mini-MIF ar det snabba startsideflodet for personnummer eller fritext. Om Mini-MIF redan har hittat namn eller nuvarande adress far du inte fraga efter dem igen. " +
+      "Efter ett personnummeruppslag ska du driva anvandaren mot blockerande SKV-falt i denna ordning: toStreet, toPostal/toCity, moveDate. " +
+      "Om Mini-MIF bara lyckades delvis ska du forklara vad som saknas, inte starta om hela flodet.\n" +
+      JSON.stringify(mifContext, null, 2);
+  }
+
   if (formContext) {
     base +=
       "\n\n## Formularkontext just nu\n" + JSON.stringify(formContext, null, 2);
@@ -280,7 +313,22 @@ export async function POST(req: NextRequest) {
   const corsHeaders = buildCorsHeaders(req.headers.get("origin"));
 
   try {
-    const body = (await req.json()) as Record<string, unknown>;
+    let body: Record<string, unknown>;
+    try {
+      const parsed = await req.json();
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400, headers: corsHeaders },
+        );
+      }
+      body = parsed as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON body" },
+        { status: 400, headers: corsHeaders },
+      );
+    }
     const sameOriginRequest = req.headers.get("origin") === req.nextUrl.origin;
 
     if (DID_BRIDGE_SECRET && !sameOriginRequest) {
@@ -294,20 +342,42 @@ export async function POST(req: NextRequest) {
     }
 
     const sessionId =
-      (typeof body.sessionId === "string" && body.sessionId) ||
-      (typeof body.conversationId === "string" && body.conversationId) ||
+      sanitizeSessionId(body.sessionId) ||
+      sanitizeSessionId(body.conversationId) ||
       `did-${crypto.randomUUID()}`;
+    const mifContext = isRecord(body.mifContext) ? body.mifContext : null;
 
     // Accept bulk form context from client
     if (body.formContext && typeof body.formContext === "object") {
+      let accepted = 0;
       for (const [k, v] of Object.entries(body.formContext as Record<string, unknown>)) {
-        if (typeof v === "string") updateFormField(sessionId, k, v);
+        if (accepted >= MAX_FORM_FIELDS_PER_REQUEST) break;
+        if (!isSafeFormFieldName(k)) continue;
+        if (typeof v !== "string") continue;
+        const safeValue = v.trim().slice(0, MAX_FORM_VALUE_CHARS);
+        if (!safeValue) continue;
+        updateFormField(sessionId, k, safeValue);
+        accepted += 1;
+      }
+    }
+
+    if (isRecord(mifContext?.fields)) {
+      let accepted = 0;
+      for (const [k, v] of Object.entries(mifContext.fields)) {
+        if (accepted >= MAX_FORM_FIELDS_PER_REQUEST) break;
+        if (!isSafeFormFieldName(k)) continue;
+        if (typeof v !== "string") continue;
+        const safeValue = v.trim().slice(0, MAX_FORM_VALUE_CHARS);
+        if (!safeValue) continue;
+        updateFormField(sessionId, k, safeValue);
+        accepted += 1;
       }
     }
 
     // Rehydrate server history from client on cold start
     if (Array.isArray(body.clientHistory)) {
       const safe = (body.clientHistory as unknown[])
+        .slice(-MAX_HISTORY_ITEMS_FROM_CLIENT)
         .filter(
           (m): m is { role: string; content: string } =>
             typeof m === "object" &&
@@ -315,7 +385,11 @@ export async function POST(req: NextRequest) {
             typeof (m as any).role === "string" &&
             typeof (m as any).content === "string",
         )
-        .map(({ role, content }) => ({ role, content }));
+        .map(({ role, content }) => ({
+          role,
+          content: content.trim().slice(0, MAX_HISTORY_CONTENT_CHARS),
+        }))
+        .filter(({ content }) => content.length > 0);
       if (safe.length > 0) hydrateFromClient(sessionId, safe);
     }
 
@@ -556,7 +630,10 @@ export async function POST(req: NextRequest) {
 
     const history = getHistory(sessionId);
     const openaiMessages = [
-      { role: "system", content: buildSystemMessage(formCtx, enrichedText, siteAccess) + comparisonData },
+      {
+        role: "system",
+        content: buildSystemMessage(formCtx, enrichedText, siteAccess, mifContext) + comparisonData,
+      },
       ...history,
     ];
 

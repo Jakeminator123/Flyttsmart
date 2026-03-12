@@ -10,7 +10,6 @@ import {
   Shield,
   Lock,
   Home,
-  CalendarDays,
   FileText,
   Loader2,
   Sparkles,
@@ -60,8 +59,7 @@ import { BookmarkletButton } from "@/components/bookmarklet-button";
 const STEPS = [
   { id: 1, label: "Start", icon: Shield },
   { id: 2, label: "Adresser", icon: Home },
-  { id: 3, label: "Flytt", icon: CalendarDays },
-  { id: 4, label: "Bekräfta", icon: FileText },
+  { id: 3, label: "Flytt & klart", icon: FileText },
 ];
 
 const HOUSEHOLD_TYPE_LABELS: Record<string, string> = {
@@ -576,7 +574,7 @@ export default function AdressandringPage() {
         </div>
 
         {startIntent && (
-          <div className="mb-6 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+          <div className="card-hover mb-6 rounded-[28px] border border-primary/20 bg-card/92 p-4 shadow-lg shadow-primary/5 backdrop-blur-sm">
             <div className="flex items-start gap-3">
               <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
               <div className="space-y-1">
@@ -597,7 +595,7 @@ export default function AdressandringPage() {
         )}
 
         {miniMifContext && miniMifContext.mode === "personnummer" && (
-          <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="card-hover mb-6 rounded-[28px] border border-emerald-200/80 bg-card/92 p-4 shadow-lg shadow-emerald-500/5 backdrop-blur-sm">
             <div className="flex items-start gap-3">
               <Fingerprint className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
               <div className="space-y-1">
@@ -620,21 +618,21 @@ export default function AdressandringPage() {
         )}
 
         {/* Form card */}
-        <Card className="overflow-hidden rounded-[28px] border-border/70 bg-card/95 shadow-xl shadow-primary/6">
+        <Card className="card-3d overflow-hidden rounded-[30px] border border-border/70 bg-card/92 shadow-2xl shadow-primary/8 backdrop-blur-xl">
           {/* ── Step 1: Identification ──────────────────────────────── */}
           {currentStep === 1 && (
             <>
-              <CardHeader className="border-b border-border/60 pb-5">
+              <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/6 via-card/98 to-card/95 pb-5">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-primary">
-                    Steg 1
+                    Steg 1 av {STEPS.length}
                   </Badge>
                 </div>
                 <CardTitle className="font-heading text-xl">
-                  Identifiering
+                  Person och kontakt
                 </CardTitle>
                 <CardDescription>
-                  Ange dina personuppgifter nedan.
+                  Börja med det viktigaste. Har vi personnummer kan vi ofta hjälpa dig snabbare vidare.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 pt-6">
@@ -790,17 +788,17 @@ export default function AdressandringPage() {
           {/* ── Step 2: Addresses ──────────────────────────────────── */}
           {currentStep === 2 && (
             <>
-              <CardHeader className="border-b border-border/60 pb-5">
+              <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/6 via-card/98 to-card/95 pb-5">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-primary">
-                    Steg 2
+                    Steg 2 av {STEPS.length}
                   </Badge>
                 </div>
                 <CardTitle className="font-heading text-xl">
                   Adresser
                 </CardTitle>
                 <CardDescription>
-                  Ange din nuvarande adress och din nya adress.
+                  Bekräfta din nuvarande adress och fyll i den nya. Autofyll kan hjälpa dig med resten.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5 pt-6">
@@ -956,17 +954,17 @@ export default function AdressandringPage() {
           {/* ── Step 3: Move Details ───────────────────────────────── */}
           {currentStep === 3 && (
             <>
-              <CardHeader className="border-b border-border/60 pb-5">
+              <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/6 via-card/98 to-card/95 pb-5">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-primary">
-                    Steg 3
+                    Steg 3 av {STEPS.length}
                   </Badge>
                 </div>
                 <CardTitle className="font-heading text-xl">
-                  Flyttdetaljer
+                  Flytt och bekräfta
                 </CardTitle>
                 <CardDescription>
-                  Ange datum, vem som flyttar och scenario.
+                  Fyll i de sista flyttdetaljerna och kontrollera sammanfattningen innan du skickar in.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5 pt-6">
@@ -1055,51 +1053,33 @@ export default function AdressandringPage() {
                     i stället för att behöva ta det som ett eget steg redan nu.
                   </p>
                 </div>
-              </CardContent>
-            </>
-          )}
 
-          {/* ── Step 4: Confirm ────────────────────────────────────── */}
-          {currentStep === 4 && (
-            <>
-              <CardHeader className="border-b border-border/60 pb-5">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-primary">
-                    Steg 4
-                  </Badge>
-                </div>
-                <CardTitle className="font-heading text-xl">
-                  Granska och bekräfta
-                </CardTitle>
-                <CardDescription>
-                  Kontrollera att alla uppgifter stämmer innan du skickar in.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5 pt-6">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/35 p-4">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Personuppgifter
                     </p>
                     <p className="text-sm font-semibold text-foreground">
-                      {form.firstName} {form.lastName}
+                      {form.firstName || form.lastName
+                        ? `${form.firstName} ${form.lastName}`.trim()
+                        : "Lägg till namn i steg 1"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {form.email}
+                      {form.email || "Ingen e-post angiven ännu"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {form.phone}
+                      {form.phone || "Inget telefonnummer angivet ännu"}
                     </p>
                   </div>
                   <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/35 p-4">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Flyttdetaljer
                     </p>
                     <p className="text-sm font-semibold text-foreground">
-                      {form.moveDate || "–"}
+                      {form.moveDate || "Välj inflyttningsdatum"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {HOUSEHOLD_TYPE_LABELS[form.householdType] || form.householdType || "–"}
+                      {HOUSEHOLD_TYPE_LABELS[form.householdType] || form.householdType || "Välj vem som flyttar"}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Checklista och påminnelser skapas automatiskt efter registrering
@@ -1109,25 +1089,25 @@ export default function AdressandringPage() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/35 p-4">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Nuvarande adress
                     </p>
                     <p className="text-sm font-semibold text-foreground">
-                      {form.fromStreet || "–"}
+                      {form.fromStreet || "Komplettera nuvarande adress i steg 2"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {form.fromPostal} {form.fromCity}
+                      {[form.fromPostal, form.fromCity].filter(Boolean).join(" ") || "Postnummer och ort saknas"}
                     </p>
                   </div>
                   <div className="space-y-2 rounded-2xl border border-primary/30 bg-primary/5 p-4">
-                    <p className="text-xs font-medium text-primary uppercase tracking-wider">
+                    <p className="text-xs font-medium uppercase tracking-wider text-primary">
                       Ny adress
                     </p>
                     <p className="text-sm font-semibold text-foreground">
-                      {form.toStreet || "–"}
+                      {form.toStreet || "Komplettera den nya adressen i steg 2"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {form.toPostal} {form.toCity}
+                      {[form.toPostal, form.toCity].filter(Boolean).join(" ") || "Postnummer och ort saknas"}
                     </p>
                     {form.apartmentNumber && (
                       <p className="text-xs text-muted-foreground">
@@ -1137,9 +1117,8 @@ export default function AdressandringPage() {
                   </div>
                 </div>
 
-                <Separator />
+                <div className="section-divider" />
 
-                {/* Free service banner */}
                 <div className="flex items-center justify-between rounded-2xl border border-green-200 bg-green-50 p-4">
                   <div>
                     <p className="text-sm font-medium text-foreground">
@@ -1154,7 +1133,7 @@ export default function AdressandringPage() {
                   </p>
                 </div>
 
-                <Separator />
+                <div className="section-divider" />
 
                 {submitError && (
                   <div className="flex items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
@@ -1165,27 +1144,27 @@ export default function AdressandringPage() {
 
                 <div className="rounded-2xl border border-border/70 bg-muted/35 p-4">
                   <div className="flex items-start gap-3">
-                  <Checkbox
-                    id="terms"
-                    checked={agreed}
-                    onCheckedChange={(val) => setAgreed(val === true)}
-                  />
-                  <Label
-                    htmlFor="terms"
-                    className="cursor-pointer text-sm leading-relaxed text-muted-foreground"
-                  >
-                    Jag godkänner{" "}
-                    <span className="font-medium text-primary underline underline-offset-2">
-                      användarvillkoren
-                    </span>{" "}
-                    och{" "}
-                    <span className="font-medium text-primary underline underline-offset-2">
-                      integritetspolicyn
-                    </span>
-                    . Jag samtycker till att Flytt.io behandlar mina uppgifter
-                    för att genomföra flytten.
-                  </Label>
-                </div>
+                    <Checkbox
+                      id="terms"
+                      checked={agreed}
+                      onCheckedChange={(val) => setAgreed(val === true)}
+                    />
+                    <Label
+                      htmlFor="terms"
+                      className="cursor-pointer text-sm leading-relaxed text-muted-foreground"
+                    >
+                      Jag godkänner{" "}
+                      <span className="font-medium text-primary underline underline-offset-2">
+                        användarvillkoren
+                      </span>{" "}
+                      och{" "}
+                      <span className="font-medium text-primary underline underline-offset-2">
+                        integritetspolicyn
+                      </span>
+                      . Jag samtycker till att Flytt.io behandlar mina uppgifter
+                      för att genomföra flytten.
+                    </Label>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
@@ -1203,7 +1182,7 @@ export default function AdressandringPage() {
           )}
 
           {/* Footer with navigation */}
-          <CardFooter className="flex items-center justify-between border-t border-border pt-6">
+          <CardFooter className="flex items-center justify-between border-t border-border/60 bg-card/75 pt-6">
             <Button
               variant="ghost"
               onClick={handlePrev}
@@ -1233,7 +1212,7 @@ export default function AdressandringPage() {
                 ) : (
                   <CheckCircle2 className="h-4 w-4" />
                 )}
-                {submitting ? "Skickar..." : "Skicka in"}
+                {submitting ? "Skickar..." : "Bekräfta och skicka"}
               </Button>
             )}
           </CardFooter>

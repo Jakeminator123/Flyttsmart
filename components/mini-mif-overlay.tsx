@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AlertCircle, ArrowRight, CheckCircle2, Fingerprint, Loader2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,25 @@ type ResolveState = {
   warning?: string | null
 }
 
+const QUICK_EXAMPLES = [
+  "19900101-1234",
+  "Vi flyttar 1 juni till Malmö",
+  "Ny adress blir Storgatan 12 i Göteborg",
+]
+
+const FIELD_LABELS: Record<string, string> = {
+  firstName: "förnamn",
+  lastName: "efternamn",
+  personalNumber: "personnummer",
+  fromStreet: "nuvarande adress",
+  fromPostal: "nuvarande postnummer",
+  fromCity: "nuvarande ort",
+  toStreet: "ny adress",
+  toPostal: "nytt postnummer",
+  toCity: "ny ort",
+  moveDate: "inflyttningsdatum",
+}
+
 export function MiniMifOverlay({
   open,
   initialValue = "",
@@ -58,6 +77,9 @@ export function MiniMifOverlay({
   const normalizedPnr = useMemo(() => normalizePersonalNumber(input), [input])
   const missingLabels = describeMiniMifMissing(
     resolved?.context.missingCritical ?? [],
+  )
+  const foundLabels = (resolved?.context.found ?? []).map(
+    (field) => FIELD_LABELS[field] ?? field,
   )
 
   function persistContext(context: MiniMifContext, source: "pnr_lookup" | "start_intent") {
@@ -169,7 +191,7 @@ export function MiniMifOverlay({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={!loading}
-        className="max-w-2xl rounded-[32px] border-border/70 p-0 shadow-2xl shadow-primary/10"
+        className="card-3d max-w-2xl rounded-[32px] border border-border/70 bg-card/92 p-0 shadow-2xl shadow-primary/10 backdrop-blur-xl"
       >
         <div className="overflow-hidden rounded-[32px]">
           <div className="border-b border-border/60 bg-linear-to-br from-primary/10 via-background to-background px-6 py-6">
@@ -183,7 +205,7 @@ export function MiniMifOverlay({
               </DialogTitle>
               <DialogDescription className="max-w-xl text-sm leading-relaxed">
                 Personnummer är snabbaste vägen. Då kan vi ofta hämta namn och nuvarande
-                adress direkt. Du kan annars skriva det du vet om nya adressen eller flytten.
+                adress direkt. Du kan annars skriva fritt vad du vet om flytten, så plockar vi ut det som går.
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -191,33 +213,57 @@ export function MiniMifOverlay({
           <div className="space-y-5 px-6 py-6">
             {!resolved ? (
               <>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="mini-mif-input"
-                    className="text-sm font-semibold text-foreground"
-                  >
-                    Personnummer eller fri text
-                  </label>
-                  <Input
-                    id="mini-mif-input"
-                    value={input}
-                    onChange={(event) => setInput(event.target.value)}
-                    placeholder='Ex. "19900101-1234" eller "Storgatan 12, Göteborg 1 juni"'
-                    className="h-13 rounded-2xl border-border/70 bg-background/85 px-4 text-base"
-                    disabled={loading}
-                  />
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    Vi rekommenderar personnummer först. Då slipper du ofta skriva namn och nuvarande
-                    adress manuellt.
-                  </p>
+                <div className="rounded-[28px] border border-border/70 bg-background/85 p-4 shadow-lg shadow-primary/5">
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="mini-mif-input"
+                      className="text-sm font-semibold text-foreground"
+                    >
+                      Personnummer eller fri text
+                    </label>
+                    <Textarea
+                      id="mini-mif-input"
+                      value={input}
+                      onChange={(event) => setInput(event.target.value)}
+                      placeholder={'Ex. "19900101-1234" eller "Vi flyttar 1 juni till Malmö och behöver hjälp med resten"'}
+                      className="min-h-28 rounded-2xl border-border/70 bg-background/85 px-4 py-3 text-base"
+                      disabled={loading}
+                    />
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      Skriv vad som helst här. Personnummer ger snabbast träff, men fri text fungerar för adress, ort, datum och annan kontext.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span className="rounded-full border border-border/60 bg-muted/40 px-3 py-1.5">
-                    {normalizedPnr
-                      ? "Personnummer upptäckt: vi försöker hämta namn och nuvarande adress."
-                      : "Fri text: vi försöker plocka ut ny adress, ort och inflyttningsdatum."}
-                  </span>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_EXAMPLES.map((example) => (
+                    <button
+                      key={example}
+                      type="button"
+                      onClick={() => setInput(example)}
+                      className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                  >
+                    Så tolkar vi din input
+                  </label>
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span className="rounded-full border border-border/60 bg-muted/40 px-3 py-1.5">
+                      {normalizedPnr
+                        ? "Personnummer upptäckt: vi försöker hämta namn och nuvarande adress."
+                        : "Fri text: vi försöker plocka ut ny adress, ort och inflyttningsdatum."}
+                    </span>
+                    <span className="rounded-full border border-border/60 bg-muted/20 px-3 py-1.5">
+                      Fritext är alltid tillåten som fallback.
+                    </span>
+                  </div>
                 </div>
 
                 {error && (
@@ -285,8 +331,8 @@ export function MiniMifOverlay({
                       Hittade uppgifter
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {resolved.context.found.length > 0 ? (
-                        resolved.context.found.map((field) => (
+                      {foundLabels.length > 0 ? (
+                        foundLabels.map((field) => (
                           <span
                             key={field}
                             className="rounded-full border border-primary/20 bg-background px-3 py-1 text-xs text-foreground"

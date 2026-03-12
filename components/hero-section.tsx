@@ -124,7 +124,7 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
 
           <motion.div
             variants={fadeUp}
-            className="mt-8 w-full max-w-2xl rounded-[28px] border border-border/70 bg-card/90 p-4 shadow-lg shadow-primary/10 backdrop-blur sm:p-5"
+            className="card-3d mt-8 w-full max-w-2xl rounded-[28px] border border-border/70 bg-card/90 p-4 shadow-lg shadow-primary/10 backdrop-blur sm:p-5"
           >
             <form
               onSubmit={(event) => {
@@ -139,7 +139,7 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
                     Börja här
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Börja helst med personnummer. Annars kan du skriva adress, ort eller flyttdatum.
+                    Börja helst med personnummer. Annars kan du skriva fritt vad du vet om flytten.
                   </p>
                 </div>
               </div>
@@ -149,7 +149,7 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
                   name="start"
                   value={startInput}
                   onChange={(e) => setStartInput(e.target.value)}
-                  placeholder={'Skriv t.ex. "19900101-1234" eller "Storgatan 12, Göteborg"'}
+                  placeholder={'Skriv t.ex. "19900101-1234" eller "Vi flyttar 1 juni till Malmö"'}
                   className="h-12 rounded-2xl border-border/70 bg-background/85 px-4 text-base"
                 />
 

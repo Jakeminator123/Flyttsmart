@@ -3,11 +3,14 @@
 import { useEffect, useState, useRef } from "react";
 import * as THREE from "three";
 import Lanyard from "@/components/ui/lanyard";
+import flyttgumman from "@/flyttgumman.jpg";
 
 const IDLE_PLAY_START_DELAY_MS = 1800;
 const IDLE_PLAY_INTERVAL_MS = 14000;
 const IDLE_PLAY_DURATION_MS = 3600;
 const IDLE_PLAYBACK_RATE = 0.72;
+const PRIMARY_IDLE_VIDEO_SRC = "/media/videos/4_sec_vid.mp4";
+const FALLBACK_IDLE_VIDEO_SRC = "/media/videos/aida-intro.mp4";
 
 interface HeroLanyardSceneProps {
   frontTextureUrl: string;
@@ -89,13 +92,27 @@ export default function HeroLanyardScene({ frontTextureUrl, didStream }: HeroLan
       }, IDLE_PLAY_START_DELAY_MS);
     };
 
+    const idleSources = [PRIMARY_IDLE_VIDEO_SRC, FALLBACK_IDLE_VIDEO_SRC];
+    let sourceIndex = 0;
+    const loadIdleSource = () => {
+      video.src = idleSources[sourceIndex];
+      video.load();
+    };
+    const onSourceError = () => {
+      if (sourceIndex < idleSources.length - 1) {
+        sourceIndex += 1;
+        loadIdleSource();
+      }
+    };
+
     video.addEventListener("loadeddata", onReady, { once: true });
-    video.src = "/media/videos/aida-intro.mp4";
-    video.load();
+    video.addEventListener("error", onSourceError);
+    loadIdleSource();
 
     return () => {
       clearIdlePlaybackTimers();
       video.removeEventListener("loadeddata", onReady);
+      video.removeEventListener("error", onSourceError);
       video.pause();
       video.srcObject = null;
       video.src = "";
@@ -125,6 +142,7 @@ export default function HeroLanyardScene({ frontTextureUrl, didStream }: HeroLan
       transparent
       containerClassName="absolute inset-0 overflow-visible"
       cardTextureUrl={frontTextureUrl}
+      cardBackTextureUrl={flyttgumman.src}
       backVideoTexture={videoTex}
       rigPosition={[3.2, 7.5, 0]}
     />

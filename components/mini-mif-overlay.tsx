@@ -191,7 +191,7 @@ export function MiniMifOverlay({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={!loading}
-        className="card-3d max-w-2xl rounded-[32px] border border-border/70 bg-card/92 p-0 shadow-2xl shadow-primary/10 backdrop-blur-xl"
+        className="max-w-2xl rounded-[32px] border border-border/70 bg-card/92 p-0 shadow-2xl shadow-primary/10 backdrop-blur-xl"
       >
         <div className="overflow-hidden rounded-[32px]">
           <div className="border-b border-border/60 bg-linear-to-br from-primary/10 via-background to-background px-6 py-6">

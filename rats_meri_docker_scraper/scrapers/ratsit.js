@@ -35,6 +35,11 @@ function buildSearchUrl(query, opts = {}) {
 }
 
 function mapHit(h) {
+  // Capture apartment number if Ratsit API exposes it (e.g. apartmentNumber, apartment, lagenhetsnummer).
+  // SPAR is the canonical source for lägenhetsnummer; Ratsit/Merinfo may not expose it.
+  const apartmentNumber =
+    h.apartmentNumber || h.apartment || h.lagenhetsnummer || h.co || h.careOf || null;
+
   return {
     id: h.id,
     firstName: h.firstName || "",
@@ -45,6 +50,7 @@ function mapHit(h) {
     address: [h.streetAddress, h.city].filter(Boolean).join(", "),
     streetAddress: h.streetAddress || "",
     city: h.city || "",
+    apartmentNumber: apartmentNumber ? String(apartmentNumber).trim() : null,
     gender: h.gender || "",
     married: h.married,
     hasCompany: h.hasCorporateEngagements,

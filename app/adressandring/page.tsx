@@ -618,7 +618,7 @@ export default function AdressandringPage() {
         )}
 
         {/* Form card */}
-        <Card className="card-3d overflow-hidden rounded-[30px] border border-border/70 bg-card/92 shadow-2xl shadow-primary/8 backdrop-blur-xl">
+        <Card className="overflow-hidden rounded-[30px] border border-border/70 bg-card/92 shadow-2xl shadow-primary/8 backdrop-blur-xl">
           {/* ── Step 1: Identification ──────────────────────────────── */}
           {currentStep === 1 && (
             <>

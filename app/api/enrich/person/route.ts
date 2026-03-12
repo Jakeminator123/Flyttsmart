@@ -105,6 +105,7 @@ export async function POST(req: NextRequest) {
       streetAddress?: string;
       city?: string;
       personnummer?: string;
+      apartmentNumber?: string;
     };
 
     const firstName =
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest) {
       data.streetAddress || data.address?.split(",")[0]?.trim() || "";
     const fromCity = data.city?.trim() || "";
     const fromPostal = null;
+    const apartmentNumber = data.apartmentNumber?.trim() || null;
     const missing = [
       !firstName ? "firstName" : null,
       !lastName ? "lastName" : null,
@@ -141,6 +143,7 @@ export async function POST(req: NextRequest) {
       fromStreet,
       fromCity,
       fromPostal,
+      apartmentNumber,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";

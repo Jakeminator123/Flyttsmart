@@ -60,6 +60,7 @@ export function useAutofill<F extends string>({
   const log = useCallback(
     (action: string, detail: Record<string, unknown>) => {
       if (!config.debug) return;
+      // eslint-disable-next-line no-console -- debug-only instrumentation, gated by config.debug
       console.log(
         `%c[autofill] ${action}`,
         "color:#0ea5e9;font-weight:bold",
@@ -139,7 +140,7 @@ export function useAutofill<F extends string>({
         return next;
       });
     },
-    [currentStep, fieldSuggestions, mirrorEvent, updateForm]
+    [currentStep, fieldSuggestions, log, mirrorEvent, updateForm]
   );
 
   const dismissSuggestion = useCallback((field: F) => {
@@ -184,6 +185,7 @@ export function useAutofill<F extends string>({
         if (data.fromStreet) queueSuggestion("fromStreet" as F, data.fromStreet, "pnr_lookup");
         if (data.fromCity) queueSuggestion("fromCity" as F, data.fromCity, "pnr_lookup");
         if (data.fromPostal) queueSuggestion("fromPostal" as F, data.fromPostal, "pnr_lookup");
+        if (data.apartmentNumber) queueSuggestion("apartmentNumber" as F, data.apartmentNumber, "pnr_lookup");
       })
       .catch(() => {});
 

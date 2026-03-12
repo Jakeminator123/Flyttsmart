@@ -44,7 +44,7 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
   return (
     <section
       id="hero"
-      className="relative overflow-y-hidden overflow-x-visible bg-linear-to-b from-hero-gradient-from via-background to-background"
+      className="relative overflow-visible bg-linear-to-b from-hero-gradient-from via-background to-background"
       style={{ position: "relative" }}
     >
       <div className="hero-mesh opacity-80" />

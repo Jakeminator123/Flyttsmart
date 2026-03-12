@@ -12,7 +12,7 @@
  * If download fails, place the Excel manually and use --file.
  */
 
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -124,18 +124,28 @@ const TECH_COLUMNS: { pattern: string; label: string }[] = [
   { pattern: "nr (5g)", label: "5G (NR)" },
 ];
 
-function parseExcel(buffer: Buffer): OutputData {
-  const workbook = XLSX.read(buffer, { type: "buffer" });
+async function parseExcel(buffer: Buffer): Promise<OutputData> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
 
-  const sheetName =
-    workbook.SheetNames.find((n) => /kommun.*hush/i.test(n)) ??
-    workbook.SheetNames.find((n) => /kommun/i.test(n)) ??
-    workbook.SheetNames[0];
-  console.log(`Using sheet: "${sheetName}" (of ${workbook.SheetNames.join(", ")})`);
+  const sheetNames = workbook.worksheets.map((ws) => ws.name);
+  const worksheet =
+    workbook.worksheets.find((ws) => /kommun.*hush/i.test(ws.name)) ??
+    workbook.worksheets.find((ws) => /kommun/i.test(ws.name)) ??
+    workbook.worksheets[0];
+  if (!worksheet) throw new Error("No worksheets found");
+  console.log(`Using sheet: "${worksheet.name}" (of ${sheetNames.join(", ")})`);
 
-  const sheet = workbook.Sheets[sheetName];
-  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+  const rows: unknown[][] = [];
+  worksheet.eachRow({ includeEmpty: false }, (_row, _rowNumber) => {
+    rows.push(_row.values as unknown[]);
+  });
   if (rows.length < 2) throw new Error("Sheet has too few rows");
+
+  // ExcelJS row.values is 1-indexed (index 0 is undefined), so shift each row
+  for (let i = 0; i < rows.length; i++) {
+    rows[i] = (rows[i] as unknown[]).slice(1);
+  }
 
   const headers = (rows[0] as string[]).map((h) => String(h ?? "").trim());
   console.log(`Headers (${headers.length}): ${headers.join(" | ")}`);
@@ -250,7 +260,7 @@ async function main() {
     buffer = downloaded;
   }
 
-  const data = parseExcel(buffer);
+  const data = await parseExcel(buffer);
 
   const outputDir = path.dirname(OUTPUT_PATH);
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });

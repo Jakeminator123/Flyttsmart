@@ -375,31 +375,49 @@ export async function POST(req: NextRequest) {
       ? classifyMessage(latestUserMessage.content)
       : { intent: "general" as const, comparisonTasks: [] as string[] };
 
-    const mifFields = isRecord(mifContext?.fields)
+    const mifFields: Record<string, string> = isRecord(mifContext?.fields)
       ? Object.fromEntries(
           Object.entries(mifContext.fields).filter(
             ([, value]) => typeof value === "string" && value.trim().length > 0,
           ),
-        )
+        ) as Record<string, string>
       : {};
+
+    const mergedFields: Record<string, string> = {
+      ...mifFields,
+      ...(isRecord(formContext) && isRecord(formContext.fields)
+        ? Object.fromEntries(
+            Object.entries(formContext.fields).filter(
+              ([, value]) => typeof value === "string" && value.trim().length > 0,
+            ),
+          )
+        : {}),
+    } as Record<string, string>;
+
+    const mergedCurrentStep =
+      isRecord(formContext) && typeof formContext.currentStep === "number"
+        ? formContext.currentStep
+        : undefined;
+
+    const mergedFormContextForEnrichment = {
+      fields: mergedFields,
+      currentStep: mergedCurrentStep,
+    };
 
     const mergedFormContext = isRecord(formContext)
       ? {
           ...formContext,
-          fields: {
-            ...mifFields,
-            ...(isRecord(formContext.fields) ? formContext.fields : {}),
-          },
+          fields: mergedFields,
+          ...(mergedCurrentStep !== undefined ? { currentStep: mergedCurrentStep } : {}),
           mifContext,
         }
       : {
           formType: "mif",
-          fields: mifFields,
-          currentStep: null,
+          fields: mergedFields,
           mifContext,
         };
 
-    const formFields = mergedFormContext.fields as Record<string, string> | undefined;
+    const formFields = mergedFields;
 
     let enrichedData: string | undefined;
     let comparisonData = "";
@@ -410,13 +428,17 @@ export async function POST(req: NextRequest) {
       // Fast path: skip enrichment + comparison for simple knowledge questions
     } else if (intent === "comparison") {
       const [enrichResult, compResult] = await Promise.all([
-        enrichContext(mergedFormContext, apiBaseUrl, latestUserMessage?.content),
+        enrichContext(mergedFormContextForEnrichment, apiBaseUrl, latestUserMessage?.content),
         prefetchComparisons(comparisonTasks, formFields ?? null),
       ]);
       enrichedData = enrichResult?.text || undefined;
       comparisonData = compResult;
     } else {
-      const enrichResult = await enrichContext(mergedFormContext, apiBaseUrl, latestUserMessage?.content);
+      const enrichResult = await enrichContext(
+        mergedFormContextForEnrichment,
+        apiBaseUrl,
+        latestUserMessage?.content,
+      );
       enrichedData = enrichResult?.text || undefined;
     }
 

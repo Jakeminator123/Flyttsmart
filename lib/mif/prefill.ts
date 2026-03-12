@@ -40,8 +40,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function sanitizeFields(fields: Record<string, unknown>): Record<string, string> {
   return Object.fromEntries(
     Object.entries(fields)
-      .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
-      .map(([key, value]) => [key, value.trim()]),
+      .flatMap(([key, value]) =>
+        typeof value === "string" && value.trim().length > 0
+          ? [[key, value.trim()]]
+          : [],
+      ),
   )
 }
 
@@ -57,6 +60,66 @@ function sanitizeSources(
       return [key, fallback]
     }),
   )
+}
+
+function sanitizeMiniMifContext(value: unknown): MiniMifContext | null {
+  if (!isRecord(value)) return null
+  if (!isRecord(value.fields) || !isRecord(value.fieldSources)) return null
+
+  return {
+    mode: value.mode === "personnummer" ? "personnummer" : "free_text",
+    input: typeof value.input === "string" ? value.input : "",
+    fields: sanitizeFields(value.fields),
+    fieldSources: sanitizeSources(value.fieldSources),
+    found: Array.isArray(value.found)
+      ? value.found.filter((item): item is string => typeof item === "string")
+      : [],
+    missingCritical: Array.isArray(value.missingCritical)
+      ? value.missingCritical.filter((item): item is string => typeof item === "string")
+      : [],
+    summary: Array.isArray(value.summary)
+      ? value.summary.filter((item): item is string => typeof item === "string")
+      : [],
+    personLookup: isRecord(value.personLookup)
+      ? {
+          found: Boolean(value.personLookup.found),
+          source:
+            typeof value.personLookup.source === "string"
+              ? value.personLookup.source
+              : undefined,
+          confidence:
+            value.personLookup.confidence === "high" ||
+            value.personLookup.confidence === "medium" ||
+            value.personLookup.confidence === "low"
+              ? value.personLookup.confidence
+              : undefined,
+          missing: Array.isArray(value.personLookup.missing)
+            ? value.personLookup.missing.filter(
+                (item): item is string => typeof item === "string",
+              )
+            : undefined,
+          displayName:
+            typeof value.personLookup.displayName === "string" ||
+            value.personLookup.displayName === null
+              ? value.personLookup.displayName
+              : undefined,
+        }
+      : null,
+    startIntent: isRecord(value.startIntent)
+      ? {
+          rawInput:
+            typeof value.startIntent.rawInput === "string"
+              ? value.startIntent.rawInput
+              : "",
+          summary: Array.isArray(value.startIntent.summary)
+            ? value.startIntent.summary.filter(
+                (item): item is string => typeof item === "string",
+              )
+            : [],
+        }
+      : null,
+    updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : "",
+  }
 }
 
 export function buildCriticalMissing(fields: Record<string, string>): string[] {
@@ -140,7 +203,7 @@ export function readStoredAdressandringPrefill(): StoredAdressandringPrefill | n
       return {
         fields: sanitizeFields(parsed.fields),
         fieldSources: isRecord(parsed.fieldSources) ? sanitizeSources(parsed.fieldSources) : {},
-        miniMif: isRecord(parsed.miniMif) ? (parsed.miniMif as MiniMifContext) : null,
+        miniMif: sanitizeMiniMifContext(parsed.miniMif),
       }
     }
 
@@ -174,23 +237,7 @@ export function readMiniMifContext(): MiniMifContext | null {
     const raw = sessionStorage.getItem(MINI_MIF_CONTEXT_STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (!isRecord(parsed)) return null
-    if (!isRecord(parsed.fields) || !isRecord(parsed.fieldSources)) return null
-
-    return {
-      mode: parsed.mode === "personnummer" ? "personnummer" : "free_text",
-      input: typeof parsed.input === "string" ? parsed.input : "",
-      fields: sanitizeFields(parsed.fields),
-      fieldSources: sanitizeSources(parsed.fieldSources),
-      found: Array.isArray(parsed.found) ? parsed.found.filter((item): item is string => typeof item === "string") : [],
-      missingCritical: Array.isArray(parsed.missingCritical)
-        ? parsed.missingCritical.filter((item): item is string => typeof item === "string")
-        : [],
-      summary: Array.isArray(parsed.summary) ? parsed.summary.filter((item): item is string => typeof item === "string") : [],
-      personLookup: isRecord(parsed.personLookup) ? (parsed.personLookup as MiniMifContext["personLookup"]) : null,
-      startIntent: isRecord(parsed.startIntent) ? (parsed.startIntent as MiniMifContext["startIntent"]) : null,
-      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
-    }
+    return sanitizeMiniMifContext(parsed)
   } catch {
     return null
   }

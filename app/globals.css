@@ -704,26 +704,167 @@ html.lenis, html.lenis body {
 }
 
 /* ────────────────────────────────────────
-   3D card interaction
+   Moving-box card (flyttlåda)
    ──────────────────────────────────────── */
-.card-3d {
+.moving-box {
+  position: relative;
   transform-style: preserve-3d;
+  will-change: transform;
   transform: perspective(800px) rotateX(0deg) rotateY(0deg) translateY(0);
   transition:
-    transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform;
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.card-3d:hover {
-  transform: perspective(800px) rotateX(3deg) rotateY(-3deg) translateY(-4px);
+.moving-box:hover {
   box-shadow:
-    0 30px 55px -22px rgb(35 89 113 / 0.16),
-    0 12px 20px -10px rgb(35 89 113 / 0.08);
+    0 24px 48px -18px rgba(152, 130, 104, 0.18),
+    0 8px 18px -8px rgba(152, 130, 104, 0.08);
 }
 
-.card-3d > * {
+.moving-box::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%) translateZ(1px);
+  width: 36%;
+  height: 4px;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(194, 164, 118, 0.25) 15%,
+    rgba(194, 164, 118, 0.4) 50%,
+    rgba(194, 164, 118, 0.25) 85%,
+    transparent
+  );
+  border-radius: 0 0 4px 4px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.moving-box:hover::before {
+  opacity: 1;
+}
+
+.moving-box > *:not(.moving-box-edge) {
   transform: translateZ(0);
+}
+
+.moving-box-sm::before {
+  width: 28%;
+  height: 3px;
+}
+
+/* ── Drop-settle animation ──────────── */
+.moving-box-landing {
+  opacity: 0;
+  animation: box-settle 1.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--settle-delay, 0.8s);
+  transition: none;
+}
+
+@keyframes box-settle {
+  0% {
+    transform: perspective(800px) rotateX(-10deg) rotateY(5deg) translateY(-55px) scale(0.96);
+    opacity: 0;
+    filter: blur(4px);
+  }
+  25% {
+    opacity: 1;
+    filter: blur(0px);
+  }
+  55% {
+    transform: perspective(800px) rotateX(5deg) rotateY(-2.5deg) translateY(8px) scale(1.012);
+  }
+  75% {
+    transform: perspective(800px) rotateX(-2deg) rotateY(1deg) translateY(-3px) scale(0.998);
+  }
+  90% {
+    transform: perspective(800px) rotateX(0.6deg) rotateY(-0.3deg) translateY(1px);
+  }
+  100% {
+    transform: perspective(800px) rotateX(0deg) rotateY(0deg) translateY(0) scale(1);
+    opacity: 1;
+    filter: blur(0px);
+  }
+}
+
+/* ── 3D depth edges ─────────────────── */
+.moving-box-edge {
+  position: absolute;
+  pointer-events: none;
+  backface-visibility: hidden;
+  z-index: -1;
+}
+
+.moving-box-edge-top {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--edge-size, 14px);
+  background: linear-gradient(180deg, rgba(170, 150, 120, 0.3), rgba(170, 150, 120, 0.1));
+  transform-origin: center bottom;
+  transform: rotateX(90deg);
+}
+
+.moving-box-edge-right {
+  top: 0;
+  right: 0;
+  width: var(--edge-size, 14px);
+  height: 100%;
+  background: linear-gradient(90deg, rgba(170, 150, 120, 0.12), rgba(170, 150, 120, 0.3));
+  transform-origin: left center;
+  transform: rotateY(90deg);
+}
+
+.moving-box-edge-bottom {
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: var(--edge-size, 14px);
+  background: linear-gradient(0deg, rgba(170, 150, 120, 0.3), rgba(170, 150, 120, 0.1));
+  transform-origin: center top;
+  transform: rotateX(-90deg);
+}
+
+.moving-box-edge-left {
+  top: 0;
+  left: 0;
+  width: var(--edge-size, 14px);
+  height: 100%;
+  background: linear-gradient(270deg, rgba(170, 150, 120, 0.12), rgba(170, 150, 120, 0.3));
+  transform-origin: right center;
+  transform: rotateY(-90deg);
+}
+
+.moving-box-sm .moving-box-edge {
+  --edge-size: 8px;
+}
+
+/* ── Dark mode ──────────────────────── */
+.dark .moving-box::before {
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(126, 232, 162, 0.12) 15%,
+    rgba(126, 232, 162, 0.22) 50%,
+    rgba(126, 232, 162, 0.12) 85%,
+    transparent
+  );
+}
+
+.dark .moving-box:hover {
+  box-shadow:
+    0 24px 48px -18px rgba(0, 0, 0, 0.35),
+    0 8px 18px -8px rgba(0, 0, 0, 0.15);
+}
+
+.dark .moving-box-edge-top,
+.dark .moving-box-edge-right,
+.dark .moving-box-edge-bottom,
+.dark .moving-box-edge-left {
+  background: rgba(126, 232, 162, 0.07);
 }
 
 /* ────────────────────────────────────────
@@ -881,10 +1022,20 @@ html.lenis, html.lenis body {
   .card-hover:hover {
     transform: none;
   }
-  .card-3d,
-  .card-3d:hover {
-    transform: none;
+  .moving-box,
+  .moving-box:hover {
+    transform: none !important;
     box-shadow: none;
+  }
+  .moving-box::before {
+    display: none;
+  }
+  .moving-box-landing {
+    animation: none;
+    opacity: 1;
+  }
+  .moving-box-edge {
+    display: none;
   }
   .blur-reveal {
     animation: none;

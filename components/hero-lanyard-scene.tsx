@@ -1,13 +1,13 @@
 "use client";
 
 import Lanyard from "@/components/ui/lanyard";
-import flyttgumman from "@/flyttgumman.jpg";
 
 interface HeroLanyardSceneProps {
   frontTextureUrl: string;
+  backTextureUrl?: string;
 }
 
-export default function HeroLanyardScene({ frontTextureUrl }: HeroLanyardSceneProps) {
+export default function HeroLanyardScene({ frontTextureUrl, backTextureUrl }: HeroLanyardSceneProps) {
 
   return (
     <Lanyard
@@ -15,10 +15,9 @@ export default function HeroLanyardScene({ frontTextureUrl }: HeroLanyardScenePr
       fov={22}
       gravity={[0, -40, 0]}
       transparent
-      autoFlip={false}
-      containerClassName="absolute inset-0 overflow-visible"
+      containerClassName="absolute -inset-x-32 inset-y-0 w-auto overflow-visible"
       cardTextureUrl={frontTextureUrl}
-      cardBackTextureUrl={flyttgumman.src}
+      cardBackTextureUrl={backTextureUrl}
       rigPosition={[1.55, 7.5, 0]}
     />
   );

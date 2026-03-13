@@ -121,7 +121,7 @@ export function FaqSection() {
               <motion.div key={i} variants={fadeUp}>
                 <AccordionItem
                   value={`item-${i}`}
-                  className="gradient-border card-3d rounded-xl border border-border/50 bg-card/92 px-6 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-primary/8 data-[state=open]:shadow-xl data-[state=open]:shadow-primary/12"
+                  className="gradient-border moving-box rounded-xl border border-border/50 bg-card/92 px-6 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-primary/8 data-[state=open]:shadow-xl data-[state=open]:shadow-primary/12"
                 >
                   <AccordionTrigger className="py-5 text-left font-heading font-semibold text-card-foreground hover:no-underline hover:text-primary transition-colors data-[state=open]:text-primary gap-4">
                     <span className="flex items-center gap-3">

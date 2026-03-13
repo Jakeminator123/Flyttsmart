@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Canvas, extend, useFrame } from '@react-three/fiber';
 import { useTexture, Environment, Lightformer } from '@react-three/drei';
 import {
@@ -16,8 +16,7 @@ import * as THREE from 'three';
 import { cn } from '@/lib/utils';
 
 const AUTO_FLIP_AFTER_MS = 8000;
-const MIN_SETTLE_BEFORE_LOCK_MS = 1400;
-const MAX_SETTLE_BEFORE_LOCK_MS = 2800;
+const DAMPING_RESET_AFTER_FLIP_MS = 4000;
 
 function angleDelta(target: number, current: number): number {
   return Math.atan2(Math.sin(target - current), Math.cos(target - current));
@@ -148,8 +147,6 @@ function Band({
   const card = useRef<any>(null);
   const cardVisual = useRef<THREE.Group>(null);
   const hasAutoFlippedRef = useRef(false);
-  const pendingStabilizeRef = useRef(false);
-  const autoFlipStartedAtRef = useRef<number | null>(null);
   const targetVisualRotationRef = useRef(0);
 
   const vec = new THREE.Vector3();
@@ -201,7 +198,6 @@ function Band({
 
   const [curve] = useState(() => new THREE.CatmullRomCurve3([new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]));
   const [dragged, drag] = useState<false | THREE.Vector3>(false);
-  const [stabilized, setStabilized] = useState(false);
   const [hovered, hover] = useState(false);
   const flipImpulse = useRef(0);
   const lastPointerDown = useRef(0);
@@ -225,8 +221,6 @@ function Band({
       drag(false);
       flipImpulse.current = -10;
       hasAutoFlippedRef.current = true;
-      pendingStabilizeRef.current = true;
-      autoFlipStartedAtRef.current = performance.now();
       targetVisualRotationRef.current = Math.PI;
       card.current?.wakeUp?.();
       card.current?.setAngularDamping?.(12);
@@ -239,8 +233,20 @@ function Band({
       j3.current?.setLinearDamping?.(8);
     }, AUTO_FLIP_AFTER_MS);
 
+    const dampingReset = window.setTimeout(() => {
+      card.current?.setAngularDamping?.(4);
+      card.current?.setLinearDamping?.(4);
+      j1.current?.setAngularDamping?.(4);
+      j1.current?.setLinearDamping?.(4);
+      j2.current?.setAngularDamping?.(4);
+      j2.current?.setLinearDamping?.(4);
+      j3.current?.setAngularDamping?.(4);
+      j3.current?.setLinearDamping?.(4);
+    }, AUTO_FLIP_AFTER_MS + DAMPING_RESET_AFTER_FLIP_MS);
+
     return () => {
       window.clearTimeout(timer);
+      window.clearTimeout(dampingReset);
     };
   }, [autoFlip]);
 
@@ -300,24 +306,6 @@ function Band({
         card.current.setAngvel({ x: ang.x, y: ang.y, z: ang.z });
       }
 
-      if (pendingStabilizeRef.current && autoFlipStartedAtRef.current && !stabilized) {
-        const elapsed = performance.now() - autoFlipStartedAtRef.current;
-        const visualSettled =
-          cardVisual.current ? Math.abs(angleDelta(Math.PI, cardVisual.current.rotation.y)) < 0.045 : false;
-        const uprightSettled = Math.abs(euler.x) < 0.08 && Math.abs(euler.z) < 0.08;
-        const angularSettled = Math.abs(ang.x) < 0.12 && Math.abs(ang.y) < 0.22 && Math.abs(ang.z) < 0.12;
-        const shouldLock =
-          (elapsed > MIN_SETTLE_BEFORE_LOCK_MS && visualSettled && uprightSettled && angularSettled) ||
-          elapsed > MAX_SETTLE_BEFORE_LOCK_MS;
-
-        if (shouldLock) {
-          pendingStabilizeRef.current = false;
-          card.current?.setRotation?.({ x: 0, y: 0, z: 0, w: 1 }, true);
-          card.current?.setAngvel?.({ x: 0, y: 0, z: 0 }, true);
-          cardVisual.current?.rotation.set(0, Math.PI, 0);
-          setStabilized(true);
-        }
-      }
     }
   });
 
@@ -338,11 +326,9 @@ function Band({
           ref={card}
           {...segmentProps}
           type={
-            stabilized
-              ? ('fixed' as RigidBodyProps['type'])
-              : dragged
-                ? ('kinematicPosition' as RigidBodyProps['type'])
-                : ('dynamic' as RigidBodyProps['type'])
+            dragged
+              ? ('kinematicPosition' as RigidBodyProps['type'])
+              : ('dynamic' as RigidBodyProps['type'])
           }
         >
           <CuboidCollider args={[1.8, 2.55, 0.06]} />
@@ -354,7 +340,6 @@ function Band({
             onPointerOut={() => hover(false)}
             onPointerUp={(e: any) => { e.target.releasePointerCapture(e.pointerId); drag(false); }}
             onPointerDown={(e: any) => {
-              if (stabilized) return;
               const now = performance.now();
               const dt = now - lastPointerDown.current;
               lastPointerDown.current = now;
@@ -362,6 +347,7 @@ function Band({
                 e.stopPropagation();
                 const hitLocal = e.point.clone().sub(vec.copy(card.current.translation()));
                 flipImpulse.current = (hitLocal.x > 0 ? -1 : 1) * 20;
+                targetVisualRotationRef.current = targetVisualRotationRef.current === 0 ? Math.PI : 0;
                 drag(false);
                 return;
               }
@@ -378,6 +364,23 @@ function Band({
         <meshLineMaterial color="white" depthTest={false} resolution={isMobile ? [1000, 2000] : [1000, 1000]} useMap map={texture} repeat={[-4, 1]} lineWidth={1} />
       </mesh>
     </>
+  );
+}
+
+const RING_MAT_PROPS = { color: '#c9a44e', metalness: 0.92, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05 } as const;
+
+function KeychainRing() {
+  return (
+    <group position={[0, 0.555, 0]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.065, 0.016, 16, 32]} />
+        <meshPhysicalMaterial {...RING_MAT_PROPS} />
+      </mesh>
+      <mesh position={[0, -0.035, 0]}>
+        <boxGeometry args={[0.024, 0.05, 0.018]} />
+        <meshPhysicalMaterial color="#c9a44e" metalness={0.92} roughness={0.12} />
+      </mesh>
+    </group>
   );
 }
 
@@ -414,16 +417,10 @@ function FallbackCard({ isMobile, frontTex, backTex }: { isMobile: boolean; fron
     roundRectPath(ctx, 0, 0, 512, 720, 34);
     ctx.fill();
 
-    const glow1 = ctx.createRadialGradient(100, 80, 0, 100, 80, 300);
-    glow1.addColorStop(0, 'rgba(126,232,162,0.10)');
-    glow1.addColorStop(1, 'rgba(126,232,162,0)');
+    const glow1 = ctx.createRadialGradient(150, 200, 0, 150, 200, 300);
+    glow1.addColorStop(0, 'rgba(253,60,115,0.06)');
+    glow1.addColorStop(1, 'rgba(253,60,115,0)');
     ctx.fillStyle = glow1;
-    ctx.fillRect(0, 0, 512, 720);
-
-    const glow2 = ctx.createRadialGradient(420, 600, 0, 420, 600, 250);
-    glow2.addColorStop(0, 'rgba(99,102,241,0.08)');
-    glow2.addColorStop(1, 'rgba(99,102,241,0)');
-    ctx.fillStyle = glow2;
     ctx.fillRect(0, 0, 512, 720);
 
     ctx.strokeStyle = 'rgba(255,255,255,0.04)';
@@ -431,131 +428,20 @@ function FallbackCard({ isMobile, frontTex, backTex }: { isMobile: boolean; fron
     roundRectPath(ctx, 16, 16, 480, 688, 30);
     ctx.stroke();
 
-    const dotR = 5;
-    ctx.fillStyle = '#7ee8a2';
-    ctx.beginPath();
-    ctx.arc(46, 42, dotR, 0, Math.PI * 2);
-    ctx.fill();
-
     ctx.fillStyle = '#e2e8f0';
-    ctx.font = '700 20px system-ui, sans-serif';
-    ctx.textAlign = 'left';
+    ctx.font = 'bold 32px system-ui, sans-serif';
+    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Aida', 62, 42);
-
-    ctx.fillStyle = 'rgba(126,232,162,0.12)';
-    roundRectPath(ctx, 118, 28, 54, 26, 13);
-    ctx.fill();
-    ctx.fillStyle = '#7ee8a2';
-    ctx.font = '600 12px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('LIVE', 145, 42);
-    ctx.textAlign = 'left';
-
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    roundRectPath(ctx, 370, 26, 106, 30, 15);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(226,232,240,0.5)';
-    ctx.font = '500 12px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Din flyttguide', 423, 42);
-
-    const wX = 32;
-    const wY = 72;
-    const wW = 448;
-    const wH = 440;
-
-    ctx.fillStyle = 'rgba(15,23,42,0.95)';
-    roundRectPath(ctx, wX, wY, wW, wH, 24);
-    ctx.fill();
-
-    const borderGrad = ctx.createLinearGradient(wX, wY, wX + wW, wY + wH);
-    borderGrad.addColorStop(0, 'rgba(126,232,162,0.35)');
-    borderGrad.addColorStop(0.5, 'rgba(99,102,241,0.2)');
-    borderGrad.addColorStop(1, 'rgba(126,232,162,0.15)');
-    ctx.strokeStyle = borderGrad;
-    ctx.lineWidth = 2;
-    roundRectPath(ctx, wX + 1, wY + 1, wW - 2, wH - 2, 23);
-    ctx.stroke();
-
-    const innerGlow = ctx.createRadialGradient(256, wY + wH / 2, 0, 256, wY + wH / 2, wW * 0.6);
-    innerGlow.addColorStop(0, 'rgba(126,232,162,0.04)');
-    innerGlow.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = innerGlow;
-    roundRectPath(ctx, wX + 4, wY + 4, wW - 8, wH - 8, 20);
-    ctx.fill();
-
-    const chatY = wY + wH + 16;
-    const chatH = 170;
-
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
-    roundRectPath(ctx, 32, chatY, 448, chatH, 20);
-    ctx.fill();
-
-    const msg1Y = chatY + 20;
-    ctx.fillStyle = 'rgba(126,232,162,0.10)';
-    roundRectPath(ctx, 46, msg1Y, 260, 36, 18);
-    ctx.fill();
-    ctx.fillStyle = '#7ee8a2';
-    ctx.font = '500 14px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('Hej! Jag hjälper dig med flytten.', 62, msg1Y + 19);
-
-    const msg2Y = msg1Y + 48;
-    ctx.fillStyle = 'rgba(255,255,255,0.05)';
-    roundRectPath(ctx, 200, msg2Y, 262, 36, 18);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(226,232,240,0.7)';
-    ctx.font = '500 14px system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText('Vi flyttar till Göteborg i juni', 448, msg2Y + 19);
-
-    const inputY = chatY + chatH + 14;
-    const inputH = 48;
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    roundRectPath(ctx, 32, inputY, 448, inputH, 24);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(126,232,162,0.20)';
-    ctx.lineWidth = 1.5;
-    roundRectPath(ctx, 32, inputY, 448, inputH, 24);
-    ctx.stroke();
-
-    ctx.fillStyle = 'rgba(226,232,240,0.35)';
-    ctx.font = '400 15px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('Skriv till Aida...', 58, inputY + inputH / 2);
-
-    ctx.fillStyle = '#7ee8a2';
-    ctx.beginPath();
-    const arrX = 452;
-    const arrY2 = inputY + inputH / 2;
-    ctx.moveTo(arrX - 8, arrY2 - 7);
-    ctx.lineTo(arrX + 5, arrY2);
-    ctx.lineTo(arrX - 8, arrY2 + 7);
-    ctx.closePath();
-    ctx.fill();
+    ctx.fillText('flytt.io', 256, 360);
 
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   });
-  const [windowMaskTex] = useState(() => {
-    const c = document.createElement('canvas');
-    c.width = 512;
-    c.height = 720;
-    const ctx = c.getContext('2d')!;
-    ctx.clearRect(0, 0, 512, 720);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, 512, 720);
-    ctx.fillStyle = '#fff';
-    roundRectPath(ctx, 0, 0, 512, 720, 30);
-    ctx.fill();
-    const t = new THREE.CanvasTexture(c);
-    return t;
-  });
 
   const front = frontTex ?? fallbackTex;
-  const back = backTex ?? fallbackTex;
+  const hasCustomBack = !!backTex;
+  const fullBackMap = backTex ?? backPanelTex;
 
   return (
     <>
@@ -565,16 +451,13 @@ function FallbackCard({ isMobile, frontTex, backTex }: { isMobile: boolean; fron
       </mesh>
       <mesh position={[0, 0, -0.013]} rotation={[0, Math.PI, 0]}>
         <planeGeometry args={[0.71, 1]} />
-        <meshPhysicalMaterial map={backPanelTex} clearcoat={isMobile ? 0 : 1} clearcoatRoughness={0.15} roughness={0.82} metalness={0.55} />
-      </mesh>
-      <mesh position={[0, 0.015, -0.0155]} rotation={[0, Math.PI, 0]}>
-        <planeGeometry args={[0.53, 0.66]} />
-        <meshBasicMaterial map={back} alphaMap={windowMaskTex} transparent toneMapped={false} />
+        <meshPhysicalMaterial map={fullBackMap} clearcoat={hasCustomBack ? (isMobile ? 0 : 0.6) : (isMobile ? 0 : 1)} clearcoatRoughness={0.15} roughness={hasCustomBack ? 0.92 : 0.82} metalness={hasCustomBack ? 0.7 : 0.55} />
       </mesh>
       <mesh raycast={() => {}}>
         <boxGeometry args={[0.72, 1.01, 0.018]} />
         <meshStandardMaterial color="#111827" metalness={0.4} roughness={0.6} />
       </mesh>
+      <KeychainRing />
     </>
   );
 }

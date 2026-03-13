@@ -55,7 +55,7 @@ export function SiteFooter() {
             </div>
 
             {/* Link columns */}
-            <div className="glass card-3d grid grid-cols-2 gap-8 rounded-2xl border border-border/50 p-6 sm:grid-cols-3 sm:p-7">
+            <div className="glass moving-box grid grid-cols-2 gap-8 rounded-2xl border border-border/50 p-6 sm:grid-cols-3 sm:p-7">
               <div>
                 <h3 className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-foreground">
                   Tjänster

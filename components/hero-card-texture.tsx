@@ -5,6 +5,15 @@ import { useEffect } from "react";
 const W = 688;
 const H = 960;
 
+const FLAME_OUTER =
+  "M99 43L91 51 86 60 84 62 82 66 82 68 80 71 79 77 78 78 78 82 77 83 77 93 78 94 78 99 79 100 80 105 87 117 91 121 91 122 119 150 119 151 129 162 137 174 142 185 142 188 144 193 144 204 143 205 143 209 142 211 144 210 151 202 156 193 156 191 158 187 158 184 159 183 159 176 160 175 158 158 157 157 156 151 154 148 154 146 147 132 137 117 117 91 112 82 110 80 108 75 106 73 106 71 102 64 101 58 100 57 100 53 99 52Z";
+const FLAME_INNER =
+  "M97 142L92 147 86 158 86 161 84 166 84 174 85 175 85 178 88 184 94 192 113 211 121 222 125 231 125 236 126 237 125 245 130 240 134 231 134 228 135 227 135 216 134 215 134 212 133 211 132 206 125 193 105 166 99 154 99 151 98 150 98 142Z";
+
+const FLAME_CX = 118.5;
+const FLAME_CY = 144;
+const FLAME_SVG_H = 202;
+
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -26,76 +35,20 @@ function roundRect(
   ctx.closePath();
 }
 
-function drawFlameIcon(
+function drawBrandFlame(
   ctx: CanvasRenderingContext2D,
   cx: number,
   cy: number,
-  size: number,
+  height: number,
 ) {
+  const scale = height / FLAME_SVG_H;
   ctx.save();
-  ctx.translate(cx - size / 2, cy - size / 2);
-  const s = size / 24;
-  ctx.beginPath();
-  ctx.moveTo(12 * s, 0.5 * s);
-  ctx.bezierCurveTo(
-    14.5 * s, 4 * s,
-    18 * s, 7 * s,
-    19.5 * s, 11.5 * s,
-  );
-  ctx.bezierCurveTo(
-    21.5 * s, 17.5 * s,
-    17 * s, 23.5 * s,
-    12 * s, 23.5 * s,
-  );
-  ctx.bezierCurveTo(
-    7 * s, 23.5 * s,
-    2.5 * s, 17.5 * s,
-    4.5 * s, 11.5 * s,
-  );
-  ctx.bezierCurveTo(
-    6 * s, 7 * s,
-    9.5 * s, 4 * s,
-    12 * s, 0.5 * s,
-  );
-  ctx.closePath();
-
-  const flameGrad = ctx.createLinearGradient(0, 0, 0, size);
-  flameGrad.addColorStop(0, "#ff6b6b");
-  flameGrad.addColorStop(0.5, "#ee5a24");
-  flameGrad.addColorStop(1, "#f0932b");
-  ctx.fillStyle = flameGrad;
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.moveTo(12 * s, 10 * s);
-  ctx.bezierCurveTo(
-    13.5 * s, 12 * s,
-    15 * s, 14 * s,
-    15 * s, 16.5 * s,
-  );
-  ctx.bezierCurveTo(
-    15 * s, 19 * s,
-    13.5 * s, 20.5 * s,
-    12 * s, 20.5 * s,
-  );
-  ctx.bezierCurveTo(
-    10.5 * s, 20.5 * s,
-    9 * s, 19 * s,
-    9 * s, 16.5 * s,
-  );
-  ctx.bezierCurveTo(
-    9 * s, 14 * s,
-    10.5 * s, 12 * s,
-    12 * s, 10 * s,
-  );
-  ctx.closePath();
-
-  const innerGrad = ctx.createLinearGradient(0, 10 * s, 0, 21 * s);
-  innerGrad.addColorStop(0, "#ffeaa7");
-  innerGrad.addColorStop(1, "#fdcb6e");
-  ctx.fillStyle = innerGrad;
-  ctx.fill();
-
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+  ctx.translate(-FLAME_CX, -FLAME_CY);
+  ctx.fillStyle = "#FD3C73";
+  ctx.fill(new Path2D(FLAME_OUTER));
+  ctx.fill(new Path2D(FLAME_INNER));
   ctx.restore();
 }
 
@@ -121,6 +74,31 @@ function drawLightningBolt(
   ctx.restore();
 }
 
+function drawBrandText(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  font: string,
+) {
+  ctx.save();
+  ctx.font = font;
+  ctx.textBaseline = "middle";
+  const parts = [
+    { t: "flytt", c: "#5C7FF3" },
+    { t: ".", c: "#FD3C73" },
+    { t: "io", c: "#5C7FF3" },
+  ];
+  const total = parts.reduce((s, p) => s + ctx.measureText(p.t).width, 0);
+  let x = cx - total / 2;
+  ctx.textAlign = "left";
+  for (const p of parts) {
+    ctx.fillStyle = p.c;
+    ctx.fillText(p.t, x, cy);
+    x += ctx.measureText(p.t).width;
+  }
+  ctx.restore();
+}
+
 function renderHeroCard(canvas: HTMLCanvasElement) {
   canvas.width = W;
   canvas.height = H;
@@ -135,10 +113,16 @@ function renderHeroCard(canvas: HTMLCanvasElement) {
   roundRect(ctx, 0, 0, W, H, 36);
   ctx.fill();
 
-  const glow = ctx.createRadialGradient(W * 0.5, H * 0.25, 0, W * 0.5, H * 0.25, W * 0.6);
-  glow.addColorStop(0, "rgba(99,102,241,0.08)");
-  glow.addColorStop(1, "rgba(99,102,241,0)");
+  const glow = ctx.createRadialGradient(W * 0.5, H * 0.22, 0, W * 0.5, H * 0.22, W * 0.55);
+  glow.addColorStop(0, "rgba(253,60,115,0.07)");
+  glow.addColorStop(1, "rgba(253,60,115,0)");
   ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  const glow2 = ctx.createRadialGradient(W * 0.7, H * 0.7, 0, W * 0.7, H * 0.7, W * 0.4);
+  glow2.addColorStop(0, "rgba(92,127,243,0.05)");
+  glow2.addColorStop(1, "rgba(92,127,243,0)");
+  ctx.fillStyle = glow2;
   ctx.fillRect(0, 0, W, H);
 
   ctx.strokeStyle = "rgba(255,255,255,0.06)";
@@ -147,28 +131,23 @@ function renderHeroCard(canvas: HTMLCanvasElement) {
   ctx.stroke();
 
   const logoY = 200;
-  drawFlameIcon(ctx, W / 2, logoY, 72);
+  drawBrandFlame(ctx, W / 2, logoY, 100);
+  drawBrandText(ctx, W / 2, logoY + 78, "bold 38px system-ui, sans-serif");
 
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 38px system-ui, sans-serif";
+  const badgeY = logoY + 140;
+  const badgeLabel = "ERBJUDANDE";
+  ctx.font = "700 16px system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("flytt.io", W / 2, logoY + 64);
-
-  const badgeY = logoY + 120;
-  const badgeText = "ERBJUDANDE";
-  ctx.font = "700 16px system-ui, sans-serif";
-  const badgeW = ctx.measureText(badgeText).width + 40;
+  const badgeW = ctx.measureText(badgeLabel).width + 40;
   ctx.fillStyle = "rgba(249,202,36,0.12)";
   roundRect(ctx, (W - badgeW) / 2, badgeY - 14, badgeW, 28, 14);
   ctx.fill();
   ctx.fillStyle = "#f9ca24";
-  ctx.fillText(badgeText, W / 2, badgeY);
+  ctx.fillText(badgeLabel, W / 2, badgeY);
 
   const titleY = badgeY + 60;
-
   drawLightningBolt(ctx, W / 2 - 140, titleY + 8, 48);
-
   ctx.fillStyle = "#ffffff";
   ctx.font = "900 72px system-ui, sans-serif";
   ctx.textAlign = "center";
@@ -184,13 +163,13 @@ function renderHeroCard(canvas: HTMLCanvasElement) {
   const btnX = (W - btnW) / 2;
 
   const btnGrad = ctx.createLinearGradient(btnX, btnY, btnX + btnW, btnY + btnH);
-  btnGrad.addColorStop(0, "#ff6b6b");
-  btnGrad.addColorStop(1, "#ee5a24");
+  btnGrad.addColorStop(0, "#FD3C73");
+  btnGrad.addColorStop(1, "#e52860");
   ctx.fillStyle = btnGrad;
   roundRect(ctx, btnX, btnY, btnW, btnH, 30);
   ctx.fill();
 
-  ctx.shadowColor = "rgba(238,90,36,0.4)";
+  ctx.shadowColor = "rgba(253,60,115,0.4)";
   ctx.shadowBlur = 20;
   ctx.shadowOffsetY = 4;
   roundRect(ctx, btnX, btnY, btnW, btnH, 30);

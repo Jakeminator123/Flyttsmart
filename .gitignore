@@ -58,6 +58,9 @@ __pycache__/
 /adressandring/sida_*/
 /adressandring/skrapning_sajt.py
 
+# IDE
+.cursor/
+
 # Windows
 Thumbs.db
 Desktop.ini

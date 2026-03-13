@@ -15,7 +15,7 @@ export default function HomePage() {
   const [miniMifValue, setMiniMifValue] = useState("")
 
   return (
-    <div className="flex min-h-screen flex-col overflow-x-visible">
+    <div className="flex min-h-screen flex-col overflow-x-clip">
       <Header />
       <main className="flex-1">
         <HeroSection

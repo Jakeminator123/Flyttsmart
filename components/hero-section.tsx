@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowRight, Fingerprint, Shield, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { HeroLanyard } from "@/components/hero-lanyard"
 import { TextReveal } from "@/components/text-reveal"
 import { parseStartIntent } from "@/lib/start-intent"
+import { cn } from "@/lib/utils"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24, filter: "blur(6px)" },
@@ -31,6 +32,84 @@ const quickExamples = [
   "Vi flyttar 1 juni till Malmö",
   "19900101-1234",
 ]
+
+function MovingBox({
+  children,
+  className,
+  intensity = 12,
+  delay = 0.8,
+}: {
+  children: React.ReactNode
+  className?: string
+  intensity?: number
+  delay?: number
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const raf = useRef(0)
+  const canTrack = useRef(false)
+  const [landing, setLanding] = useState(true)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      canTrack.current = true
+      setLanding(false)
+      return
+    }
+
+    const done = () => {
+      canTrack.current = true
+      setLanding(false)
+    }
+    el.addEventListener("animationend", done, { once: true })
+    const fallback = setTimeout(done, (delay + 2.5) * 1000)
+    return () => {
+      el.removeEventListener("animationend", done)
+      clearTimeout(fallback)
+    }
+  }, [delay])
+
+  const onMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!canTrack.current) return
+      const el = ref.current
+      if (!el) return
+      cancelAnimationFrame(raf.current)
+      raf.current = requestAnimationFrame(() => {
+        const r = el.getBoundingClientRect()
+        const nx = (e.clientX - r.left) / r.width - 0.5
+        const ny = (e.clientY - r.top) / r.height - 0.5
+        el.style.transform =
+          `perspective(800px) rotateX(${ny * -intensity}deg) rotateY(${nx * intensity}deg) translateY(-4px)`
+      })
+    },
+    [intensity],
+  )
+
+  const onLeave = useCallback(() => {
+    if (!canTrack.current) return
+    cancelAnimationFrame(raf.current)
+    if (ref.current) ref.current.style.transform = ""
+  }, [])
+
+  return (
+    <div
+      ref={ref}
+      className={cn("moving-box", landing && "moving-box-landing", className)}
+      style={{ "--settle-delay": `${delay}s` } as React.CSSProperties}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+    >
+      <div className="moving-box-edge moving-box-edge-top" aria-hidden="true" />
+      <div className="moving-box-edge moving-box-edge-right" aria-hidden="true" />
+      <div className="moving-box-edge moving-box-edge-bottom" aria-hidden="true" />
+      <div className="moving-box-edge moving-box-edge-left" aria-hidden="true" />
+      {children}
+    </div>
+  )
+}
 
 interface HeroSectionProps {
   onOpenMiniMif?: (initialValue?: string) => void
@@ -112,9 +191,9 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
             påminnelser och smarta erbjudanden vid.
           </motion.p>
 
-          <motion.div
-            variants={fadeUp}
-            className="card-3d mt-8 w-full max-w-2xl rounded-[28px] border border-border/70 bg-card/90 p-4 shadow-lg shadow-primary/10 backdrop-blur sm:p-5"
+          <MovingBox
+            delay={0.6}
+            className="mt-8 w-full max-w-2xl rounded-[28px] border border-border/70 bg-card/90 p-4 shadow-lg shadow-primary/10 backdrop-blur sm:p-5"
           >
             <form
               onSubmit={(event) => {
@@ -173,7 +252,7 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
                   : "Du kan börja enkelt här och komplettera resten steg för steg."}
               </div>
             </form>
-          </motion.div>
+          </MovingBox>
 
           <motion.div variants={fadeUp} className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
@@ -197,23 +276,25 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
             </Button>
           </motion.div>
 
-          <motion.div variants={fadeUp} className="mt-7 grid gap-3 sm:mt-8 sm:grid-cols-3">
-            {trustItems.map((item) => (
-              <div
+          <div className="mt-7 grid gap-3 sm:mt-8 sm:grid-cols-3">
+            {trustItems.map((item, i) => (
+              <MovingBox
                 key={item.label}
-                className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/90 px-4 py-3 text-sm text-foreground shadow-sm"
+                intensity={7}
+                delay={1.1 + i * 0.12}
+                className="moving-box-sm flex items-center gap-3 rounded-2xl border border-border/70 bg-card/90 px-4 py-3 text-sm text-foreground shadow-sm"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <item.icon className="h-4 w-4" />
                 </div>
                 <span className="leading-snug">{item.label}</span>
-              </div>
+              </MovingBox>
             ))}
-          </motion.div>
+          </div>
           </motion.div>
 
           <motion.div
-            className="relative z-10 hidden lg:block lg:h-[760px] xl:h-[840px]"
+            className="relative z-10 hidden lg:block lg:h-[820px] xl:h-[920px]"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}

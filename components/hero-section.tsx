@@ -52,24 +52,14 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
       <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.18]" />
       <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.03]" />
 
-      <div className="relative mx-auto max-w-7xl px-4 pt-28 pb-20 sm:pt-32 lg:px-8 lg:pt-40 lg:pb-28">
-        <motion.div
-          className="absolute inset-0 z-10 hidden lg:block"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
-        >
-          <div className="absolute inset-0 overflow-visible">
-            <HeroLanyard />
-          </div>
-        </motion.div>
-
-        <motion.div
-          className="relative z-20 flex max-w-3xl flex-col items-start"
-          initial="hidden"
-          animate="visible"
-          variants={{ visible: { transition: { staggerChildren: 0.12 } } }}
-        >
+      <div className="relative mx-auto max-w-7xl px-4 pt-28 pb-20 sm:pt-32 lg:px-8 lg:pt-32 lg:pb-28">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(500px,640px)] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(560px,720px)] xl:gap-10">
+          <motion.div
+            className="relative z-20 flex max-w-3xl flex-col items-start"
+            initial="hidden"
+            animate="visible"
+            variants={{ visible: { transition: { staggerChildren: 0.12 } } }}
+          >
           <motion.div variants={fadeUp}>
             <Badge variant="outline" className="rounded-full border-primary/15 bg-background/85 px-4 py-1.5 text-sm font-medium text-foreground shadow-sm">
               Flytt.io förenklar flytten innan, under och efter registreringen
@@ -220,7 +210,18 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
               </div>
             ))}
           </motion.div>
-        </motion.div>
+          </motion.div>
+
+          <motion.div
+            className="relative z-10 hidden lg:block lg:h-[760px] xl:h-[840px]"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
+          >
+            <div className="absolute inset-x-8 top-10 bottom-10 rounded-[3rem] bg-ring/10 blur-3xl" />
+            <HeroLanyard />
+          </motion.div>
+        </div>
 
         <motion.div
           className="relative z-10 mt-12 w-full overflow-visible lg:hidden"

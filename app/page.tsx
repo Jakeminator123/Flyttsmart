@@ -8,7 +8,6 @@ import { TrustSection } from "@/components/trust-section"
 import { FaqSection } from "@/components/faq-section"
 import { SiteFooter } from "@/components/site-footer"
 import { MobileCta } from "@/components/mobile-cta"
-import { OpenClawChatWidget } from "@/components/openclaw-chat-widget"
 import { MiniMifOverlay } from "@/components/mini-mif-overlay"
 
 export default function HomePage() {
@@ -31,7 +30,6 @@ export default function HomePage() {
       </main>
       <SiteFooter />
       <MobileCta />
-      <OpenClawChatWidget formType="home" />
       <MiniMifOverlay
         open={miniMifOpen}
         initialValue={miniMifValue}

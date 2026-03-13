@@ -826,10 +826,9 @@ export function DidOpenClawBridgeWidget() {
   if (!open) {
     return (
       <motion.div
-        className="hidden"
-        aria-hidden="true"
+        className="fixed bottom-5 right-5 z-50 w-36 sm:w-40"
         initial={false}
-        animate={{ opacity: 0, y: 0, rotate: 0, scale: 1 }}
+        animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
       >
         <div className="relative pt-8">
           <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center">
@@ -844,7 +843,6 @@ export function DidOpenClawBridgeWidget() {
 
           <button
             onClick={handleOpen}
-            tabIndex={-1}
             className="group relative block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             aria-label="Öppna Aida guide"
           >

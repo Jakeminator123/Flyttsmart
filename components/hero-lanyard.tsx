@@ -3,13 +3,11 @@
 import { useState, useCallback, Suspense } from "react";
 import dynamic from "next/dynamic";
 import HeroCardTexture from "@/components/hero-card-texture";
-import { useDIDStream } from "@/lib/did-stream-context";
 
 const LanyardScene = dynamic(() => import("@/components/hero-lanyard-scene"), { ssr: false });
 
 export function HeroLanyard() {
   const [frontTextureUrl, setFrontTextureUrl] = useState<string | undefined>(undefined);
-  const { stream } = useDIDStream();
 
   const handleFrontReady = useCallback((dataUrl: string) => {
     setFrontTextureUrl(dataUrl);
@@ -27,7 +25,6 @@ export function HeroLanyard() {
           }>
             <LanyardScene
               frontTextureUrl={frontTextureUrl}
-              didStream={stream}
             />
           </Suspense>
         ) : (

@@ -60,6 +60,7 @@ export interface LanyardProps {
   gravity?: [number, number, number];
   fov?: number;
   transparent?: boolean;
+  autoFlip?: boolean;
   containerClassName?: string;
   cardTextureUrl?: string;
   cardBackTextureUrl?: string;
@@ -72,6 +73,7 @@ export default function Lanyard({
   gravity = [0, -40, 0],
   fov = 20,
   transparent = true,
+  autoFlip = true,
   containerClassName,
   cardTextureUrl,
   cardBackTextureUrl,
@@ -99,6 +101,7 @@ export default function Lanyard({
         <Physics gravity={gravity} timeStep={isMobile ? 1 / 30 : 1 / 60}>
           <Band
             isMobile={isMobile}
+            autoFlip={autoFlip}
             cardTextureUrl={cardTextureUrl}
             cardBackTextureUrl={cardBackTextureUrl}
             backVideoTexture={backVideoTexture}
@@ -120,6 +123,7 @@ interface BandProps {
   maxSpeed?: number;
   minSpeed?: number;
   isMobile?: boolean;
+  autoFlip?: boolean;
   cardTextureUrl?: string;
   cardBackTextureUrl?: string;
   backVideoTexture?: THREE.Texture | null;
@@ -130,6 +134,7 @@ function Band({
   maxSpeed = 50,
   minSpeed = 0,
   isMobile = false,
+  autoFlip = true,
   cardTextureUrl,
   cardBackTextureUrl,
   backVideoTexture,
@@ -214,6 +219,8 @@ function Band({
   }, [hovered, dragged]);
 
   useEffect(() => {
+    if (!autoFlip) return;
+
     const timer = window.setTimeout(() => {
       drag(false);
       flipImpulse.current = -10;
@@ -235,7 +242,7 @@ function Band({
     return () => {
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [autoFlip]);
 
   useFrame((state, delta) => {
     if (dragged && typeof dragged !== 'boolean') {

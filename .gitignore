@@ -58,8 +58,12 @@ __pycache__/
 /adressandring/sida_*/
 /adressandring/skrapning_sajt.py
 
-# IDE
-.cursor/
+# IDE – keep .cursor/rules/ and .cursor/mcp.json tracked for team sharing
+.cursor/chat/
+.cursor/projects/
+.cursor/backups/
+.cursor/logs/
+.cursor/settings.json
 
 # Windows
 Thumbs.db

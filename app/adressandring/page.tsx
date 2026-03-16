@@ -57,9 +57,24 @@ import { SkatteverketGuide } from "@/components/skatteverket-guide";
 import { BookmarkletButton } from "@/components/bookmarklet-button";
 
 const STEPS = [
-  { id: 1, label: "Start", icon: Shield },
-  { id: 2, label: "Adresser", icon: Home },
-  { id: 3, label: "Flytt & klart", icon: FileText },
+  {
+    id: 1,
+    label: "Start",
+    icon: Shield,
+    description: "Person, kontakt och en trygg början.",
+  },
+  {
+    id: 2,
+    label: "Adresser",
+    icon: Home,
+    description: "Nuvarande adress och vart du flyttar.",
+  },
+  {
+    id: 3,
+    label: "Flytt & klart",
+    icon: FileText,
+    description: "Sista detaljerna innan du skickar in.",
+  },
 ];
 
 const HOUSEHOLD_TYPE_LABELS: Record<string, string> = {
@@ -128,13 +143,8 @@ export default function AdressandringPage() {
     confidence: number;
     suggestions: string[];
   } | null>(null);
-  const [isDevMode, setIsDevMode] = useState(false);
   const [startIntent, setStartIntent] = useState<StartIntentPayload | null>(null);
   const [miniMifContext, setMiniMifContext] = useState<MiniMifContext | null>(null);
-
-  useEffect(() => {
-    setIsDevMode(window.location.hostname === "localhost");
-  }, []);
 
   // OpenClaw real-time form mirroring
   const { mirrorField, mirrorStepChange, mirrorSubmit, mirrorEvent } =
@@ -166,6 +176,7 @@ export default function AdressandringPage() {
   });
 
   const progressValue = (currentStep / STEPS.length) * 100;
+  const activeStepMeta = STEPS.find((step) => step.id === currentStep) ?? STEPS[0];
 
   // Prefill from startsida/demo (sessionStorage)
   useEffect(() => {
@@ -480,39 +491,77 @@ export default function AdressandringPage() {
 
   // ── Main form ────────────────────────────────────────────────────────
   return (
-    <div className="relative min-h-screen bg-linear-to-b from-hero-gradient-from to-background overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden bg-linear-to-b from-hero-gradient-from via-background to-background">
+      <div className="pointer-events-none absolute inset-0 hero-mesh opacity-45" />
+      <div className="pointer-events-none absolute inset-0 hero-mesh-accent opacity-30" />
+      <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.03]" />
       {/* Animated background orbs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
         <div className="section-orb-1 -top-1/4 -right-1/3 h-150 w-150" />
         <div className="section-orb-2 bottom-1/4 -left-1/4 h-125 w-125" />
         <div className="section-orb-accent top-1/2 right-1/4 h-100 w-100" />
-        <div className="absolute inset-0 dot-grid opacity-[0.06]" />
+        <div className="absolute inset-0 dot-grid opacity-[0.08]" />
       </div>
 
       {/* Top bar */}
-      <header className="relative border-b border-border/50 bg-card/60 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+      <header className="sticky top-0 z-30 border-b border-white/30 bg-background/60 backdrop-blur-xl supports-backdrop-filter:bg-background/45">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3.5">
           <Link
             href="/"
-            className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/80 px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm shadow-primary/5 transition-all duration-300 hover:border-primary/20 hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Tillbaka
           </Link>
-          <Link href="/" aria-label="Flytt.io - Till startsidan">
+          <Link
+            href="/"
+            aria-label="Flytt.io - Till startsidan"
+            className="rounded-full px-2 py-1 transition-transform duration-300 hover:scale-[1.02]"
+          >
             <Logo size="sm" />
           </Link>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 rounded-full border border-primary/10 bg-card/80 px-3 py-1.5 text-xs text-muted-foreground shadow-sm shadow-primary/5">
             <Lock className="h-3.5 w-3.5 text-primary" />
             <span className="hidden sm:inline">Krypterad</span>
           </div>
         </div>
       </header>
 
-      <main className="relative mx-auto max-w-3xl px-4 py-8 lg:py-12">
+      <main className="relative mx-auto max-w-4xl px-4 py-8 lg:py-10">
+        <div className="card-hover mb-8 rounded-[30px] border border-border/60 bg-card/80 p-5 shadow-xl shadow-primary/6 backdrop-blur-xl sm:p-6">
+          <Badge
+            variant="outline"
+            className="rounded-full border-primary/15 bg-background/85 px-3.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-primary"
+          >
+            Trygg flyttanmälan i tre steg
+          </Badge>
+          <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <h1 className="font-heading text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
+                Börja din flytt i lugn takt
+              </h1>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                Fyll bara i det du vet just nu. Vi håller ihop personuppgifter,
+                adresser och sista bekräftelsen i ett och samma lugna flöde.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+              <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5">
+                AI-hjälp när det behövs
+              </span>
+              <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5">
+                BankID nära nästa steg
+              </span>
+              <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5">
+                Alltid gratis
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Step indicators */}
-        <div className="mb-8">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="mb-8 rounded-[30px] border border-border/60 bg-card/78 p-4 shadow-lg shadow-primary/6 backdrop-blur-xl sm:p-5">
+          <div className="grid gap-3 md:grid-cols-3">
             {STEPS.map((step) => {
               const Icon = step.icon;
               const isActive = step.id === currentStep;
@@ -525,51 +574,69 @@ export default function AdressandringPage() {
                     if (step.id < currentStep) setCurrentStep(step.id);
                   }}
                   className={cn(
-                    "flex flex-col items-center gap-1.5 transition-all duration-300",
+                    "card-hover rounded-[24px] border p-4 text-left transition-all duration-300",
                     isActive
-                      ? "scale-105"
+                      ? "border-primary/30 bg-linear-to-br from-primary via-primary to-ring text-primary-foreground shadow-xl shadow-primary/18"
                       : isComplete
-                        ? "cursor-pointer opacity-80 hover:opacity-100"
-                        : "opacity-40 cursor-default"
+                        ? "cursor-pointer border-primary/15 bg-card/92 shadow-md shadow-primary/5 hover:border-primary/25"
+                        : "cursor-default border-border/70 bg-background/70"
                   )}
                   disabled={step.id > currentStep}
                   aria-current={isActive ? "step" : undefined}
                 >
-                  <div
-                    className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300",
-                      isActive
-                        ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                        : isComplete
-                          ? "border-primary/50 bg-primary/10 text-primary"
-                          : "border-border bg-card text-muted-foreground"
-                    )}
-                  >
-                    {isComplete ? (
-                      <CheckCircle2 className="h-5 w-5" />
-                    ) : (
-                      <Icon className="h-5 w-5" />
-                    )}
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-all duration-300",
+                        isActive
+                          ? "border-white/15 bg-white/10 text-white"
+                          : isComplete
+                            ? "border-primary/20 bg-primary/10 text-primary"
+                            : "border-border bg-card text-muted-foreground"
+                      )}
+                    >
+                      {isComplete ? (
+                        <CheckCircle2 className="h-5 w-5" />
+                      ) : (
+                        <Icon className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <p
+                        className={cn(
+                          "text-sm font-semibold",
+                          isActive
+                            ? "text-primary-foreground"
+                            : "text-foreground"
+                        )}
+                      >
+                        {step.label}
+                      </p>
+                      <p
+                        className={cn(
+                          "text-xs leading-relaxed",
+                          isActive
+                            ? "text-primary-foreground/75"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {step.description}
+                      </p>
+                    </div>
                   </div>
-                  <span
-                    className={cn(
-                      "hidden text-xs font-medium sm:block",
-                      isActive
-                        ? "text-primary"
-                        : isComplete
-                          ? "text-foreground"
-                          : "text-muted-foreground"
-                    )}
-                  >
-                    {step.label}
-                  </span>
                 </button>
               );
             })}
           </div>
-          <Progress value={progressValue} className="h-1.5" />
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            Steg {currentStep} av {STEPS.length}
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Progress value={progressValue} className="h-1.5 flex-1 bg-primary/10" />
+            <p className="shrink-0 text-xs font-medium text-muted-foreground">
+              Steg {currentStep} av {STEPS.length}
+            </p>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            Just nu: <span className="font-medium text-foreground">{activeStepMeta.label}</span>{" "}
+            – {activeStepMeta.description}
           </p>
         </div>
 
@@ -618,7 +685,7 @@ export default function AdressandringPage() {
         )}
 
         {/* Form card */}
-        <Card className="overflow-hidden rounded-[30px] border border-border/70 bg-card/92 shadow-2xl shadow-primary/8 backdrop-blur-xl">
+        <Card className="card-hover overflow-hidden rounded-[30px] border border-border/70 bg-card/88 shadow-2xl shadow-primary/10 backdrop-blur-xl">
           {/* ── Step 1: Identification ──────────────────────────────── */}
           {currentStep === 1 && (
             <>
@@ -636,53 +703,6 @@ export default function AdressandringPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 pt-6">
-
-                {/* Dev mode: prefill with test data */}
-                {isDevMode && (
-                    <div className="rounded-2xl border border-dashed border-yellow-400/80 bg-yellow-50/80 p-4">
-                      <p className="text-xs font-semibold text-yellow-800 mb-2">
-                        Dev mode – Fyll med testdata:
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-1.5 text-xs border-yellow-400 text-yellow-800 hover:bg-yellow-100"
-                        onClick={() => {
-                          const nextForm: FormData = {
-                            firstName: "Anna",
-                            lastName: "Andersson",
-                            personalNumber: "19900101-1234",
-                            email: "anna@exempel.se",
-                            phone: "070-123 45 67",
-                            fromStreet: "Storgatan 1, lgh 1001",
-                            fromPostal: "111 22",
-                            fromCity: "Stockholm",
-                            toStreet: "Kungsgatan 5, lgh 302",
-                            toPostal: "411 19",
-                            toCity: "Göteborg",
-                            apartmentNumber: "1302",
-                            propertyDesignation: "Rudan mindre 10",
-                            propertyOwner: "Egen",
-                            moveDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-                            householdType: "myself",
-                            reason: "work",
-                            hasChildren: false,
-                          };
-                          setForm(nextForm);
-                          mirrorEvent(
-                            "field_change",
-                            nextForm as unknown as Record<string, string | boolean | number>,
-                            currentStep
-                          );
-                        }}
-                      >
-                        <Sparkles className="h-3.5 w-3.5" />
-                        Fyll med testdata
-                      </Button>
-                    </div>
-                  )}
-
                 {/* Manual entry */}
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
@@ -1182,12 +1202,12 @@ export default function AdressandringPage() {
           )}
 
           {/* Footer with navigation */}
-          <CardFooter className="flex items-center justify-between border-t border-border/60 bg-card/75 pt-6">
+          <CardFooter className="flex flex-col gap-3 border-t border-border/60 bg-linear-to-r from-card/95 via-card/80 to-card/95 pt-6 sm:flex-row sm:items-center sm:justify-between">
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={handlePrev}
               disabled={currentStep === 1}
-              className="gap-1.5"
+              className="w-full gap-1.5 rounded-full border-border/70 bg-background/80 px-5 sm:w-auto"
             >
               <ArrowLeft className="h-4 w-4" />
               Tillbaka
@@ -1196,7 +1216,7 @@ export default function AdressandringPage() {
             {currentStep < STEPS.length ? (
               <Button
                 onClick={handleNext}
-                className="gap-1.5 rounded-full px-6"
+                className="shimmer-btn w-full gap-1.5 rounded-full px-6 shadow-lg shadow-primary/20 sm:w-auto"
               >
                 Nästa
                 <ArrowRight className="h-4 w-4" />
@@ -1205,7 +1225,7 @@ export default function AdressandringPage() {
               <Button
                 onClick={handleSubmit}
                 disabled={!agreed || submitting}
-                className="gap-1.5 rounded-full px-6 shadow-lg shadow-primary/25"
+                className="shimmer-btn w-full gap-1.5 rounded-full px-6 shadow-lg shadow-primary/25 sm:w-auto"
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

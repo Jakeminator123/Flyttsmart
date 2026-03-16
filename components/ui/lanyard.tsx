@@ -15,6 +15,10 @@ import { MeshLineGeometry, MeshLineMaterial } from 'meshline';
 import * as THREE from 'three';
 import { cn } from '@/lib/utils';
 
+// Pre-init Rapier WASM with the non-deprecated single-object signature so
+// @react-three/rapier's internal init() becomes a no-op (already loaded).
+const rapierReady = import('@dimforge/rapier3d-compat').then((r) => r.init({}).then(() => r));
+
 const AUTO_FLIP_AFTER_MS = 8000;
 const DAMPING_RESET_AFTER_FLIP_MS = 4000;
 
@@ -80,6 +84,11 @@ export default function Lanyard({
   rigPosition = [0, 7.5, 0],
 }: LanyardProps) {
   const [isMobile, setIsMobile] = useState(false);
+  const [rapierOk, setRapierOk] = useState(false);
+
+  useEffect(() => {
+    rapierReady.then(() => setRapierOk(true)).catch(() => setRapierOk(true));
+  }, []);
 
   useEffect(() => {
     const handleResize = (): void => setIsMobile(window.innerWidth < 768);
@@ -87,6 +96,8 @@ export default function Lanyard({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  if (!rapierOk) return null;
 
   return (
     <div className={cn("relative z-0 w-full h-full flex justify-center items-center", containerClassName)}>

@@ -4,4 +4,5 @@ docs/
 scripts/
 info/
 *.py
+*.webp
 new_front/

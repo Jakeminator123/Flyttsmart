@@ -8,6 +8,8 @@ interface BankIdQrMirrorProps {
   cloneQrStateUrl: string;
   cloneQrImageUrl: string;
   statusUrl?: string;
+  jobId?: string;
+  qrFramesUrl?: string;
   onDismiss?: () => void;
 }
 
@@ -33,14 +35,22 @@ interface Int7Status {
   message?: string;
 }
 
+interface QrFrame {
+  name: string;
+  ts: number | null;
+}
+
 const TERMINAL_STATES = new Set(["error", "timeout", "cancelled"]);
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLLING_MS = 12 * 60 * 1000;
+const FRAME_POLL_INTERVAL_MS = 4000;
 
 export function BankIdQrMirror({
   cloneQrStateUrl,
   cloneQrImageUrl,
   statusUrl,
+  jobId,
+  qrFramesUrl,
   onDismiss,
 }: BankIdQrMirrorProps) {
   const [state, setState] = useState<CloneState | null>(null);
@@ -49,6 +59,8 @@ export function BankIdQrMirror({
   const [refreshTick, setRefreshTick] = useState(0);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [pollingExpired, setPollingExpired] = useState(false);
+  const [frames, setFrames] = useState<QrFrame[]>([]);
+  const [selectedFrame, setSelectedFrame] = useState<string | null>(null);
 
   const effectiveJobState = int7Status?.state ?? state?.jobState;
   const isTerminal = effectiveJobState ? TERMINAL_STATES.has(effectiveJobState) : false;
@@ -83,6 +95,21 @@ export function BankIdQrMirror({
     }
   }, [cloneQrStateUrl, statusUrl]);
 
+  // Poll QR frame list
+  const pollFrames = useCallback(async () => {
+    if (!qrFramesUrl) return;
+    try {
+      const res = await fetch(qrFramesUrl, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.frames)) {
+        setFrames(data.frames);
+      }
+    } catch {
+      // Non-critical
+    }
+  }, [qrFramesUrl]);
+
   useEffect(() => {
     if (!cloneQrStateUrl || dismissed || done || isTerminal || pollingExpired) {
       return;
@@ -97,6 +124,18 @@ export function BankIdQrMirror({
     const id = setInterval(() => setRefreshTick((t) => t + 1), POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [dismissed, done, isTerminal, pollingExpired, state?.qrImageReady]);
+
+  // Poll frames while active
+  useEffect(() => {
+    if (!qrFramesUrl || dismissed || pollingExpired) return;
+    pollFrames();
+    if (done || isTerminal) {
+      pollFrames();
+      return;
+    }
+    const id = setInterval(pollFrames, FRAME_POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [qrFramesUrl, dismissed, done, isTerminal, pollingExpired, pollFrames]);
 
   useEffect(() => {
     if (dismissed || done || isTerminal || pollingExpired) return;
@@ -121,6 +160,9 @@ export function BankIdQrMirror({
         <p className="mt-1 text-xs text-green-700">
           BankID-verifieringen lyckades. Formuläret fylls i automatiskt.
         </p>
+        {frames.length > 0 && jobId && (
+          <QrFrameStrip jobId={jobId} frames={frames} selected={selectedFrame} onSelect={setSelectedFrame} />
+        )}
       </div>
     );
   }
@@ -194,15 +236,29 @@ export function BankIdQrMirror({
       {state?.qrImageReady && !isTerminal && (
         <div className="space-y-3">
           <div className="flex justify-center rounded-lg border border-border/50 bg-white p-4">
-            <Image
-              src={`${cloneQrImageUrl}${cloneQrImageUrl.includes("?") ? "&" : "?"}t=${refreshTick}`}
-              alt="BankID QR-kod – skanna med Mobilt BankID"
-              width={320}
-              height={320}
-              unoptimized
-              className="max-h-[360px] w-auto rounded-lg"
-            />
+            {selectedFrame && jobId ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={`/api/skv/int7/qr-frame/${jobId}/${selectedFrame}`}
+                alt="Vald QR-ram"
+                className="max-h-[360px] w-auto rounded-lg"
+              />
+            ) : (
+              <Image
+                src={`${cloneQrImageUrl}${cloneQrImageUrl.includes("?") ? "&" : "?"}t=${refreshTick}`}
+                alt="BankID QR-kod – skanna med Mobilt BankID"
+                width={320}
+                height={320}
+                unoptimized
+                className="max-h-[360px] w-auto rounded-lg"
+              />
+            )}
           </div>
+
+          {frames.length > 0 && jobId && (
+            <QrFrameStrip jobId={jobId} frames={frames} selected={selectedFrame} onSelect={setSelectedFrame} />
+          )}
+
           <div className="rounded-lg border border-border/60 bg-background/70 px-3 py-2 text-[11px] text-muted-foreground">
             <p>
               QR-koden uppdateras live ungefär var{" "}
@@ -223,6 +279,58 @@ export function BankIdQrMirror({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function QrFrameStrip({
+  jobId,
+  frames,
+  selected,
+  onSelect,
+}: {
+  jobId: string;
+  frames: QrFrame[];
+  selected: string | null;
+  onSelect: (name: string | null) => void;
+}) {
+  if (frames.length === 0) return null;
+
+  return (
+    <div className="mt-2">
+      <p className="mb-1 text-[11px] text-muted-foreground">
+        {frames.length} sparade QR-ramar
+      </p>
+      <div className="flex gap-1 overflow-x-auto pb-1">
+        {frames.map((f) => {
+          const isSelected = selected === f.name;
+          return (
+            <button
+              key={f.name}
+              type="button"
+              onClick={() => onSelect(isSelected ? null : f.name)}
+              className={`shrink-0 overflow-hidden rounded border transition-all ${
+                isSelected
+                  ? "border-primary ring-1 ring-primary/30"
+                  : "border-border/50 hover:border-primary/40"
+              }`}
+              title={
+                f.ts
+                  ? new Date(f.ts * 1000).toLocaleTimeString("sv-SE")
+                  : f.name
+              }
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/skv/int7/qr-frame/${jobId}/${f.name}`}
+                alt={`QR ram ${f.name}`}
+                className="h-12 w-12 object-cover"
+                loading="lazy"
+              />
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

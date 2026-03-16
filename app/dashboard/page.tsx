@@ -40,6 +40,7 @@ import { SkatteverketGuide } from "@/components/skatteverket-guide";
 import { BookmarkletButton } from "@/components/bookmarklet-button";
 import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
 import { BankIdQrMirror } from "@/components/bankid-qr-mirror";
+import { SkvRunGallery } from "@/components/skv-run-gallery";
 
 interface MoveData {
   move: {
@@ -75,6 +76,7 @@ interface SkvArtifactUrls {
   htmlUrl: string | null;
   screenshotUrl: string | null;
   logUrl: string | null;
+  qrFramesUrl: string | null;
 }
 
 function daysUntilMove(moveDate: string | null) {
@@ -97,7 +99,9 @@ function DashboardContent() {
   const [cloneQrStateUrl, setCloneQrStateUrl] = useState<string | null>(null);
   const [cloneQrImageUrl, setCloneQrImageUrl] = useState<string | null>(null);
   const [int7StatusUrl, setInt7StatusUrl] = useState<string | null>(null);
+  const [skvJobId, setSkvJobId] = useState<string | null>(null);
   const [skvArtifacts, setSkvArtifacts] = useState<SkvArtifactUrls | null>(null);
+  const [showGallery, setShowGallery] = useState(false);
 
   useEffect(() => {
     if (!moveId) {
@@ -183,12 +187,15 @@ function DashboardContent() {
         throw new Error(body?.error || "Kunde inte starta Skatteverket-flödet.");
       }
       setInt7StatusUrl(typeof body?.statusUrl === "string" ? body.statusUrl : null);
+      setSkvJobId(typeof body?.jobId === "string" ? body.jobId : null);
       setSkvArtifacts({
         payloadUrl: typeof body?.payloadUrl === "string" ? body.payloadUrl : null,
         htmlUrl: typeof body?.htmlUrl === "string" ? body.htmlUrl : null,
         screenshotUrl:
           typeof body?.screenshotUrl === "string" ? body.screenshotUrl : null,
         logUrl: typeof body?.logUrl === "string" ? body.logUrl : null,
+        qrFramesUrl:
+          typeof body?.qrFramesUrl === "string" ? body.qrFramesUrl : null,
       });
       if (body?.cloneQrEnabled && body?.cloneQrStateUrl) {
         setCloneQrStateUrl(body.cloneQrStateUrl);
@@ -603,6 +610,8 @@ function DashboardContent() {
                         cloneQrStateUrl={cloneQrStateUrl}
                         cloneQrImageUrl={cloneQrImageUrl}
                         statusUrl={int7StatusUrl ?? undefined}
+                        jobId={skvJobId ?? undefined}
+                        qrFramesUrl={skvArtifacts?.qrFramesUrl ?? undefined}
                         onDismiss={() => {
                           setCloneQrStateUrl(null);
                           setCloneQrImageUrl(null);
@@ -637,15 +646,14 @@ function DashboardContent() {
                             HTML-snapshot
                           </a>
                         )}
-                        {skvArtifacts.screenshotUrl && (
-                          <a
+                        {(skvArtifacts.screenshotUrl || skvArtifacts.qrFramesUrl) && (
+                          <button
+                            type="button"
                             className="rounded-full border border-border/70 bg-background px-3 py-1 hover:bg-muted"
-                            href={skvArtifacts.screenshotUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            onClick={() => setShowGallery(true)}
                           >
-                            Screenshot
-                          </a>
+                            Bilder &amp; screenshots
+                          </button>
                         )}
                         {skvArtifacts.logUrl && (
                           <a
@@ -658,6 +666,14 @@ function DashboardContent() {
                           </a>
                         )}
                       </div>
+                      {showGallery && skvJobId && (
+                        <SkvRunGallery
+                          jobId={skvJobId}
+                          screenshotUrl={skvArtifacts.screenshotUrl}
+                          qrFramesUrl={skvArtifacts.qrFramesUrl}
+                          onClose={() => setShowGallery(false)}
+                        />
+                      )}
                     </div>
                   )}
                 </CardContent>

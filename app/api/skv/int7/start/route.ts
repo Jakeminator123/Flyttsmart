@@ -116,6 +116,7 @@ function buildArtifactUrls(jobId: string, portQ = "") {
     htmlUrl: `/api/skv/int7/html/${jobId}${portQ}`,
     screenshotUrl: `/api/skv/int7/screenshot/${jobId}${portQ}`,
     logUrl: `/api/skv/int7/log/${jobId}${portQ}`,
+    qrFramesUrl: `/api/skv/int7/qr-frames/${jobId}${portQ}`,
   };
 }
 

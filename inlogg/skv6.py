@@ -2117,6 +2117,46 @@ def api_screenshot(job_id: str):
     return send_from_directory(RESULT_DIR, screenshot_filename)
 
 
+@app.get("/api/qr-frames/<job_id>")
+def api_qr_frames(job_id: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):
+        return jsonify({"ok": False, "error": "invalid job id"}), 400
+
+    files = _list_qr_frame_files(job_id)
+    frames = []
+    for fpath in files:
+        name = os.path.basename(fpath)
+        try:
+            ts = os.path.getmtime(fpath)
+        except Exception:
+            ts = None
+        frames.append({"name": name, "ts": ts})
+
+    has_screenshot = os.path.isfile(os.path.join(RESULT_DIR, f"{job_id}.png"))
+    return jsonify({
+        "ok": True,
+        "jobId": job_id,
+        "frames": frames,
+        "hasScreenshot": has_screenshot,
+        "screenshotUrl": f"/api/screenshot/{job_id}" if has_screenshot else None,
+    })
+
+
+@app.get("/api/qr-frame/<job_id>/<filename>")
+def api_qr_frame(job_id: str, filename: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):
+        return jsonify({"ok": False, "error": "invalid job id"}), 400
+    if not re.fullmatch(r"[0-9]+\.png", filename or ""):
+        return jsonify({"ok": False, "error": "invalid filename"}), 400
+
+    frame_dir = os.path.join(QR_FRAME_DIR, job_id)
+    frame_path = os.path.join(frame_dir, filename)
+    if not os.path.isfile(frame_path):
+        return jsonify({"ok": False, "error": "frame not found"}), 404
+
+    return send_from_directory(frame_dir, filename)
+
+
 @app.get("/api/log/<job_id>")
 def api_log(job_id: str):
     if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):

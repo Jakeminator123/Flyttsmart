@@ -35,7 +35,6 @@ import {
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
@@ -59,9 +58,6 @@ import {
   readStoredAdressandringPrefill,
   type MiniMifContext,
 } from "@/lib/mif/prefill";
-
-import { SkatteverketGuide } from "@/components/skatteverket-guide";
-import { BookmarkletButton } from "@/components/bookmarklet-button";
 
 const STEPS = [
   {
@@ -367,6 +363,9 @@ export default function AdressandringPage() {
   }
 
   // ── Success state ────────────────────────────────────────────────────
+  // Enkel bekräftelse – Skatteverket-guide, bookmarklet och "Vad händer nu?"
+  // visas i dashboarden efter att användaren skickat in via SKV (Playwright,
+  // bookmarklet eller manuell guide).
   if (submitted) {
     return (
       <div className="relative flex min-h-screen flex-col items-center justify-center bg-linear-to-b from-hero-gradient-from to-background px-4 overflow-hidden">
@@ -384,82 +383,14 @@ export default function AdressandringPage() {
             Tack, {form.firstName}!
           </h1>
           <p className="mt-3 text-lg text-muted-foreground">
-            Din flytt är registrerad hos Flytt.io. Nästa steg är BankID och
-            Skatteverket.
+            Din flytt är registrerad hos Flytt.io. Gå till dashboarden för att
+            fortsätta med BankID och Skatteverket.
           </p>
-          <Separator className="my-8" />
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Vad händer nu?</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <div className="flex items-start gap-3">
-                <Badge variant="secondary" className="mt-0.5 shrink-0">
-                  1
-                </Badge>
-                <span>
-                  Din personliga checklista är redo med {checklist.length}{" "}
-                  aktiviteter
-                </span>
-              </div>
-              <div className="flex items-start gap-3">
-                <Badge variant="secondary" className="mt-0.5 shrink-0">
-                  2
-                </Badge>
-                <span>
-                  Du fortsätter i dashboarden där vi leder dig vidare till BankID
-                </span>
-              </div>
-              <div className="flex items-start gap-3">
-                <Badge variant="secondary" className="mt-0.5 shrink-0">
-                  3
-                </Badge>
-                <span>
-                  Därifrån kan du starta Skatteverkets flyttanmälan med QR och BankID
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-          {/* Skatteverket guide + QR */}
-          <div className="mt-6 space-y-4 text-left">
-            <SkatteverketGuide
-              data={{
-                name: `${form.firstName} ${form.lastName}`.trim(),
-                personalNumber: form.personalNumber,
-                toStreet: form.toStreet,
-                toPostal: form.toPostal,
-                toCity: form.toCity,
-                apartmentNumber: form.apartmentNumber,
-                propertyDesignation: form.propertyDesignation,
-                propertyOwner: form.propertyOwner,
-                moveDate: form.moveDate,
-                householdType: form.householdType,
-              }}
-            />
 
-            {/* Bookmarklet for Skatteverket auto-fill */}
-            <BookmarkletButton
-              data={{
-                name: `${form.firstName} ${form.lastName}`.trim(),
-                personalNumber: form.personalNumber,
-                toStreet: form.toStreet,
-                toPostal: form.toPostal,
-                toCity: form.toCity,
-                apartmentNumber: form.apartmentNumber,
-                propertyDesignation: form.propertyDesignation,
-                propertyOwner: form.propertyOwner,
-                moveDate: form.moveDate,
-                email: form.email,
-                phone: form.phone,
-              }}
-            />
-
-          </div>
-
-          <div className="mt-6 flex gap-3 justify-center">
+          <div className="mt-8 flex gap-3 justify-center">
             <Button asChild className="rounded-full px-8" size="lg">
               <Link href={`/dashboard${moveId ? `?id=${moveId}` : ""}`}>
-                Fortsätt till BankID
+                Till dashboarden
               </Link>
             </Button>
             <Button

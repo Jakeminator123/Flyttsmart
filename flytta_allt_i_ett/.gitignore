@@ -1,0 +1,13 @@
+# Persondata och output (ska aldrig committas)
+.contact_cache.json
+*_output.json
+*_enrichment.json
+pnr_lookup_*.json
+name_lookup_*.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Lokal env (rot-.env hanteras separat)
+.env

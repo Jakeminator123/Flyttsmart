@@ -2,3 +2,5 @@ curl_cffi
 beautifulsoup4
 lxml
 playwright
+python-dotenv
+nest_asyncio

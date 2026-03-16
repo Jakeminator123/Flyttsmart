@@ -1,5 +1,5 @@
 {
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.defaultFormatter": null,
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
@@ -7,8 +7,20 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "json.schemas": [
     {
-      "fileMatch": ["components.json"],
+      "fileMatch": [
+        "components.json"
+      ],
       "url": "https://ui.shadcn.com/schema.json"
     }
-  ]
+  ],
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[python]": {
+    "editor.defaultFormatter": null,
+    "editor.formatOnSave": false
+  },
+  "[markdown]": {
+    "editor.formatOnSave": false
+  }
 }

@@ -1,0 +1,185 @@
+{
+  "generatedAt": "2026-03-13T19:35:35Z",
+  "version": "v6",
+  "status": "complete",
+  "lookups": {
+    "bil": {
+      "pnr": "198603241442",
+      "firstName": "Emilia",
+      "lastName": "Eberg",
+      "name": "Emilia Eberg",
+      "fromCity": "Nacka",
+      "fromStreetRaw": "Turbinvägen 5 B Lgh 1101 13160 Nacka",
+      "age": 39
+    },
+    "bilErr": null,
+    "eniro": {
+      "name": "Emilia Eberg",
+      "givenName": "Emilia",
+      "familyName": "Eberg",
+      "birthDate": "1986-03-24",
+      "telephone": "073-414 15 46",
+      "street": "Turbinvägen 5B, 1101",
+      "postal": "13160",
+      "city": "NACKA",
+      "fastighet": "SICKLAÖN 145:19",
+      "foretag_pa_adressen": "Art Verk Consulting By Linda Olsson",
+      "companiesAtAddress": [
+        "Art Verk Consulting By Linda Olsson"
+      ],
+      "propertyOwnerGuess": "",
+      "url": "https://www.eniro.se/emilia+eberg+nacka/16357027/person"
+    },
+    "eniroErr": null,
+    "eniroCo": null,
+    "eniroAddrResidents": [
+      {
+        "id": "96887910",
+        "name": "Jürgen Hermann Clemens Roggenbuck",
+        "url": "https://www.eniro.se/j%c3%bcrgen+hermann+clemens+roggenbuck+stockholm/96887910/person"
+      },
+      {
+        "id": "96420429",
+        "name": "Fanny Lagerberg",
+        "url": "https://www.eniro.se/fanny+lagerberg+stockholm/96420429/person"
+      },
+      {
+        "id": "93542061",
+        "name": "Anna Olderius",
+        "url": "https://www.eniro.se/anna+olderius+stockholm/93542061/person"
+      },
+      {
+        "id": "472072",
+        "name": "Stig Dobos",
+        "url": "https://www.eniro.se/stig+dobos+stockholm/472072/person"
+      },
+      {
+        "id": "35434397",
+        "name": "Carolina Holmsen",
+        "url": "https://www.eniro.se/carolina+holmsen+stockholm/35434397/person"
+      },
+      {
+        "id": "325948",
+        "name": "Mats Grundström",
+        "url": "https://www.eniro.se/mats+grundstr%c3%b6m+stockholm/325948/person"
+      },
+      {
+        "id": "2502704",
+        "name": "Elisabet Brandberg",
+        "url": "https://www.eniro.se/elisabet+brandberg+stockholm/2502704/person"
+      },
+      {
+        "id": "236853",
+        "name": "Astrid Margareta Leeb",
+        "url": "https://www.eniro.se/astrid+margareta+leeb+stockholm/236853/person"
+      },
+      {
+        "id": "222588",
+        "name": "Eva Bergholtz",
+        "url": "https://www.eniro.se/eva+bergholtz+stockholm/222588/person"
+      },
+      {
+        "id": "1445838",
+        "name": "Jonas Svensson",
+        "url": "https://www.eniro.se/jonas+svensson+stockholm/1445838/person"
+      },
+      {
+        "id": "13728416",
+        "name": "Nils Arne Valdemar Leeb",
+        "url": "https://www.eniro.se/nils+arne+valdemar+leeb+stockholm/13728416/person"
+      },
+      {
+        "id": "13438602",
+        "name": "Göran Svalberg",
+        "url": "https://www.eniro.se/g%c3%b6ran+svalberg+liding%c3%b6/13438602/person"
+      },
+      {
+        "id": "127514217",
+        "name": "Martin Lagerberg",
+        "url": "https://www.eniro.se/martin+lagerberg+stockholm/127514217/person"
+      },
+      {
+        "id": "11038586",
+        "name": "Mattias Nordström",
+        "url": "https://www.eniro.se/mattias+nordstr%c3%b6m+stockholm/11038586/person"
+      },
+      {
+        "id": "10999431",
+        "name": "Johan Fredrik Roggenbuck",
+        "url": "https://www.eniro.se/johan+fredrik+roggenbuck+stockholm/10999431/person"
+      }
+    ],
+    "eniroAddrProperty": {
+      "name": "Jürgen Hermann Clemens Roggenbuck",
+      "givenName": "Jürgen Hermann Clemens",
+      "familyName": "Roggenbuck",
+      "birthDate": "1943-07-02",
+      "telephone": "",
+      "street": "Folkungagatan 87, 1202",
+      "postal": "11630",
+      "city": "STOCKHOLM",
+      "fastighet": "RUDAN STÖRRE 13",
+      "foretag_pa_adressen": "Mi Barbershop AB, Msb Cutz AB, Cmb Ventures AB, Propeople (PP Webbproduktion AB), Roslagsdata AB, Hsb BRF Rudan Nr 146 I Stockholm, Teknikpunkten.S AB och Klinike AB",
+      "companiesAtAddress": [
+        "Mi Barbershop AB",
+        "Msb Cutz AB",
+        "Cmb Ventures AB",
+        "Propeople (PP Webbproduktion AB)",
+        "Roslagsdata AB",
+        "Hsb BRF Rudan Nr 146 I Stockholm",
+        "Teknikpunkten.S AB och Klinike AB"
+      ],
+      "propertyOwnerGuess": "Hsb BRF Rudan Nr 146 I Stockholm",
+      "url": "https://www.eniro.se/j%c3%bcrgen+hermann+clemens+roggenbuck+stockholm/96887910/person"
+    },
+    "eniroAddrErr": null,
+    "papFrom": null,
+    "papTo": null,
+    "eniroAddrCompanies": [
+      "Mi Barbershop AB",
+      "Msb Cutz AB",
+      "Cmb Ventures AB",
+      "Propeople (PP Webbproduktion AB)",
+      "Roslagsdata AB",
+      "Hsb BRF Rudan Nr 146 I Stockholm",
+      "Teknikpunkten.S AB",
+      "Klinike AB"
+    ]
+  },
+  "flyttioPayload": {
+    "firstName": "Emilia",
+    "lastName": "Eberg",
+    "personalNumber": "198603241442",
+    "email": "",
+    "fromStreet": "Turbinvägen 5 B",
+    "fromPostal": "13160",
+    "fromCity": "Nacka",
+    "toStreet": "Folkungagatan 87",
+    "toPostal": "11630",
+    "toCity": "Stockholm",
+    "apartmentNumber": "1101",
+    "propertyDesignation": "RUDAN STÖRRE 13",
+    "propertyOwner": "Hsb BRF Rudan Nr 146 I Stockholm",
+    "moveDate": "2026-06-06",
+    "name": "Emilia Eberg",
+    "phone": "073-414 15 46"
+  },
+  "skvPayload": {
+    "inflyttningsdatum": "2026-06-06",
+    "period": "true",
+    "gatuadress": "Folkungagatan 87",
+    "postnummer": "11630",
+    "postort": "Stockholm",
+    "lagenhetsnummer": "1101",
+    "fastighetsbeteckning": "RUDAN STÖRRE 13",
+    "fastighetsagare": "Hsb BRF Rudan Nr 146 I Stockholm",
+    "telefonnummer": "073-414 15 46",
+    "email": "",
+    "name": "Emilia Eberg",
+    "personalNumber": "198603241442"
+  },
+  "requiredMissing": [],
+  "diagnostics": [
+    "E-post: kan aldrig hamtas automatiskt."
+  ]
+}

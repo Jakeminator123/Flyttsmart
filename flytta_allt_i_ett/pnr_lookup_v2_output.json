@@ -1,0 +1,55 @@
+{
+  "generatedAt": "2026-03-13T16:32:56Z",
+  "status": "complete",
+  "lookups": {
+    "personLookup": {
+      "pnr": "198605280299",
+      "firstName": "Jakob",
+      "lastName": "Eberg",
+      "name": "Jakob Eberg",
+      "fromCity": "Stockholm",
+      "fromStreetRaw": "Folkungagatan 83 lgh 1401 11622 Stockholm",
+      "age": 39
+    },
+    "personLookupError": null,
+    "fromPostalPap": null,
+    "toPostalPap": null
+  },
+  "flyttioPayload": {
+    "name": "Jakob Eberg",
+    "firstName": "Jakob",
+    "lastName": "Eberg",
+    "personalNumber": "198605280299",
+    "email": "",
+    "phone": "",
+    "fromStreet": "Folkungagatan 83 lgh 1401",
+    "fromPostal": "11622",
+    "fromCity": "Stockholm",
+    "toStreet": "test 10",
+    "toPostal": "11122",
+    "toCity": "göteborg",
+    "apartmentNumber": "",
+    "propertyDesignation": "",
+    "propertyOwner": "",
+    "moveDate": "2026-05-05"
+  },
+  "skvPayload": {
+    "inflyttningsdatum": "2026-05-05",
+    "period": "true",
+    "gatuadress": "test 10",
+    "postnummer": "11122",
+    "postort": "göteborg",
+    "lagenhetsnummer": "",
+    "fastighetsbeteckning": "",
+    "fastighetsagare": "",
+    "telefonnummer": "",
+    "email": "",
+    "name": "Jakob Eberg",
+    "personalNumber": "198605280299"
+  },
+  "requiredMissing": [],
+  "notes": [
+    "PNR kan ge namn + delar av nuvarande adress, men inte hela flyttanmalan.",
+    "Ny adress och flyttdatum maste normalt anges manuellt."
+  ]
+}

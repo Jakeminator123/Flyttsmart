@@ -39,10 +39,16 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
+import { AdressandringStepOneFields } from "@/components/forms/adressandring-step-one-fields";
 import type { ChecklistItem } from "@/components/checklist-view";
 import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
 import { useOpenClawMirror } from "@/hooks/use-openclaw-mirror";
 import { useAutofill } from "@/hooks/use-autofill";
+import {
+  emptyAdressandringForm,
+  type AdressandringFormData,
+  type AdressandringValidationResult,
+} from "@/lib/forms/adressandring";
 import {
   parseStartIntent,
   type StartIntentPayload,
@@ -85,65 +91,17 @@ const HOUSEHOLD_TYPE_LABELS: Record<string, string> = {
   child: "Jag och barn",
 };
 
-interface FormData {
-  // Person
-  firstName: string;
-  lastName: string;
-  personalNumber: string;
-  email: string;
-  phone: string;
-  // Addresses
-  fromStreet: string;
-  fromPostal: string;
-  fromCity: string;
-  toStreet: string;
-  toPostal: string;
-  toCity: string;
-  apartmentNumber: string;
-  propertyDesignation: string;
-  propertyOwner: string;
-  // Move details
-  moveDate: string;
-  householdType: string;
-  reason: string;
-  hasChildren: boolean;
-}
-
-const emptyForm: FormData = {
-  firstName: "",
-  lastName: "",
-  personalNumber: "",
-  email: "",
-  phone: "",
-  fromStreet: "",
-  fromPostal: "",
-  fromCity: "",
-  toStreet: "",
-  toPostal: "",
-  toCity: "",
-  apartmentNumber: "",
-  propertyDesignation: "",
-  propertyOwner: "",
-  moveDate: "",
-  householdType: "",
-  reason: "",
-  hasChildren: false,
-};
-
 export default function AdressandringPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [agreed, setAgreed] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [moveId, setMoveId] = useState<number | null>(null);
-  const [form, setForm] = useState<FormData>(emptyForm);
+  const [form, setForm] = useState<AdressandringFormData>(emptyAdressandringForm);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [checklistError, setChecklistError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
-  const [validation, setValidation] = useState<{
-    confidence: number;
-    suggestions: string[];
-  } | null>(null);
+  const [validation, setValidation] = useState<AdressandringValidationResult | null>(null);
   const [startIntent, setStartIntent] = useState<StartIntentPayload | null>(null);
   const [miniMifContext, setMiniMifContext] = useState<MiniMifContext | null>(null);
   const [showAutofillPanel, setShowAutofillPanel] = useState(false);
@@ -163,7 +121,7 @@ export default function AdressandringPage() {
     useOpenClawMirror({ formType: "adressandring" });
 
   const updateForm = useCallback(
-    (field: keyof FormData, value: string | boolean) => {
+    (field: keyof AdressandringFormData, value: string | boolean) => {
       setForm((prev) => {
         const next = { ...prev, [field]: value };
         mirrorField(field, value, next as unknown as Record<string, string | boolean | number>);
@@ -180,8 +138,8 @@ export default function AdressandringPage() {
     queueSuggestion,
     handleAutofill,
     renderSuggestionBanner,
-  } = useAutofill<keyof FormData>({
-    form: form as unknown as Record<keyof FormData, string | boolean>,
+  } = useAutofill<keyof AdressandringFormData>({
+    form: form as unknown as Record<keyof AdressandringFormData, string | boolean>,
     currentStep,
     updateForm,
     mirrorEvent,
@@ -193,7 +151,7 @@ export default function AdressandringPage() {
   // Prefill from startsida/demo (sessionStorage)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    let prefillForMirror: Partial<FormData> | null = null;
+    let prefillForMirror: Partial<AdressandringFormData> | null = null;
     let startIntentForMirror: StartIntentPayload | null = null;
     const startQuery =
       new URLSearchParams(window.location.search).get("start")?.trim() ?? "";
@@ -214,7 +172,7 @@ export default function AdressandringPage() {
       if (storedPrefill) {
         if (Object.keys(storedPrefill.fields).length > 0) {
           setForm((prev) => ({ ...prev, ...storedPrefill.fields }));
-          prefillForMirror = storedPrefill.fields as Partial<FormData>;
+          prefillForMirror = storedPrefill.fields as Partial<AdressandringFormData>;
         }
         if (storedPrefill.miniMif) {
           setMiniMifContext(storedPrefill.miniMif);
@@ -231,7 +189,7 @@ export default function AdressandringPage() {
           Object.keys(fallbackMiniMif.fields).length > 0
         ) {
           setForm((prev) => ({ ...prev, ...fallbackMiniMif.fields }));
-          prefillForMirror = fallbackMiniMif.fields as Partial<FormData>;
+          prefillForMirror = fallbackMiniMif.fields as Partial<AdressandringFormData>;
         }
         if (!storedPrefill?.miniMif) {
           setMiniMifContext(fallbackMiniMif);
@@ -732,104 +690,19 @@ export default function AdressandringPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 pt-6">
-                {/* Manual entry */}
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    {renderSuggestionBanner("firstName")}
-                    <Label htmlFor="firstName">Förnamn</Label>
-                    <Input
-                      id="firstName"
-                      placeholder="Anna"
-                      value={form.firstName}
-                      onChange={(e) => updateForm("firstName", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    {renderSuggestionBanner("lastName")}
-                    <Label htmlFor="lastName">Efternamn</Label>
-                    <Input
-                      id="lastName"
-                      placeholder="Andersson"
-                      value={form.lastName}
-                      onChange={(e) => updateForm("lastName", e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {renderSuggestionBanner("personalNumber")}
-                  <Label htmlFor="personalNumber">Personnummer</Label>
-                  <Input
-                    id="personalNumber"
-                    placeholder="YYYYMMDD-XXXX"
-                    value={form.personalNumber}
-                    onChange={(e) =>
-                      updateForm("personalNumber", e.target.value)
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Används för att verifiera din identitet.
-                  </p>
-                </div>
-                <Separator />
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    {renderSuggestionBanner("email")}
-                    <Label htmlFor="email">E-postadress</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="anna@exempel.se"
-                      value={form.email}
-                      onChange={(e) => updateForm("email", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    {renderSuggestionBanner("phone")}
-                    <Label htmlFor="phone">Telefonnummer</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="070-123 45 67"
-                      value={form.phone}
-                      onChange={(e) => updateForm("phone", e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {/* AI validation feedback */}
-                {validating && (
-                  <div className="flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 p-3.5 text-sm">
-                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-muted-foreground">
-                      AI validerar dina uppgifter...
-                    </span>
-                  </div>
-                )}
-                {validation && !validating && (
-                  <div
-                    className={cn(
-                      "rounded-2xl border p-3.5 text-sm",
-                      validation.confidence >= 70
-                        ? "border-green-200 bg-green-50"
-                        : "border-yellow-200 bg-yellow-50"
-                    )}
-                  >
-                    <div className="flex items-center gap-2 font-medium">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      AI-validering: {validation.confidence}% konfidenspoäng
-                    </div>
-                    {validation.suggestions.length > 0 && (
-                      <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                        {validation.suggestions.map((s, i) => (
-                          <li key={i} className="flex items-start gap-1.5">
-                            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-                            {s}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
+                <AdressandringStepOneFields
+                  fields={{
+                    firstName: form.firstName,
+                    lastName: form.lastName,
+                    personalNumber: form.personalNumber,
+                    email: form.email,
+                    phone: form.phone,
+                  }}
+                  onFieldChange={updateForm}
+                  renderSuggestionBanner={renderSuggestionBanner}
+                  validating={validating}
+                  validation={validation}
+                />
               </CardContent>
             </>
           )}
@@ -1276,7 +1149,7 @@ export default function AdressandringPage() {
         formData={form as unknown as Record<string, string | boolean | number>}
         currentStep={currentStep}
         onSuggestion={(field, value) => {
-          queueSuggestion(field as keyof FormData, value, "openclaw");
+          queueSuggestion(field as keyof AdressandringFormData, value, "openclaw");
         }}
       />
     </div>

@@ -25,6 +25,7 @@ const DID_CLIENT_KEY = process.env.NEXT_PUBLIC_DID_CLIENT_KEY ?? ""
 const DID_AGENT_ID = process.env.NEXT_PUBLIC_DID_AGENT_ID ?? ""
 const DID_BRIDGE_ENABLED = process.env.NEXT_PUBLIC_DID_BRIDGE_ENABLED === "true"
 const AIDA_FALLBACK_VIDEO_SRC = "/media/videos/aida-intro.mp4"
+const AIDA_AUTO_GREETING = "Hej, jag hjälper gärna till med flytten."
 
 const QUICK_EXAMPLES = [
   "19900101-1234",
@@ -101,6 +102,7 @@ export function EmbeddedLandingAida() {
   const sdkModuleRef = useRef<any>(null)
   const connectInFlightRef = useRef(false)
   const autoConnectRequestedRef = useRef(false)
+  const autoGreetingAttemptedRef = useRef(false)
   const srcObjectRef = useRef<MediaStream | null>(null)
   const pendingSpeakRef = useRef<string | null>(null)
 
@@ -161,7 +163,7 @@ export function EmbeddedLandingAida() {
               ? "Tänker"
               : "Redo"
         : connectionState === "error"
-          ? "Fel"
+          ? "Textläge"
           : connectionState === "unavailable"
             ? "Textläge"
             : "Viloläge"
@@ -172,7 +174,7 @@ export function EmbeddedLandingAida() {
       : connectionState === "connecting"
         ? "bg-amber-500 animate-pulse"
         : connectionState === "error"
-          ? "bg-red-500"
+          ? "bg-amber-500"
           : "bg-slate-400"
 
   const syncVideoPlayback = useCallback(() => {
@@ -216,6 +218,10 @@ export function EmbeddedLandingAida() {
     videoEl.muted = true
     void videoEl.play().catch(() => {})
   }, [])
+
+  useEffect(() => {
+    syncVideoPlayback()
+  }, [syncVideoPlayback])
 
   const loadDidSdk = useCallback(async () => {
     if (sdkModuleRef.current) return sdkModuleRef.current
@@ -307,11 +313,6 @@ export function EmbeddedLandingAida() {
   useEffect(() => {
     if (!didAvailable || autoConnectRequestedRef.current) return
 
-    const idleWindow = window as Window & {
-      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
-      cancelIdleCallback?: (id: number) => void
-    }
-
     const warmup = () => {
       autoConnectRequestedRef.current = true
       void (async () => {
@@ -320,24 +321,38 @@ export function EmbeddedLandingAida() {
       })()
     }
 
-    let timeoutId: number | undefined
-    let idleId: number | undefined
-
-    if (typeof idleWindow.requestIdleCallback === "function") {
-      idleId = idleWindow.requestIdleCallback(warmup, { timeout: 1200 })
-    } else {
-      timeoutId = window.setTimeout(warmup, 450)
-    }
+    const timeoutId = window.setTimeout(warmup, 120)
 
     return () => {
-      if (idleId !== undefined && typeof idleWindow.cancelIdleCallback === "function") {
-        idleWindow.cancelIdleCallback(idleId)
-      }
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId)
-      }
+      window.clearTimeout(timeoutId)
     }
   }, [connectStream, didAvailable, initAgent])
+
+  useEffect(() => {
+    if (
+      !didAvailable ||
+      autoGreetingAttemptedRef.current ||
+      connectionState !== "connected" ||
+      !avatarReady ||
+      !srcObjectRef.current ||
+      !agentRef.current
+    ) {
+      return
+    }
+
+    autoGreetingAttemptedRef.current = true
+    const timeoutId = window.setTimeout(() => {
+      void agentRef.current
+        ?.speak({ type: "text", input: AIDA_AUTO_GREETING })
+        .catch((error: unknown) => {
+          console.warn("[landing DID] auto greeting blocked:", error)
+        })
+    }, 600)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [avatarReady, connectionState, didAvailable])
 
   useEffect(() => {
     if (connectionState !== "connected") return
@@ -499,8 +514,8 @@ export function EmbeddedLandingAida() {
   }, [])
 
   return (
-    <div className="mt-8 w-full max-w-[1240px] rounded-[36px] border border-border/70 bg-card/90 p-3 shadow-2xl shadow-primary/10 backdrop-blur sm:p-4 xl:p-5">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.95fr)]">
+    <div className="mt-8 w-full rounded-[36px] border border-border/70 bg-card/90 p-3 shadow-2xl shadow-primary/10 backdrop-blur sm:p-4 lg:p-5">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.95fr)]">
         <div className="flex min-w-0 flex-col overflow-hidden rounded-[30px] border border-border/60 bg-background/78">
           <div className="overflow-hidden border-b border-border/50 bg-linear-to-b from-slate-950 via-slate-900 to-slate-950">
             <div className="relative h-[220px] bg-black sm:h-[250px] xl:h-[300px]">
@@ -514,6 +529,9 @@ export function EmbeddedLandingAida() {
                 }}
                 autoPlay
                 playsInline
+                preload="auto"
+                src={AIDA_FALLBACK_VIDEO_SRC}
+                loop
                 muted={connectionState !== "connected" || !srcObjectRef.current}
                 onLoadedData={(event) => {
                   setAvatarReady(true)
@@ -533,10 +551,10 @@ export function EmbeddedLandingAida() {
                 className="h-full w-full object-contain object-top"
               />
               {!avatarReady && (
-                <div className="absolute inset-0 flex items-end bg-linear-to-br from-slate-950 via-slate-900/90 to-slate-950 px-4 py-4">
+                <div className="pointer-events-none absolute left-4 top-4">
                   <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-3 py-1.5 text-xs text-white/80 backdrop-blur">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Aida startar upp sin videoyta
+                    Aida ansluter live
                   </div>
                 </div>
               )}
@@ -550,9 +568,9 @@ export function EmbeddedLandingAida() {
                   <span className="text-sm font-medium">{stateLabel}</span>
                 </div>
                 <p className="max-w-xl text-xs leading-relaxed text-white/75">
-                  D-ID ger Aida närvaro i hero-ytan. Om liveströmmen inte hinner upp
-                  direkt visar vi hennes videobas medan OpenClaw fortsätter driva
-                  förståelsen och svaren.
+                  {connectionState === "error"
+                    ? "Liveströmmen är inte tillgänglig just nu. Aida fungerar i textläge."
+                    : "D-ID ger Aida närvaro i hero-ytan. Om liveströmmen inte hinner upp direkt visar vi hennes videobas medan OpenClaw fortsätter driva förståelsen och svaren."}
                 </p>
               </div>
               {didAvailable ? (

@@ -119,6 +119,7 @@ When `SKV_DATA_DIR` points at a persistent disk, the service keeps:
 - `snapshots/{jobId}.html` -- saved HTML snapshot of the form page
 - `jobs/{jobId}.json` -- archived final job state used by `/api/status/{jobId}` even after in-memory cleanup
 - `qr_frames/{jobId}/` -- a rolling QR archive (defaults to 1 frame every 2 seconds, max 2 minutes / 60 frames)
+- `logs/{jobId}.log` -- archived session log for the run
 
 ### Limits and cleanup
 
@@ -186,7 +187,23 @@ curl https://skv-playwright.onrender.com/api/payload/abc123def456 \
 
 curl https://skv-playwright.onrender.com/api/html/abc123def456 \
   -H "Authorization: Bearer <SKV_API_KEY>"
+
+curl https://skv-playwright.onrender.com/api/screenshot/abc123def456 \
+  -H "Authorization: Bearer <SKV_API_KEY>"
+
+curl https://skv-playwright.onrender.com/api/log/abc123def456 \
+  -H "Authorization: Bearer <SKV_API_KEY>"
 ```
+
+### Access via the site (recommended)
+
+If you want the same artifacts through Vercel instead of calling Render directly:
+
+- `/api/skv/int7/status/{jobId}`
+- `/api/skv/int7/payload/{jobId}`
+- `/api/skv/int7/html/{jobId}`
+- `/api/skv/int7/screenshot/{jobId}`
+- `/api/skv/int7/log/{jobId}`
 
 ### End-to-end from the site
 

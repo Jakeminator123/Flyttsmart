@@ -9,6 +9,7 @@ import base64
 import json
 import os
 import re
+import shutil
 import time
 import uuid
 import threading
@@ -207,6 +208,72 @@ def _persist_job(job: JobStatus) -> None:
             json.dump(asdict(job), f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"Persisted job save error for {job.job_id}: {e}")
+
+
+def _job_log_file(job_id: str) -> str:
+    return os.path.join(LOG_DIR, f"{job_id}.log")
+
+
+def _archive_session_log(job_id: str) -> None:
+    try:
+        if os.path.isfile(SESSION_LOG_FILE):
+            shutil.copyfile(SESSION_LOG_FILE, _job_log_file(job_id))
+    except Exception as e:
+        print(f"Session log archive error for {job_id}: {e}")
+
+
+def _save_page_artifacts(
+    job: JobStatus,
+    job_id: str,
+    target_page,
+    payload_file: Optional[str] = None,
+) -> None:
+    screenshot_file = os.path.join(RESULT_DIR, f"{job_id}.png")
+    html_snapshot_name = None
+
+    try:
+        if target_page is None or target_page.is_closed():
+            target_page = None
+    except Exception:
+        target_page = None
+
+    if target_page is not None:
+        try:
+            html_content = target_page.content()
+            html_snapshot_name = f"{job_id}.html"
+            html_path = os.path.join(SNAPSHOT_DIR, html_snapshot_name)
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            with open(LATEST_HTML_SNAPSHOT_FILE, "w", encoding="utf-8") as f:
+                f.write(html_content)
+        except Exception as e:
+            job.details = job.details or {}
+            job.details["htmlSnapshotError"] = str(e)
+
+        try:
+            target_page.screenshot(path=screenshot_file, full_page=True)
+            job.screenshot_path = f"{job_id}.png"
+        except Exception as e:
+            job.details = job.details or {}
+            job.details["screenshotError"] = str(e)
+            if not job.screenshot_path:
+                job.screenshot_path = None
+
+    job.details = job.details or {}
+    existing_artifacts = job.details.get("artifacts")
+    artifacts = existing_artifacts if isinstance(existing_artifacts, dict) else {}
+    artifacts.update({
+        "dataDir": DATA_DIR,
+        "payloadFile": os.path.basename(payload_file) if payload_file else artifacts.get("payloadFile"),
+        "payloadUrl": f"/api/payload/{job_id}",
+        "htmlSnapshotFile": html_snapshot_name or artifacts.get("htmlSnapshotFile"),
+        "htmlSnapshotUrl": f"/api/html/{job_id}",
+        "screenshotFile": job.screenshot_path,
+        "screenshotUrl": f"/api/screenshot/{job_id}" if job.screenshot_path else None,
+        "logFile": os.path.basename(_job_log_file(job_id)),
+        "logUrl": f"/api/log/{job_id}",
+    })
+    job.details["artifacts"] = artifacts
 
 
 def _set_job(job: JobStatus) -> None:
@@ -902,6 +969,9 @@ def _run_playwright_job(
         _qr_capture_last_time.pop(job_id, None)
 
     screenshot_file = os.path.join(RESULT_DIR, f"{job_id}.png")
+    browser = None
+    page = None
+    flytt_page = None
 
     try:
         with sync_playwright() as p:
@@ -1050,6 +1120,9 @@ def _run_playwright_job(
                     job.state = "cancelled"
                     job.ended_at = time.time()
                     job.message = "Avbruten av användaren."
+                    _log_session("Session cancelled by user", "DONE")
+                    _save_page_artifacts(job, job_id, page, payload_file=payload_file)
+                    _archive_session_log(job_id)
                     _set_job(job)
                     browser.close()
                     return
@@ -1086,6 +1159,9 @@ def _run_playwright_job(
                     job.state = "cancelled"
                     job.ended_at = time.time()
                     job.message = "Avbruten av användaren."
+                    _log_session("Session cancelled by user", "DONE")
+                    _save_page_artifacts(job, job_id, page, payload_file=payload_file)
+                    _archive_session_log(job_id)
                     _set_job(job)
                     browser.close()
                     return
@@ -1122,6 +1198,9 @@ def _run_playwright_job(
                     job.state = "cancelled"
                     job.ended_at = time.time()
                     job.message = "Avbruten av användaren."
+                    _log_session("Session cancelled by user", "DONE")
+                    _save_page_artifacts(job, job_id, page, payload_file=payload_file)
+                    _archive_session_log(job_id)
                     _set_job(job)
                     browser.close()
                     return
@@ -1159,6 +1238,9 @@ def _run_playwright_job(
                     job.state = "cancelled"
                     job.ended_at = time.time()
                     job.message = "Avbruten av användaren."
+                    _log_session("Session cancelled by user", "DONE")
+                    _save_page_artifacts(job, job_id, page, payload_file=payload_file)
+                    _archive_session_log(job_id)
                     _set_job(job)
                     browser.close()
                     return
@@ -1279,11 +1361,8 @@ def _run_playwright_job(
                     job.ended_at = time.time()
                     job.message = "Avbruten av användaren."
                     _log_session("Session cancelled by user", "DONE")
-                    try:
-                        page.screenshot(path=screenshot_file, full_page=True)
-                        job.screenshot_path = f"{job_id}.png"
-                    except Exception:
-                        pass
+                    _save_page_artifacts(job, job_id, flytt_page or page, payload_file=payload_file)
+                    _archive_session_log(job_id)
                     _set_job(job)
                     browser.close()
                     return
@@ -1653,48 +1732,20 @@ def _run_playwright_job(
                     _log_session(f"Form filler error: {e}", "FORM")
 
             # Phase 3: Save full page HTML snapshot
-            html_snapshot_name = None
-            try:
-                save_page = flytt_page or page
-                html_content = save_page.content()
-                html_snapshot_name = f"{job_id}.html"
-                html_path = os.path.join(SNAPSHOT_DIR, html_snapshot_name)
-                with open(html_path, "w", encoding="utf-8") as f:
-                    f.write(html_content)
-                with open(LATEST_HTML_SNAPSHOT_FILE, "w", encoding="utf-8") as f:
-                    f.write(html_content)
-            except Exception as e:
-                job.details = job.details or {}
-                job.details["htmlSnapshotError"] = str(e)
-
-            try:
-                final_page = flytt_page or page
-                final_page.screenshot(path=screenshot_file, full_page=True)
-                job.screenshot_path = f"{job_id}.png"
-            except Exception:
-                job.screenshot_path = None
-
+            _save_page_artifacts(job, job_id, flytt_page or page, payload_file=payload_file)
             job.details = job.details or {}
-            existing_artifacts = job.details.get("artifacts")
-            artifacts = existing_artifacts if isinstance(existing_artifacts, dict) else {}
-            artifacts.update({
-                "dataDir": DATA_DIR,
-                "payloadFile": os.path.basename(payload_file) if payload_file else None,
-                "payloadUrl": f"/api/payload/{job_id}",
-                "htmlSnapshotFile": html_snapshot_name,
-                "htmlSnapshotUrl": f"/api/html/{job_id}",
-                "latestHtmlSnapshotFile": os.path.basename(LATEST_HTML_SNAPSHOT_FILE),
-                "screenshotFile": job.screenshot_path,
-                "screenshotUrl": f"/results/{job.screenshot_path}" if job.screenshot_path else None,
-            })
-            job.details["artifacts"] = artifacts
+            artifacts = job.details.get("artifacts")
+            if isinstance(artifacts, dict):
+                artifacts["latestHtmlSnapshotFile"] = os.path.basename(LATEST_HTML_SNAPSHOT_FILE)
+                job.details["artifacts"] = artifacts
             job.ended_at = time.time()
 
             if _form_filler_done:
                 job.state = "matched"
                 job.message = (
                     f"Formulär ifyllt! Hämta payload via /api/payload/{job_id}, "
-                    f"HTML via /api/html/{job_id} och screenshot via /results/{job_id}.png"
+                    f"HTML via /api/html/{job_id}, screenshot via /api/screenshot/{job_id} "
+                    f"och logg via /api/log/{job_id}"
                 )
                 _log_session("Session completed successfully", "DONE")
             elif job.state != "cancelled":
@@ -1704,6 +1755,7 @@ def _run_playwright_job(
 
             if trace_browser_windows:
                 _log_browser_windows(context, "Final browser snapshot", include_focus=True)
+            _archive_session_log(job_id)
             _set_job(job)
             try:
                 browser.close()
@@ -1716,7 +1768,14 @@ def _run_playwright_job(
         job.ended_at = time.time()
         job.message = f"Fel: {e}"
         _log_session(f"Session error: {e}", "DONE")
+        _save_page_artifacts(job, job_id, flytt_page or page, payload_file=payload_file)
+        _archive_session_log(job_id)
         _set_job(job)
+        try:
+            if browser is not None:
+                browser.close()
+        except Exception:
+            pass
         _schedule_job_cleanup(job_id)
 
 
@@ -2045,6 +2104,32 @@ def api_html(job_id: str):
     return send_from_directory(SNAPSHOT_DIR, html_filename)
 
 
+@app.get("/api/screenshot/<job_id>")
+def api_screenshot(job_id: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):
+        return jsonify({"ok": False, "error": "invalid job id"}), 400
+
+    screenshot_filename = f"{job_id}.png"
+    screenshot_path = os.path.join(RESULT_DIR, screenshot_filename)
+    if not os.path.isfile(screenshot_path):
+        return jsonify({"ok": False, "error": "screenshot not found", "jobId": job_id}), 404
+
+    return send_from_directory(RESULT_DIR, screenshot_filename)
+
+
+@app.get("/api/log/<job_id>")
+def api_log(job_id: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):
+        return jsonify({"ok": False, "error": "invalid job id"}), 400
+
+    log_filename = os.path.basename(_job_log_file(job_id))
+    log_path = _job_log_file(job_id)
+    if not os.path.isfile(log_path):
+        return jsonify({"ok": False, "error": "log not found", "jobId": job_id}), 404
+
+    return send_from_directory(LOG_DIR, log_filename, mimetype="text/plain; charset=utf-8")
+
+
 @app.get("/api/clone/state/<job_id>")
 def api_clone_state(job_id: str):
     enabled = _is_clone_qr_to_site_enabled()
@@ -2164,7 +2249,8 @@ def api_run():
                 "payloadFile": os.path.basename(job_payload_file),
                 "payloadUrl": f"/api/payload/{job_id}",
                 "htmlSnapshotUrl": f"/api/html/{job_id}",
-                "screenshotUrl": f"/results/{job_id}.png",
+                "screenshotUrl": f"/api/screenshot/{job_id}",
+                "logUrl": f"/api/log/{job_id}",
             },
         }
 
@@ -2192,7 +2278,8 @@ def api_run():
     body = asdict(job)
     body["payload_url"] = f"/api/payload/{job_id}"
     body["html_url"] = f"/api/html/{job_id}"
-    body["screenshot_url"] = f"/results/{job_id}.png"
+    body["screenshot_url"] = f"/api/screenshot/{job_id}"
+    body["log_url"] = f"/api/log/{job_id}"
     if _is_clone_qr_to_site_enabled():
         body["clone_qr_state_url"] = f"/api/clone/state/{job_id}"
     return jsonify(body)
@@ -2203,7 +2290,12 @@ def api_status(job_id: str):
     job = _get_job(job_id)
     if not job:
         return jsonify({"error": "job not found"}), 404
-    return jsonify(asdict(job))
+    payload = asdict(job)
+    payload["payload_url"] = f"/api/payload/{job_id}"
+    payload["html_url"] = f"/api/html/{job_id}"
+    payload["screenshot_url"] = f"/api/screenshot/{job_id}"
+    payload["log_url"] = f"/api/log/{job_id}"
+    return jsonify(payload)
 
 
 @app.get("/api/payload/<job_id>")

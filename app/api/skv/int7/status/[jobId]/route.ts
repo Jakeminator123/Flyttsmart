@@ -4,6 +4,17 @@ import { upsertSkvRun } from "@/lib/skv/run-tracker";
 
 export const runtime = "nodejs";
 
+function buildArtifactUrls(jobId: string, req: NextRequest) {
+  const query = req.nextUrl.searchParams.toString();
+  const suffix = query ? `?${query}` : "";
+  return {
+    payloadUrl: `/api/skv/int7/payload/${jobId}${suffix}`,
+    htmlUrl: `/api/skv/int7/html/${jobId}${suffix}`,
+    screenshotUrl: `/api/skv/int7/screenshot/${jobId}${suffix}`,
+    logUrl: `/api/skv/int7/log/${jobId}${suffix}`,
+  };
+}
+
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ jobId: string }> },
@@ -51,7 +62,13 @@ export async function GET(
           typeof data?.screenshot_path === "string" ? data.screenshot_path : null,
         details: data?.details ?? null,
       });
-      return NextResponse.json(data, { status: res.status });
+      return NextResponse.json(
+        {
+          ...data,
+          ...buildArtifactUrls(jobId, req),
+        },
+        { status: res.status },
+      );
     }
 
     const text = await res.text();

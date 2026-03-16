@@ -70,6 +70,13 @@ interface MoveData {
   checklist: ChecklistItem[];
 }
 
+interface SkvArtifactUrls {
+  payloadUrl: string | null;
+  htmlUrl: string | null;
+  screenshotUrl: string | null;
+  logUrl: string | null;
+}
+
 function daysUntilMove(moveDate: string | null) {
   if (!moveDate) return null;
   const now = new Date();
@@ -90,6 +97,7 @@ function DashboardContent() {
   const [cloneQrStateUrl, setCloneQrStateUrl] = useState<string | null>(null);
   const [cloneQrImageUrl, setCloneQrImageUrl] = useState<string | null>(null);
   const [int7StatusUrl, setInt7StatusUrl] = useState<string | null>(null);
+  const [skvArtifacts, setSkvArtifacts] = useState<SkvArtifactUrls | null>(null);
 
   useEffect(() => {
     if (!moveId) {
@@ -145,6 +153,7 @@ function DashboardContent() {
     if (!data) return;
     setSkvStarting(true);
     setSkvStatus(null);
+    setSkvArtifacts(null);
     try {
       const [first = "", ...rest] = data.user.name.split(" ");
       const res = await fetch("/api/skv/int7/start", {
@@ -174,6 +183,13 @@ function DashboardContent() {
         throw new Error(body?.error || "Kunde inte starta Skatteverket-flödet.");
       }
       setInt7StatusUrl(typeof body?.statusUrl === "string" ? body.statusUrl : null);
+      setSkvArtifacts({
+        payloadUrl: typeof body?.payloadUrl === "string" ? body.payloadUrl : null,
+        htmlUrl: typeof body?.htmlUrl === "string" ? body.htmlUrl : null,
+        screenshotUrl:
+          typeof body?.screenshotUrl === "string" ? body.screenshotUrl : null,
+        logUrl: typeof body?.logUrl === "string" ? body.logUrl : null,
+      });
       if (body?.cloneQrEnabled && body?.cloneQrStateUrl) {
         setCloneQrStateUrl(body.cloneQrStateUrl);
         setCloneQrImageUrl(body.cloneQrImageUrl ?? null);
@@ -593,6 +609,55 @@ function DashboardContent() {
                           setInt7StatusUrl(null);
                         }}
                       />
+                    </div>
+                  )}
+                  {skvArtifacts && (
+                    <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground">
+                      <p className="mb-2 font-medium text-foreground">
+                        Sparat från den här körningen
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {skvArtifacts.payloadUrl && (
+                          <a
+                            className="rounded-full border border-border/70 bg-background px-3 py-1 hover:bg-muted"
+                            href={skvArtifacts.payloadUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Payload JSON
+                          </a>
+                        )}
+                        {skvArtifacts.htmlUrl && (
+                          <a
+                            className="rounded-full border border-border/70 bg-background px-3 py-1 hover:bg-muted"
+                            href={skvArtifacts.htmlUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            HTML-snapshot
+                          </a>
+                        )}
+                        {skvArtifacts.screenshotUrl && (
+                          <a
+                            className="rounded-full border border-border/70 bg-background px-3 py-1 hover:bg-muted"
+                            href={skvArtifacts.screenshotUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Screenshot
+                          </a>
+                        )}
+                        {skvArtifacts.logUrl && (
+                          <a
+                            className="rounded-full border border-border/70 bg-background px-3 py-1 hover:bg-muted"
+                            href={skvArtifacts.logUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Session-logg
+                          </a>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>

@@ -109,6 +109,16 @@ interface StartTrackingContext {
   sourceData: SkvSourceData;
 }
 
+function buildArtifactUrls(jobId: string, portQ = "") {
+  return {
+    statusUrl: `/api/skv/int7/status/${jobId}${portQ}`,
+    payloadUrl: `/api/skv/int7/payload/${jobId}${portQ}`,
+    htmlUrl: `/api/skv/int7/html/${jobId}${portQ}`,
+    screenshotUrl: `/api/skv/int7/screenshot/${jobId}${portQ}`,
+    logUrl: `/api/skv/int7/log/${jobId}${portQ}`,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Production mode: delegate to remote Flask service (Render/Docker)
 // ---------------------------------------------------------------------------
@@ -144,6 +154,7 @@ async function startRemote(
   const jobId = data.job_id as string;
   const cloneQrEnabled = await isCloneQrToSiteEnabled();
   let cloneData: Record<string, unknown> = {};
+  const artifactUrls = jobId ? buildArtifactUrls(jobId) : null;
   if (cloneQrEnabled && jobId) {
     cloneData = {
       cloneQrEnabled: true,
@@ -186,8 +197,7 @@ async function startRemote(
     remote: true,
     payload,
     jobId,
-    statusUrl: jobId ? `/api/skv/int7/status/${jobId}` : null,
-    payloadUrl: jobId ? `/api/skv/int7/payload/${jobId}` : null,
+    ...(artifactUrls ?? {}),
     ...cloneData,
   });
 }
@@ -210,6 +220,7 @@ async function startLocal(
       const jobId = typeof currentJob?.jobId === "string" ? currentJob.jobId : null;
       const port = currentJob?.flaskPort ?? 8767;
       const portQ = port !== 8767 ? `?port=${port}` : "";
+      const artifactUrls = jobId ? buildArtifactUrls(jobId, portQ) : null;
       return NextResponse.json({
         ok: true,
         started: false,
@@ -217,8 +228,7 @@ async function startLocal(
         pid: existing.pid,
         startedAt: existing.startedAt ?? null,
         jobId,
-        statusUrl: jobId ? `/api/skv/int7/status/${jobId}${portQ}` : null,
-        payloadUrl: jobId ? `/api/skv/int7/payload/${jobId}${portQ}` : null,
+        ...(artifactUrls ?? {}),
         payload,
         script: "int7/runner.py",
       });
@@ -256,11 +266,7 @@ async function startLocal(
   if (jobInfo?.jobId) {
     const port = jobInfo.flaskPort ?? 8767;
     const portQ = port !== 8767 ? `?port=${port}` : "";
-    jobData = {
-      jobId: jobInfo.jobId,
-      statusUrl: `/api/skv/int7/status/${jobInfo.jobId}${portQ}`,
-      payloadUrl: `/api/skv/int7/payload/${jobInfo.jobId}${portQ}`,
-    };
+    jobData = { jobId: jobInfo.jobId, ...buildArtifactUrls(jobInfo.jobId, portQ) };
   }
 
   if (cloneQrEnabled && jobInfo?.jobId) {

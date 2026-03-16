@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="sv">
+<body style="margin:0; padding:0; background:#f3f6fb;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; background:#f3f6fb; margin:0; padding:0;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="760" style="width:760px; max-width:760px; border-collapse:collapse; background:#ffffff; border:1px solid #dbe4ee; border-radius:16px;">
+          <tr>
+            <td style="padding:34px 36px 20px; font-family:Arial, Helvetica, sans-serif; color:#1a1a2e;">
+              <div style="font-size:30px; line-height:36px; font-weight:700; color:#0f4c81; margin:0 0 8px;">
+                Svar till Kalle
+              </div>
+              <div style="font-size:16px; line-height:24px; color:#5f6b7a; margin:0 0 24px;">
+                Gmail-s&auml;ker version med inline-styling, anpassad f&ouml;r att synas direkt i mejl.
+              </div>
+
+              <div style="background:#eef5ff; border:1px solid #dbe4ee; border-left:5px solid #0f4c81; border-radius:12px; padding:18px 20px; font-size:15px; line-height:24px; color:#1a1a2e; margin:0 0 24px;">
+                <strong>Kort version:</strong> Kalle har r&auml;tt om hur det ska se ut f&ouml;r anv&auml;ndaren,
+                men hans bilder visar bara sista delen inne hos Skatteverket. Det de inte visar &auml;r hur vi
+                faktiskt h&auml;mtar de saknade uppgifterna, fyller i SKV:s webbformul&auml;r och tar oss igenom
+                BankID-fl&ouml;det utan ett officiellt API.
+              </div>
+
+              <div style="background:#f7f9fc; border:1px solid #dbe4ee; border-radius:14px; padding:22px 22px 10px; margin:0 0 28px; font-size:15px; line-height:24px; color:#1a1a2e;">
+                <p style="margin:0 0 14px;">Hej Kalle,</p>
+                <p style="margin:0 0 14px;">
+                  Jag tror egentligen att vi menar samma sak p&aring; UX-niv&aring;: anv&auml;ndaren ska bara beh&ouml;va ange
+                  personnummer, ny adress och inflyttningsdatum hos oss. D&auml;r jag inte h&aring;ller med &auml;r slutsatsen
+                  att all &ouml;vrig data d&auml;rf&ouml;r "redan finns" utan extra steg.
+                </p>
+                <p style="margin:0 0 14px;">
+                  Dina bilder visar vad Skatteverket visar <strong>n&auml;r man redan &auml;r inne i deras fl&ouml;de</strong>.
+                  V&aring;rt problem &auml;r inte hur granskningssidan ser ut, utan hur vi tar oss dit med s&aring; f&aring; klick
+                  som m&ouml;jligt och med s&aring; mycket ifyllt som m&ouml;jligt.
+                </p>
+                <p style="margin:0 0 14px;">
+                  Det finns tre sk&auml;l till att vi inte bara kan "ta den v&auml;gen" rakt av:
+                </p>
+                <p style="margin:0 0 14px;">
+                  <strong>1.</strong> Skatteverket har inget &ouml;ppet API f&ouml;r flyttanm&auml;lan, s&aring; n&aring;gon m&aring;ste fortfarande
+                  fylla deras webbformul&auml;r och hantera BankID-fl&ouml;det tekniskt.<br>
+                  <strong>2.</strong> F&auml;lten f&ouml;r <em>fastighetsbeteckning</em> och <em>fastighets&auml;gare</em> p&aring; den nya adressen
+                  kommer inte gratis fr&aring;n personnumret, utan m&aring;ste h&auml;mtas fr&aring;n andra k&auml;llor.<br>
+                  <strong>3.</strong> Om vi vill minimera friktion redan innan anv&auml;ndaren kommer till SKV beh&ouml;ver vi kunna
+                  f&ouml;rbereda och validera data i f&ouml;rv&auml;g, inte f&ouml;rst efter BankID.
+                </p>
+                <p style="margin:0 0 14px;">
+                  S&aring; min po&auml;ng &auml;r inte att ditt fl&ouml;de &auml;r fel, utan att det beskriver
+                  <strong>frontend-upplevelsen</strong> medan jag beskriver den <strong>tekniska kedjan bakom</strong>
+                  som g&ouml;r att det faktiskt fungerar.
+                </p>
+                <p style="margin:0 0 14px;">
+                  Med andra ord: ja, anv&auml;ndaren ska helst bara ange tre saker. Men f&ouml;r att det ska bli sant i praktiken
+                  m&aring;ste vi fortfarande g&ouml;ra uppslagen utanf&ouml;r SKV och sedan mata in resultatet i SKV:s fl&ouml;de.
+                </p>
+                <p style="margin:0 0 0;">/Jakob</p>
+              </div>
+
+              <div style="font-size:20px; line-height:28px; font-weight:700; color:#0f4c81; border-bottom:2px solid #0f4c81; padding-bottom:6px; margin:0 0 14px;">
+                Varf&ouml;r hans v&auml;g inte r&auml;cker tekniskt
+              </div>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:separate; border-spacing:0 12px; margin:0 0 26px;">
+                <tr>
+                  <td style="background:#f7f9fc; border:1px solid #dbe4ee; border-radius:12px; padding:16px 18px; font-family:Arial, Helvetica, sans-serif; color:#1a1a2e;">
+                    <div style="font-size:11px; line-height:18px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#0f4c81; margin:0 0 6px;">SKV</div>
+                    <div style="font-size:16px; line-height:22px; font-weight:700; margin:0 0 6px;">Hans bilder b&ouml;rjar f&ouml;r sent</div>
+                    <div style="font-size:14px; line-height:22px; color:#5f6b7a;">
+                      Sk&auml;rmbilderna visar l&auml;get efter att man redan &auml;r inne hos Skatteverket. De svarar inte p&aring;
+                      hur vi kommer dit programmatiskt med s&aring; f&aring; klick som m&ouml;jligt.
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background:#f7f9fc; border:1px solid #dbe4ee; border-radius:12px; padding:16px 18px; font-family:Arial, Helvetica, sans-serif; color:#1a1a2e;">
+                    <div style="font-size:11px; line-height:18px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#e76f51; margin:0 0 6px;">Datagap</div>
+                    <div style="font-size:16px; line-height:22px; font-weight:700; margin:0 0 6px;">Ny adress saknar viktiga f&auml;lt</div>
+                    <div style="font-size:14px; line-height:22px; color:#5f6b7a;">
+                      <em>Fastighetsbeteckning</em> och <em>fastighets&auml;gare</em> f&ouml;r den nya adressen m&aring;ste fortfarande
+                      h&auml;mtas via externa uppslag. De ligger inte bara och v&auml;ntar i SKV-formul&auml;ret.
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background:#f7f9fc; border:1px solid #dbe4ee; border-radius:12px; padding:16px 18px; font-family:Arial, Helvetica, sans-serif; color:#1a1a2e;">
+                    <div style="font-size:11px; line-height:18px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#2a9d8f; margin:0 0 6px;">Automation</div>
+                    <div style="font-size:16px; line-height:22px; font-weight:700; margin:0 0 6px;">N&aring;gon m&aring;ste g&ouml;ra sista milen</div>
+                    <div style="font-size:14px; line-height:22px; color:#5f6b7a;">
+                      Eftersom SKV saknar ett partner-API i det h&auml;r l&auml;get m&aring;ste vi k&ouml;ra browser automation och spegla
+                      BankID-QR till anv&auml;ndarens webbl&auml;sare.
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="font-size:20px; line-height:28px; font-weight:700; color:#0f4c81; border-bottom:2px solid #0f4c81; padding-bottom:6px; margin:0 0 14px;">
+                Varf&ouml;r v&aring;r v&auml;g fungerar
+              </div>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:separate; border-spacing:0 10px; margin:0 0 28px;">
+                <tr>
+                  <td style="background:#f7f9fc; border:1px solid #dbe4ee; border-radius:10px; padding:12px 14px; font-size:14px; line-height:22px; color:#1a1a2e;">
+                    Anv&auml;ndaren ger fortfarande bara den minimala input vi vill ha: personnummer, ny adress och datum.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background:#f7f9fc; border:1px solid #dbe4ee; border-radius:10px; padding:12px 14px; font-size:14px; line-height:22px; color:#1a1a2e;">
+                    Nuvarande uppgifter kan h&auml;mtas och f&ouml;rifyllas innan SKV-steget, vilket minskar friktion och fel.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background:#f7f9fc; border:1px solid #dbe4ee; border-radius:10px; padding:12px 14px; font-size:14px; line-height:22px; color:#1a1a2e;">
+                    Ny adress kompletteras med fastighetsbeteckning och &auml;gare via externa k&auml;llor innan inl&auml;mning.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background:#f7f9fc; border:1px solid #dbe4ee; border-radius:10px; padding:12px 14px; font-size:14px; line-height:22px; color:#1a1a2e;">
+                    Slutligen fylls SKV:s webbfl&ouml;de i automatiskt och anv&auml;ndaren g&ouml;r bara BankID-bekr&auml;ftelsen.
+                  </td>
+                </tr>
+              </table>
+
+              <div style="font-size:20px; line-height:28px; font-weight:700; color:#0f4c81; border-bottom:2px solid #0f4c81; padding-bottom:6px; margin:0 0 14px;">
+                Fl&ouml;det i mejlformat
+              </div>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; margin:0 0 24px;">
+                <tr>
+                  <td style="padding:0 0 10px;">
+                    <div style="background:#eef5ff; border:1px solid #dbe4ee; border-radius:12px; padding:14px 16px; font-size:14px; line-height:22px; font-weight:700; color:#0f4c81;">
+                      1. flytt.io: personnummer + ny adress + datum
+                    </div>
+                  </td>
+                </tr>
+                <tr><td align="center" style="padding:0 0 10px; font-size:24px; line-height:24px; color:#9aa8b8;">&darr;</td></tr>
+                <tr>
+                  <td style="padding:0 0 10px;">
+                    <div style="background:#f7f9fc; border:1px solid #dbe4ee; border-radius:12px; padding:14px 16px; font-size:14px; line-height:22px; color:#1a1a2e;">
+                      2. Biluppgifter / Eniro / PAP h&auml;mtar nuvarande uppgifter och kompletterar data
+                    </div>
+                  </td>
+                </tr>
+                <tr><td align="center" style="padding:0 0 10px; font-size:24px; line-height:24px; color:#9aa8b8;">&darr;</td></tr>
+                <tr>
+                  <td style="padding:0 0 10px;">
+                    <div style="background:#f7f9fc; border:1px solid #dbe4ee; border-radius:12px; padding:14px 16px; font-size:14px; line-height:22px; color:#1a1a2e;">
+                      3. Eniro kartvy h&auml;mtar fastighetsbeteckning och fastighets&auml;gare f&ouml;r ny adress
+                    </div>
+                  </td>
+                </tr>
+                <tr><td align="center" style="padding:0 0 10px; font-size:24px; line-height:24px; color:#9aa8b8;">&darr;</td></tr>
+                <tr>
+                  <td style="padding:0 0 10px;">
+                    <div style="background:#eefaf7; border:1px solid #cfe9e3; border-radius:12px; padding:14px 16px; font-size:14px; line-height:22px; color:#1a1a2e;">
+                      4. Playwright fyller i SKV:s webbformul&auml;r
+                    </div>
+                  </td>
+                </tr>
+                <tr><td align="center" style="padding:0 0 10px; font-size:24px; line-height:24px; color:#9aa8b8;">&darr;</td></tr>
+                <tr>
+                  <td style="padding:0 0 10px;">
+                    <div style="background:#eef5ff; border:1px solid #dbe4ee; border-radius:12px; padding:14px 16px; font-size:14px; line-height:22px; color:#1a1a2e;">
+                      5. BankID-QR speglas till anv&auml;ndarens webbl&auml;sare
+                    </div>
+                  </td>
+                </tr>
+                <tr><td align="center" style="padding:0 0 10px; font-size:24px; line-height:24px; color:#9aa8b8;">&darr;</td></tr>
+                <tr>
+                  <td>
+                    <div style="background:#f7f9fc; border:1px solid #dbe4ee; border-radius:12px; padding:14px 16px; font-size:14px; line-height:22px; color:#1a1a2e;">
+                      6. Anv&auml;ndaren granskar och skickar in till SKV
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="background:#f3fbf9; border:1px solid #cfe9e3; border-left:5px solid #2a9d8f; border-radius:12px; padding:16px 18px; font-size:15px; line-height:24px; color:#1a1a2e; margin:0 0 24px;">
+                <strong>Viktig distinktion:</strong> Kalles v&auml;g &auml;r en bra beskrivning av
+                <em>hur det ska se ut f&ouml;r anv&auml;ndaren</em>. V&aring;r kedja &auml;r en beskrivning av
+                <em>vad som m&aring;ste h&auml;nda i bakgrunden</em> f&ouml;r att den upplevelsen ska vara m&ouml;jlig.
+              </div>
+
+              <div style="font-size:12px; line-height:18px; color:#7b8794; text-align:center; padding-top:8px; border-top:1px solid #dbe4ee;">
+                flytta.nu &middot; Gmail-s&auml;ker svarsvariant fr&aring;n Jakob
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

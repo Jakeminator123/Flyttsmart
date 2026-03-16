@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Svar till Kalle</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a2e;
+    --muted: #5f6b7a;
+    --accent: #0f4c81;
+    --accent-soft: #eaf2fb;
+    --green: #2a9d8f;
+    --orange: #e76f51;
+    --border: #dbe4ee;
+    --surface: #f7f9fc;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Inter', system-ui, sans-serif;
+    line-height: 1.65;
+    font-size: 15px;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 28px 64px;
+  }
+
+  h1 {
+    margin: 0 0 8px;
+    color: var(--accent);
+    font-size: 30px;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    margin: 0 0 28px;
+    color: var(--muted);
+    font-size: 16px;
+  }
+
+  .intro {
+    background: linear-gradient(135deg, #f7fbff 0%, #eef5ff 100%);
+    border: 1px solid var(--border);
+    border-left: 5px solid var(--accent);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 28px;
+  }
+
+  .intro strong {
+    color: var(--accent);
+  }
+
+  .mail {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 22px 18px;
+    margin-bottom: 28px;
+  }
+
+  .mail p {
+    margin: 0 0 14px;
+  }
+
+  h2 {
+    margin: 34px 0 12px;
+    font-size: 20px;
+    color: var(--accent);
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 6px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin: 18px 0 8px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 16px 14px;
+  }
+
+  .card h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    color: var(--fg);
+  }
+
+  .card p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .card .tag {
+    display: inline-block;
+    margin-bottom: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .tag.blue {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .tag.green {
+    background: #ecfaf7;
+    color: var(--green);
+  }
+
+  .tag.orange {
+    background: #fff1ec;
+    color: var(--orange);
+  }
+
+  ul {
+    margin: 10px 0 0;
+    padding-left: 22px;
+  }
+
+  li {
+    margin-bottom: 8px;
+  }
+
+  .flow-wrap {
+    margin-top: 18px;
+    background: #fbfcfe;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .note {
+    margin-top: 18px;
+    background: #f3fbf9;
+    border: 1px solid #cfe9e3;
+    border-left: 5px solid var(--green);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9em;
+    background: #f1f5f9;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  .footer {
+    margin-top: 34px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+  }
+
+  @media print {
+    .page {
+      max-width: 100%;
+      padding: 0;
+    }
+
+    body {
+      font-size: 11pt;
+    }
+
+    .mail,
+    .card,
+    .intro,
+    .flow-wrap,
+    .note {
+      break-inside: avoid;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Svar till Kalle</h1>
+  <p class="subtitle">
+    Utkast som svarar p&aring; inv&auml;ndningen att "allt finns redan hos oss eller SKV".
+  </p>
+
+  <div class="intro">
+    <strong>Kort version:</strong> Kalle har r&auml;tt om hur det kan se ut f&ouml;r anv&auml;ndaren,
+    men hans bilder visar bara sista delen inne hos Skatteverket. Det de inte visar &auml;r hur vi
+    faktiskt h&auml;mtar de saknade uppgifterna, fyller i SKV:s webbformul&auml;r och tar oss igenom
+    BankID-fl&ouml;det utan ett officiellt API.
+  </div>
+
+  <div class="mail">
+    <p>Hej Kalle,</p>
+    <p>
+      Jag tror egentligen att vi menar samma sak p&aring; UX-niv&aring;: anv&auml;ndaren ska bara beh&ouml;va ange
+      personnummer, ny adress och inflyttningsdatum hos oss. D&auml;r jag inte h&aring;ller med &auml;r slutsatsen
+      att all &ouml;vrig data d&auml;rf&ouml;r "redan finns" utan extra steg.
+    </p>
+    <p>
+      Dina bilder visar vad Skatteverket visar <strong>n&auml;r man redan &auml;r inne i deras fl&ouml;de</strong>.
+      V&aring;rt problem &auml;r inte hur granskningssidan ser ut, utan hur vi tar oss dit med s&aring; f&aring; klick
+      som m&ouml;jligt och med s&aring; mycket ifyllt som m&ouml;jligt.
+    </p>
+    <p>
+      Det finns tre sk&auml;l till att vi inte bara kan "ta den v&auml;gen" rakt av:
+    </p>
+    <p>
+      <strong>1.</strong> Skatteverket har inget &ouml;ppet API f&ouml;r flyttanm&auml;lan, s&aring; n&aring;gon m&aring;ste fortfarande
+      fylla deras webbformul&auml;r och hantera BankID-fl&ouml;det tekniskt.<br>
+      <strong>2.</strong> F&auml;lten f&ouml;r <em>fastighetsbeteckning</em> och <em>fastighets&auml;gare</em> p&aring; den nya adressen
+      kommer inte gratis fr&aring;n personnumret, utan m&aring;ste h&auml;mtas fr&aring;n andra k&auml;llor.<br>
+      <strong>3.</strong> Om vi vill minimera friktion redan innan anv&auml;ndaren kommer till SKV beh&ouml;ver vi kunna
+      f&ouml;rbereda och validera data i f&ouml;rv&auml;g, inte f&ouml;rst efter BankID.
+    </p>
+    <p>
+      S&aring; min po&auml;ng &auml;r inte att ditt fl&ouml;de &auml;r fel, utan att det beskriver
+      <strong>frontend-upplevelsen</strong> medan jag beskriver den <strong>tekniska kedjan bakom</strong>
+      som g&ouml;r att det faktiskt fungerar.
+    </p>
+    <p>
+      Med andra ord: ja, anv&auml;ndaren ska helst bara ange tre saker. Men f&ouml;r att det ska bli sant i praktiken
+      m&aring;ste vi fortfarande g&ouml;ra uppslagen utanf&ouml;r SKV och sedan mata in resultatet i SKV:s fl&ouml;de.
+    </p>
+    <p>/Jakob</p>
+  </div>
+
+  <h2>Varf&ouml;r hans v&auml;g inte r&auml;cker tekniskt</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="tag blue">SKV</div>
+      <h3>Hans bilder b&ouml;rjar f&ouml;r sent</h3>
+      <p>
+        Sk&auml;rmbilderna visar l&auml;get efter att man redan &auml;r inne hos Skatteverket. De svarar inte p&aring;
+        hur vi kommer dit programmatiskt med s&aring; f&aring; klick som m&ouml;jligt.
+      </p>
+    </div>
+    <div class="card">
+      <div class="tag orange">Datagap</div>
+      <h3>Ny adress saknar viktiga f&auml;lt</h3>
+      <p>
+        <em>Fastighetsbeteckning</em> och <em>fastighets&auml;gare</em> f&ouml;r den nya adressen m&aring;ste fortfarande
+        h&auml;mtas via externa uppslag. De ligger inte bara och v&auml;ntar i SKV-formul&auml;ret.
+      </p>
+    </div>
+    <div class="card">
+      <div class="tag green">Automation</div>
+      <h3>N&aring;gon m&aring;ste g&ouml;ra sista milen</h3>
+      <p>
+        Eftersom SKV saknar ett partner-API i det h&auml;r l&auml;get m&aring;ste vi k&ouml;ra browser automation och spegla
+        BankID-QR till anv&auml;ndarens webbl&auml;sare.
+      </p>
+    </div>
+  </div>
+
+  <h2>Varf&ouml;r v&aring;r v&auml;g fungerar</h2>
+  <ul>
+    <li>Anv&auml;ndaren ger fortfarande bara den minimala input vi vill ha: personnummer, ny adress och datum.</li>
+    <li>Nuvarande uppgifter kan h&auml;mtas och f&ouml;rifyllas innan SKV-steget, vilket minskar friktion och fel.</li>
+    <li>Ny adress kompletteras med fastighetsbeteckning och &auml;gare via externa k&auml;llor innan inl&auml;mning.</li>
+    <li>Slutligen fylls SKV:s webbfl&ouml;de i automatiskt och anv&auml;ndaren g&ouml;r bara BankID-bekr&auml;ftelsen.</li>
+  </ul>
+
+  <h2>Fl&ouml;desschema</h2>
+  <div class="flow-wrap">
+    <pre class="mermaid">
+flowchart TB
+    userInput["flytt.io<br/>personnummer + ny adress + datum"] --> currentLookup["Biluppgifter / Eniro / PAP<br/>hamtar nuvarande uppgifter och kompletterar data"]
+    currentLookup --> newAddressLookup["Eniro kartvy<br/>hamtar fastighetsbeteckning och fastighetsagare for ny adress"]
+    newAddressLookup --> skvAutomation["Playwright-session<br/>fyller i SKV:s webbformular"]
+    skvAutomation --> qrMirror["QR-spegling<br/>BankID visas i anvandarens webblasare"]
+    qrMirror --> reviewStep["Anvandaren granskar och godkanner"]
+    reviewStep --> skvSubmit["Flyttanmalan skickas in till SKV"]
+    </pre>
+  </div>
+
+  <div class="note">
+    <strong>Viktig distinktion:</strong> Kalles v&auml;g &auml;r en bra beskrivning av <em>hur det ska se ut f&ouml;r anv&auml;ndaren</em>.
+    V&aring;r kedja &auml;r en beskrivning av <em>vad som m&aring;ste h&auml;nda i bakgrunden</em> f&ouml;r att den upplevelsen ska vara m&ouml;jlig.
+  </div>
+
+  <div class="footer">
+    flytta.nu · svarsutkast fr&aring;n Jakob
+  </div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'neutral',
+    securityLevel: 'loose'
+  });
+</script>
+</body>
+</html>

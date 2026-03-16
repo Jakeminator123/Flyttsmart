@@ -118,11 +118,6 @@ export function HeroSection() {
       id="hero"
       className="relative overflow-visible bg-linear-to-b from-hero-gradient-from via-background to-background"
     >
-      <div className="hero-mesh opacity-80" />
-      <div className="hero-mesh-accent opacity-50" />
-      <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.18]" />
-      <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.03]" />
-
       <div className="relative mx-auto max-w-7xl px-4 pt-24 pb-16 sm:pt-28 lg:px-8 lg:pt-28 lg:pb-20">
         <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-12">
           <motion.div

@@ -17,12 +17,15 @@ from typing import Optional
 
 MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 INLOGG_DIR = os.path.dirname(MODULE_DIR)
-RUNTIME_DIR = os.path.join(INLOGG_DIR, "runtime")
+DATA_DIR = os.environ.get("SKV_DATA_DIR", "").strip() or INLOGG_DIR
+RUNTIME_DIR = os.path.join(DATA_DIR, "runtime")
+LOG_DIR = os.path.join(DATA_DIR, "logs")
 DEFAULT_PAYLOAD_FILE = os.path.join(RUNTIME_DIR, "skv_payload_latest.json")
-SESSION_LOG_FILE = os.path.join(INLOGG_DIR, "skv_int7_session_log.txt")
+SESSION_LOG_FILE = os.path.join(LOG_DIR, "skv_int7_session_log.txt")
 JOB_FILE = os.path.join(RUNTIME_DIR, "skv_int7_job.json")
 
 os.makedirs(RUNTIME_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
 
 # Ensure legacy modules under inlogg/ are importable when this file is executed directly.
 if INLOGG_DIR not in sys.path:
@@ -170,6 +173,7 @@ def run_int7_flow(
         "Starting skv_int7 flow",
         {
             "target_url": target_url,
+            "data_dir": DATA_DIR,
             "payload_file": payload_file,
             "timeout_seconds": timeout_seconds,
             "allow_mockup_data": allow_mockup_data,

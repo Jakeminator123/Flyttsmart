@@ -16,7 +16,10 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 COPY . .
 
-RUN mkdir -p /app/runtime /app/results
+ENV SKV_DATA_DIR=/var/data
+
+RUN mkdir -p /app/runtime /app/results \
+    /var/data/runtime /var/data/results /var/data/snapshots /var/data/jobs /var/data/logs
 
 ENV SKV_HEADLESS=y
 ENV SKV_HOST=0.0.0.0

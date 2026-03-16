@@ -42,6 +42,7 @@ In local development the flow is identical except Next.js spawns a local Python 
 | `PORT` | (set by Render) | HTTP port for gunicorn |
 | `SKV_HEADLESS` | `y` | Must be `y` on Render (no display) |
 | `SKV_HOST` | `0.0.0.0` | Bind address |
+| `SKV_DATA_DIR` | `/var/data` | Persistent storage root for results, payloads, snapshots, and archived job state |
 | `CLONE_QR_FROMPLAYWRIGHT_TO_SITE` | `y` | Enable QR mirroring to the site |
 | `SKV_API_KEY` | (secret) | Bearer token for `/api/*` endpoints |
 
@@ -69,6 +70,7 @@ Leave `SKV_SERVICE_URL` unset (or commented out in `.env.local`). Next.js will s
 | **Dockerfile Path** | `./Dockerfile` |
 | **Instance Type** | Standard (2 GB RAM minimum for Chromium) |
 | **Health Check Path** | `/api/health` |
+| **Disk** | Mount a persistent disk at `/var/data` |
 
 The `render.yaml` in the project root defines this as a Blueprint. Alternatively, create the service manually in the Render dashboard using the values above.
 
@@ -103,13 +105,22 @@ The `render.yaml` in the project root defines this as a Blueprint. Alternatively
 5. After the user scans and authenticates, the engine detects the form page, runs `flytt_form_filler`, and sets `jobState: "matched"`.
 6. The component shows a green "Inloggning klar" message and stops polling.
 
+### Persistent artifacts
+
+When `SKV_DATA_DIR` points at a persistent disk, the service keeps:
+
+- `results/{jobId}.png` -- final screenshot
+- `runtime/payload_{jobId}.json` -- exact payload used for autofill
+- `snapshots/{jobId}.html` -- saved HTML snapshot of the form page
+- `jobs/{jobId}.json` -- archived final job state used by `/api/status/{jobId}` even after in-memory cleanup
+
 ### Limits and cleanup
 
 - **Max 3 concurrent jobs** (`MAX_CONCURRENT_JOBS`). Returns 429 if all slots are full.
 - **Max 10 min runtime** (`MAX_JOB_RUNTIME_SECONDS = 600`). The Playwright loop exits after this.
 - **Browser is closed explicitly** after every terminal state (matched, timeout, error, cancelled).
-- **Memory cleanup** runs 5 minutes after job completion: removes job data, cancel flags, QR captures, and per-job payload files.
-- **Per-job payload files** (`runtime/payload_{jobId}.json`) ensure parallel jobs don't overwrite each other's form data.
+- **Memory cleanup** runs 5 minutes after job completion: removes live job data, cancel flags, and QR captures from memory.
+- **Per-job payload files** (`runtime/payload_{jobId}.json`) ensure parallel jobs don't overwrite each other's form data and now remain on disk for later retrieval.
 
 ### Error handling
 
@@ -136,7 +147,7 @@ If `SKV_API_KEY` is empty on Render, authentication is skipped entirely (useful 
 
 ```bash
 curl https://skv-playwright.onrender.com/api/health
-# {"headless":true,"ok":true,"service":"skv-playwright"}
+# {"data_dir":"/var/data","headless":true,"ok":true,"service":"skv-playwright"}
 ```
 
 ### Start a job manually
@@ -156,6 +167,19 @@ curl https://skv-playwright.onrender.com/api/clone/state/abc123def456 \
   -H "Authorization: Bearer <SKV_API_KEY>"
 ```
 
+### Fetch saved artifacts
+
+```bash
+curl https://skv-playwright.onrender.com/api/status/abc123def456 \
+  -H "Authorization: Bearer <SKV_API_KEY>"
+
+curl https://skv-playwright.onrender.com/api/payload/abc123def456 \
+  -H "Authorization: Bearer <SKV_API_KEY>"
+
+curl https://skv-playwright.onrender.com/api/html/abc123def456 \
+  -H "Authorization: Bearer <SKV_API_KEY>"
+```
+
 ### End-to-end from the site
 
 1. Go to the dashboard or adressandring page.
@@ -170,6 +194,8 @@ curl https://skv-playwright.onrender.com/api/clone/state/abc123def456 \
 ## 8. Operational checklist
 
 - [ ] Set `SKV_API_KEY` on Render (use `python -c "import secrets; print(secrets.token_hex(24))"`)
+- [ ] Mount a persistent Render disk at `/var/data`
+- [ ] Set `SKV_DATA_DIR=/var/data` on Render
 - [ ] Set `SKV_SERVICE_URL` and `SKV_SERVICE_API_KEY` on Vercel
 - [ ] Set `CLONE_QR_FROMPLAYWRIGHT_TO_SITE=y` on both Render and Vercel
 - [ ] Verify Render instance is Standard plan (2 GB RAM) -- Starter (512 MB) is too small for Chromium

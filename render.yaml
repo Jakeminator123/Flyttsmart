@@ -6,11 +6,17 @@ services:
     rootDir: inlogg
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
+    disk:
+      name: skv-playwright-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: SKV_HEADLESS
         value: "y"
       - key: SKV_HOST
         value: "0.0.0.0"
+      - key: SKV_DATA_DIR
+        value: "/var/data"
       - key: CLONE_QR_FROMPLAYWRIGHT_TO_SITE
         value: "y"
       - key: SKV_API_KEY

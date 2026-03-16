@@ -15,7 +15,9 @@ import {
 export const runtime = "nodejs";
 
 const INLOGG_DIR = path.join(process.cwd(), "inlogg");
-const RUNTIME_DIR = path.join(INLOGG_DIR, "runtime");
+const SKV_DATA_DIR = (process.env.SKV_DATA_DIR ?? "").trim();
+const RUNTIME_ROOT = SKV_DATA_DIR || INLOGG_DIR;
+const RUNTIME_DIR = path.join(RUNTIME_ROOT, "runtime");
 const PAYLOAD_FILE = path.join(RUNTIME_DIR, "skv_payload_latest.json");
 const PROCESS_FILE = path.join(RUNTIME_DIR, "skv_int7_process.json");
 const JOB_FILE = path.join(RUNTIME_DIR, "skv_int7_job.json");

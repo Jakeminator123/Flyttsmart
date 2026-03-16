@@ -63,13 +63,19 @@ def _is_synligt_skv_enabled() -> bool:
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-RESULT_DIR = os.path.join(SCRIPT_DIR, "results")
-os.makedirs(RESULT_DIR, exist_ok=True)
-RUNTIME_DIR = os.path.join(SCRIPT_DIR, "runtime")
-os.makedirs(RUNTIME_DIR, exist_ok=True)
+DATA_DIR = os.environ.get("SKV_DATA_DIR", "").strip() or SCRIPT_DIR
+RESULT_DIR = os.path.join(DATA_DIR, "results")
+RUNTIME_DIR = os.path.join(DATA_DIR, "runtime")
+SNAPSHOT_DIR = os.path.join(DATA_DIR, "snapshots")
+JOBS_DIR = os.path.join(DATA_DIR, "jobs")
+LOG_DIR = os.path.join(DATA_DIR, "logs")
 
-# Single session log - one file per run, overwrites previous session
-SESSION_LOG_FILE = os.path.join(SCRIPT_DIR, "skv6_session_log.txt")
+for directory in (RESULT_DIR, RUNTIME_DIR, SNAPSHOT_DIR, JOBS_DIR, LOG_DIR):
+    os.makedirs(directory, exist_ok=True)
+
+# Keep the latest session log on disk while archiving job state separately per job.
+SESSION_LOG_FILE = os.path.join(LOG_DIR, "skv6_session_log.txt")
+LATEST_HTML_SNAPSHOT_FILE = os.path.join(SNAPSHOT_DIR, "senaste_formular.html")
 
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "config.txt")
 DEFAULT_PAYLOAD_FILE = os.path.join(RUNTIME_DIR, "skv_payload_latest.json")
@@ -121,7 +127,12 @@ def _check_api_key():
 
 @app.get("/api/health")
 def api_health():
-    return jsonify({"ok": True, "service": "skv-playwright", "headless": _resolve_headless()})
+    return jsonify({
+        "ok": True,
+        "service": "skv-playwright",
+        "headless": _resolve_headless(),
+        "data_dir": DATA_DIR,
+    })
 
 
 @app.after_request
@@ -157,14 +168,54 @@ MAX_CONCURRENT_JOBS = 3
 MAX_JOB_RUNTIME_SECONDS = 600
 
 
+def _job_state_file(job_id: str) -> str:
+    return os.path.join(JOBS_DIR, f"{job_id}.json")
+
+
+def _load_persisted_job(job_id: str) -> Optional[JobStatus]:
+    path = _job_state_file(job_id)
+    if not os.path.isfile(path):
+        return None
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        if not isinstance(raw, dict):
+            return None
+        return JobStatus(
+            job_id=str(raw.get("job_id") or raw.get("jobId") or job_id),
+            state=str(raw.get("state") or "unknown"),
+            message=str(raw.get("message") or ""),
+            started_at=raw.get("started_at") if isinstance(raw.get("started_at"), (int, float)) else None,
+            ended_at=raw.get("ended_at") if isinstance(raw.get("ended_at"), (int, float)) else None,
+            screenshot_path=raw.get("screenshot_path") if isinstance(raw.get("screenshot_path"), str) else None,
+            details=raw.get("details") if isinstance(raw.get("details"), dict) else None,
+        )
+    except Exception as e:
+        print(f"Persisted job load error for {job_id}: {e}")
+        return None
+
+
+def _persist_job(job: JobStatus) -> None:
+    try:
+        with open(_job_state_file(job.job_id), "w", encoding="utf-8") as f:
+            json.dump(asdict(job), f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Persisted job save error for {job.job_id}: {e}")
+
+
 def _set_job(job: JobStatus) -> None:
     with _jobs_lock:
         _jobs[job.job_id] = job
+    _persist_job(job)
 
 
 def _get_job(job_id: str) -> Optional[JobStatus]:
     with _jobs_lock:
-        return _jobs.get(job_id)
+        active_job = _jobs.get(job_id)
+    if active_job:
+        return active_job
+    return _load_persisted_job(job_id)
 
 
 def _cancel_job(job_id: str) -> bool:
@@ -181,7 +232,7 @@ def _is_cancelled(job_id: str) -> bool:
 
 
 def _schedule_job_cleanup(job_id: str) -> None:
-    """Remove finished job data from memory after a delay to allow final state polling."""
+    """Remove live in-memory state after a delay, but keep archived artifacts on disk."""
     def _cleanup():
         time.sleep(JOB_CLEANUP_DELAY_SECONDS)
         with _jobs_lock:
@@ -190,12 +241,6 @@ def _schedule_job_cleanup(job_id: str) -> None:
         with _log_lock:
             _qr_captured.pop(job_id, None)
             _qr_capture_last_time.pop(job_id, None)
-        try:
-            pf = os.path.join(RUNTIME_DIR, f"payload_{job_id}.json")
-            if os.path.isfile(pf):
-                os.remove(pf)
-        except Exception:
-            pass
 
     threading.Thread(target=_cleanup, daemon=True, name=f"cleanup-{job_id}").start()
 
@@ -1469,14 +1514,19 @@ def _run_playwright_job(
                     _log_session(f"Form filler error: {e}", "FORM")
 
             # Phase 3: Save full page HTML snapshot
+            html_snapshot_name = None
             try:
                 save_page = flytt_page or page
                 html_content = save_page.content()
-                html_path = os.path.join(SCRIPT_DIR, "senaste_formulär.html")
+                html_snapshot_name = f"{job_id}.html"
+                html_path = os.path.join(SNAPSHOT_DIR, html_snapshot_name)
                 with open(html_path, "w", encoding="utf-8") as f:
                     f.write(html_content)
-            except Exception:
-                pass
+                with open(LATEST_HTML_SNAPSHOT_FILE, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+            except Exception as e:
+                job.details = job.details or {}
+                job.details["htmlSnapshotError"] = str(e)
 
             try:
                 final_page = flytt_page or page
@@ -1485,11 +1535,28 @@ def _run_playwright_job(
             except Exception:
                 job.screenshot_path = None
 
+            job.details = job.details or {}
+            existing_artifacts = job.details.get("artifacts")
+            artifacts = existing_artifacts if isinstance(existing_artifacts, dict) else {}
+            artifacts.update({
+                "dataDir": DATA_DIR,
+                "payloadFile": os.path.basename(payload_file) if payload_file else None,
+                "payloadUrl": f"/api/payload/{job_id}",
+                "htmlSnapshotFile": html_snapshot_name,
+                "htmlSnapshotUrl": f"/api/html/{job_id}",
+                "latestHtmlSnapshotFile": os.path.basename(LATEST_HTML_SNAPSHOT_FILE),
+                "screenshotFile": job.screenshot_path,
+                "screenshotUrl": f"/results/{job.screenshot_path}" if job.screenshot_path else None,
+            })
+            job.details["artifacts"] = artifacts
             job.ended_at = time.time()
 
             if _form_filler_done:
                 job.state = "matched"
-                job.message = "Formulär ifyllt! Se skv6_session_log.txt + senaste_formulär.html"
+                job.message = (
+                    f"Formulär ifyllt! Hämta payload via /api/payload/{job_id}, "
+                    f"HTML via /api/html/{job_id} och screenshot via /results/{job_id}.png"
+                )
                 _log_session("Session completed successfully", "DONE")
             elif job.state != "cancelled":
                 job.state = "timeout"
@@ -1826,6 +1893,19 @@ def results(filename: str):
     return send_from_directory(RESULT_DIR, filename)
 
 
+@app.get("/api/html/<job_id>")
+def api_html(job_id: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):
+        return jsonify({"ok": False, "error": "invalid job id"}), 400
+
+    html_filename = f"{job_id}.html"
+    html_path = os.path.join(SNAPSHOT_DIR, html_filename)
+    if not os.path.isfile(html_path):
+        return jsonify({"ok": False, "error": "html snapshot not found", "jobId": job_id}), 404
+
+    return send_from_directory(SNAPSHOT_DIR, html_filename)
+
+
 @app.get("/api/clone/state/<job_id>")
 def api_clone_state(job_id: str):
     enabled = _is_clone_qr_to_site_enabled()
@@ -1935,6 +2015,12 @@ def api_run():
         job_details = {
             "inputPayload": payload,
             "payloadFile": os.path.basename(job_payload_file),
+            "artifacts": {
+                "payloadFile": os.path.basename(job_payload_file),
+                "payloadUrl": f"/api/payload/{job_id}",
+                "htmlSnapshotUrl": f"/api/html/{job_id}",
+                "screenshotUrl": f"/results/{job_id}.png",
+            },
         }
 
     job = JobStatus(job_id=job_id, state="queued", message="Köad...", details=job_details)
@@ -1959,6 +2045,9 @@ def api_run():
     t.start()
 
     body = asdict(job)
+    body["payload_url"] = f"/api/payload/{job_id}"
+    body["html_url"] = f"/api/html/{job_id}"
+    body["screenshot_url"] = f"/results/{job_id}.png"
     if _is_clone_qr_to_site_enabled():
         body["clone_qr_state_url"] = f"/api/clone/state/{job_id}"
     return jsonify(body)

@@ -84,14 +84,14 @@ function parseNumber(val: unknown): number | null {
 async function downloadExcel(): Promise<Buffer | null> {
   for (const url of PTS_DOWNLOAD_URLS) {
     try {
-      console.log(`Trying to download from: ${url}`);
+      console.warn(`Trying to download from: ${url}`);
       const res = await fetch(url, {
         signal: AbortSignal.timeout(30_000),
         headers: { "User-Agent": "Flytt.io/1.0 (PTS broadband import)" },
       });
       if (res.ok) {
         const buf = Buffer.from(await res.arrayBuffer());
-        console.log(`Downloaded ${(buf.length / 1024).toFixed(0)} KB from ${url}`);
+        console.warn(`Downloaded ${(buf.length / 1024).toFixed(0)} KB from ${url}`);
         return buf;
       }
       console.warn(`HTTP ${res.status} from ${url}`);
@@ -126,7 +126,7 @@ const TECH_COLUMNS: { pattern: string; label: string }[] = [
 
 async function parseExcel(buffer: Buffer): Promise<OutputData> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer);
+  await workbook.xlsx.load(buffer as Buffer & ArrayBuffer);
 
   const sheetNames = workbook.worksheets.map((ws) => ws.name);
   const worksheet =
@@ -134,7 +134,7 @@ async function parseExcel(buffer: Buffer): Promise<OutputData> {
     workbook.worksheets.find((ws) => /kommun/i.test(ws.name)) ??
     workbook.worksheets[0];
   if (!worksheet) throw new Error("No worksheets found");
-  console.log(`Using sheet: "${worksheet.name}" (of ${sheetNames.join(", ")})`);
+  console.warn(`Using sheet: "${worksheet.name}" (of ${sheetNames.join(", ")})`);
 
   const rows: unknown[][] = [];
   worksheet.eachRow({ includeEmpty: false }, (_row, _rowNumber) => {
@@ -148,7 +148,7 @@ async function parseExcel(buffer: Buffer): Promise<OutputData> {
   }
 
   const headers = (rows[0] as string[]).map((h) => String(h ?? "").trim());
-  console.log(`Headers (${headers.length}): ${headers.join(" | ")}`);
+  console.warn(`Headers (${headers.length}): ${headers.join(" | ")}`);
 
   const municipalityCol = findColumnIndex(headers, "kommunnamn", "kommun");
   const yearCol = findColumnIndex(headers, "årtal", "år", "year");
@@ -163,8 +163,8 @@ async function parseExcel(buffer: Buffer): Promise<OutputData> {
     if (idx !== -1) techColMap.push({ colIdx: idx, label: tc.label });
   }
 
-  console.log(`Municipality col: ${municipalityCol}, Year col: ${yearCol}, Fiber col: ${fiberCol}`);
-  console.log(`Tech columns mapped: ${techColMap.map((t) => `${t.label}@${t.colIdx}`).join(", ")}`);
+  console.warn(`Municipality col: ${municipalityCol}, Year col: ${yearCol}, Fiber col: ${fiberCol}`);
+  console.warn(`Tech columns mapped: ${techColMap.map((t) => `${t.label}@${t.colIdx}`).join(", ")}`);
 
   // Find the latest year in the data
   let latestYear = 0;
@@ -175,7 +175,7 @@ async function parseExcel(buffer: Buffer): Promise<OutputData> {
       if (y && y > latestYear) latestYear = y;
     }
   }
-  console.log(`Latest year in data: ${latestYear || "unknown"}`);
+  console.warn(`Latest year in data: ${latestYear || "unknown"}`);
 
   const municipalities: Record<string, MunicipalityBroadband> = {};
 
@@ -224,7 +224,7 @@ async function parseExcel(buffer: Buffer): Promise<OutputData> {
     };
   }
 
-  console.log(`Parsed ${Object.keys(municipalities).length} municipalities (year ${latestYear})`);
+  console.warn(`Parsed ${Object.keys(municipalities).length} municipalities (year ${latestYear})`);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -247,7 +247,7 @@ async function main() {
       process.exit(1);
     }
     buffer = fs.readFileSync(resolved);
-    console.log(`Reading local file: ${resolved} (${(buffer.length / 1024).toFixed(0)} KB)`);
+    console.warn(`Reading local file: ${resolved} (${(buffer.length / 1024).toFixed(0)} KB)`);
   } else {
     const downloaded = await downloadExcel();
     if (!downloaded) {
@@ -266,7 +266,7 @@ async function main() {
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
   fs.writeFileSync(OUTPUT_PATH, JSON.stringify(data, null, 2), "utf-8");
-  console.log(`Written to ${OUTPUT_PATH}`);
+  console.warn(`Written to ${OUTPUT_PATH}`);
 }
 
 main().catch((err) => {

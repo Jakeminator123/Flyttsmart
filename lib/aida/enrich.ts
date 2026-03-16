@@ -77,11 +77,6 @@ interface EnrichmentResult {
   comparisonOpportunities: string[];
 }
 
-interface EnrichTrackingContext {
-  route?: string;
-  sessionId?: string;
-}
-
 const SCB_CACHE = new Map<string, { data: ScbPopulation; ts: number }>();
 const SCB_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 

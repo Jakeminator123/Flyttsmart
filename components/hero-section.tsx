@@ -3,13 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowRight, Fingerprint, Shield, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { HeroLanyard } from "@/components/hero-lanyard"
 import { TextReveal } from "@/components/text-reveal"
 import { parseStartIntent } from "@/lib/start-intent"
 import { cn } from "@/lib/utils"
+
+const SHOW_LANYARD = process.env.NEXT_PUBLIC_KORT !== "en"
+
+const HeroLanyard = dynamic(
+  () => import("@/components/hero-lanyard").then((m) => m.HeroLanyard),
+  { ssr: false },
+)
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24, filter: "blur(6px)" },
@@ -132,7 +139,11 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
       <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.03]" />
 
       <div className="relative mx-auto max-w-7xl px-4 pt-28 pb-20 sm:pt-32 lg:px-8 lg:pt-32 lg:pb-28">
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(500px,640px)] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(560px,720px)] xl:gap-10">
+        <div className={cn(
+          SHOW_LANYARD
+            ? "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(500px,640px)] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(560px,720px)] xl:gap-10"
+            : "lg:max-w-4xl"
+        )}>
           <motion.div
             className="relative z-20 flex max-w-3xl flex-col items-start"
             initial="hidden"
@@ -293,28 +304,32 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
           </div>
           </motion.div>
 
+          {SHOW_LANYARD && (
+            <motion.div
+              className="relative z-10 hidden lg:block lg:h-[820px] xl:h-[920px]"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
+            >
+              <div className="absolute inset-x-8 top-10 bottom-10 rounded-[3rem] bg-ring/10 blur-3xl" />
+              <HeroLanyard />
+            </motion.div>
+          )}
+        </div>
+
+        {SHOW_LANYARD && (
           <motion.div
-            className="relative z-10 hidden lg:block lg:h-[820px] xl:h-[920px]"
+            className="relative z-10 mt-12 w-full overflow-visible lg:hidden"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
           >
-            <div className="absolute inset-x-8 top-10 bottom-10 rounded-[3rem] bg-ring/10 blur-3xl" />
-            <HeroLanyard />
+            <div className="relative overflow-visible">
+              <div className="absolute inset-x-8 -top-10 bottom-8 rounded-[3rem] bg-ring/10 blur-3xl sm:inset-x-12 lg:inset-x-20" />
+              <HeroLanyard />
+            </div>
           </motion.div>
-        </div>
-
-        <motion.div
-          className="relative z-10 mt-12 w-full overflow-visible lg:hidden"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
-        >
-          <div className="relative overflow-visible">
-            <div className="absolute inset-x-8 -top-10 bottom-8 rounded-[3rem] bg-ring/10 blur-3xl sm:inset-x-12 lg:inset-x-20" />
-            <HeroLanyard />
-          </div>
-        </motion.div>
+        )}
       </div>
     </section>
   )

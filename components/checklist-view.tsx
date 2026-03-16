@@ -464,7 +464,6 @@ export function ChecklistView({
       localItems
         .map(normalize)
         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [localItems],
   );
 

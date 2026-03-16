@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { parseOpenClawResponse, type EmailRequestBlock } from "@/lib/openclaw/response";
 import { cn } from "@/lib/utils";
@@ -134,6 +135,7 @@ const QUICK_PROMPTS = [
 
 const AIDA_PLACEHOLDER_SRC = "/media/images/aida-placeholder.svg";
 const AIDA_CONNECT_CTA_DELAY_MS = 8000;
+const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 
 type ConnectionState = "idle" | "connecting" | "connected" | "disconnected" | "error";
 
@@ -202,11 +204,12 @@ function AidaPortrait({
   alt?: string;
 }) {
   return (
-    <div className={cn("overflow-hidden", className)}>
-      <img
+    <div className={cn("relative overflow-hidden", className)}>
+      <Image
         src={AIDA_PLACEHOLDER_SRC}
         alt={alt}
-        className={cn("h-full w-full object-cover", imageClassName)}
+        fill
+        className={cn("object-cover", imageClassName)}
       />
     </div>
   );
@@ -247,7 +250,7 @@ export function DidOpenClawBridgeWidget() {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailOverrideTo, setEmailOverrideTo] = useState("");
   const [avatarReady, setAvatarReady] = useState(false);
-  const [showManualConnect, setShowManualConnect] = useState(false);
+  const [_showManualConnect, setShowManualConnect] = useState(false);
   const [miniMifContext, setMiniMifContext] = useState<MiniMifContext | null>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
@@ -299,7 +302,6 @@ export function DidOpenClawBridgeWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking, interimTranscript]);
 
-  const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadDidSdk = useCallback(async () => {
@@ -394,7 +396,7 @@ export function DidOpenClawBridgeWidget() {
     } finally {
       connectInFlightRef.current = false;
     }
-  }, [getVisibleVideoElement, loadDidSdk, syncVideoPlayback]);
+  }, [didStreamCtx, getVisibleVideoElement, loadDidSdk, syncVideoPlayback]);
 
   const disconnectAgent = useCallback(async () => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -554,7 +556,7 @@ export function DidOpenClawBridgeWidget() {
     } finally {
       setThinking(false);
     }
-  }, [thinking, connectionState, connectStream]);
+  }, [thinking, connectionState, connectStream, resetIdleTimer]);
 
   const startListening = useCallback(() => {
     const SpeechRec = getSpeechRecognition();

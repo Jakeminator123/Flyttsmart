@@ -88,7 +88,7 @@ function parseNamedDate(input: string) {
   if (!month || !Number.isFinite(day)) return undefined
 
   const now = new Date()
-  let year = yearRaw ? Number(yearRaw) : now.getFullYear()
+  const year = yearRaw ? Number(yearRaw) : now.getFullYear()
   let iso = toIsoDate(year, month, day)
 
   if (!iso) return undefined

@@ -25,6 +25,7 @@ const envChecks: Array<{ key: string; category: string; anyOf: string[] }> = [
   { key: "RENDER_SERVICE_ID", category: "Render", anyOf: ["RENDER_SERVICE_ID"] },
   { key: "WEB_SEARCH_COMPARE", category: "Jämförelser", anyOf: ["WEB_SEARCH_COMPARE"] },
   { key: "COMPARE_TASKS_ENABLED", category: "Jämförelser", anyOf: ["COMPARE_TASKS_ENABLED"] },
+  { key: "NEXT_PUBLIC_KORT", category: "UI", anyOf: ["NEXT_PUBLIC_KORT"] },
 ];
 
 export async function GET() {

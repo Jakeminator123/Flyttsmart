@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { users, moves, checklistItems, reminderLogs } from "@/lib/db/schema";
-import { eq, sql, count, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 

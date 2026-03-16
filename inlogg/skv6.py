@@ -69,8 +69,9 @@ RUNTIME_DIR = os.path.join(DATA_DIR, "runtime")
 SNAPSHOT_DIR = os.path.join(DATA_DIR, "snapshots")
 JOBS_DIR = os.path.join(DATA_DIR, "jobs")
 LOG_DIR = os.path.join(DATA_DIR, "logs")
+QR_FRAME_DIR = os.path.join(DATA_DIR, "qr_frames")
 
-for directory in (RESULT_DIR, RUNTIME_DIR, SNAPSHOT_DIR, JOBS_DIR, LOG_DIR):
+for directory in (RESULT_DIR, RUNTIME_DIR, SNAPSHOT_DIR, JOBS_DIR, LOG_DIR, QR_FRAME_DIR):
     os.makedirs(directory, exist_ok=True)
 
 # Keep the latest session log on disk while archiving job state separately per job.
@@ -132,6 +133,10 @@ def api_health():
         "service": "skv-playwright",
         "headless": _resolve_headless(),
         "data_dir": DATA_DIR,
+        "qr_capture_interval_seconds": QR_CAPTURE_INTERVAL_SECONDS,
+        "qr_history_seconds": QR_CAPTURE_HISTORY_SECONDS,
+        "qr_history_max_frames": QR_CAPTURE_HISTORY_MAX_FRAMES,
+        "qr_archive_enabled": QR_CAPTURE_ARCHIVE_ENABLED,
     })
 
 
@@ -295,10 +300,130 @@ def _log_qr_data(label: str, data: str | dict) -> None:
     _log_session(label, "QR/AUTH", payload)
 
 
+def _float_env(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+        return value if value > 0 else default
+    except Exception:
+        return default
+
+
+def _int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+        return value if value > 0 else default
+    except Exception:
+        return default
+
+
 QR_PROXY_BASE_URL = "https://auth.funktionstjanster.se/id/bankid/qr?aid="
 
 _qr_capture_last_time: Dict[str, float] = {}
-QR_CAPTURE_INTERVAL_SECONDS = 2.0
+QR_CAPTURE_INTERVAL_SECONDS = max(1.0, _float_env("SKV_QR_CAPTURE_INTERVAL_SECONDS", 2.0))
+QR_CAPTURE_HISTORY_SECONDS = max(
+    QR_CAPTURE_INTERVAL_SECONDS,
+    _float_env("SKV_QR_HISTORY_SECONDS", 120.0),
+)
+QR_CAPTURE_HISTORY_MAX_FRAMES = max(
+    1,
+    min(
+        120,
+        _int_env(
+            "SKV_QR_HISTORY_MAX_FRAMES",
+            max(1, int(QR_CAPTURE_HISTORY_SECONDS / QR_CAPTURE_INTERVAL_SECONDS)),
+        ),
+    ),
+)
+QR_CAPTURE_ARCHIVE_ENABLED = is_truthy(os.environ.get("SKV_QR_ARCHIVE_ENABLED", "y"))
+QR_CAPTURE_ARCHIVE_MAX_BYTES = max(
+    100_000,
+    _int_env("SKV_QR_ARCHIVE_MAX_BYTES", 750_000),
+)
+
+
+def _job_qr_frame_dir(job_id: str) -> str:
+    path = os.path.join(QR_FRAME_DIR, job_id)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _list_qr_frame_files(job_id: str) -> list[str]:
+    frame_dir = os.path.join(QR_FRAME_DIR, job_id)
+    if not os.path.isdir(frame_dir):
+        return []
+    files = [
+        os.path.join(frame_dir, name)
+        for name in os.listdir(frame_dir)
+        if name.lower().endswith(".png")
+    ]
+    files.sort(key=lambda path: os.path.basename(path))
+    return files
+
+
+def _archive_qr_frame(job_id: str, screenshot_bytes: bytes, captured_at: float, capture_mode: str) -> None:
+    if not QR_CAPTURE_ARCHIVE_ENABLED:
+        return
+    if not screenshot_bytes or len(screenshot_bytes) < 100:
+        return
+    # Avoid filling disk with large viewport fallbacks when element capture fails.
+    if capture_mode != "element" and len(screenshot_bytes) > QR_CAPTURE_ARCHIVE_MAX_BYTES:
+        return
+
+    frame_dir = _job_qr_frame_dir(job_id)
+    frame_name = f"{int(captured_at * 1000)}.png"
+    frame_path = os.path.join(frame_dir, frame_name)
+
+    try:
+        with open(frame_path, "wb") as f:
+            f.write(screenshot_bytes)
+    except Exception as e:
+        _log_qr_data("QR_ARCHIVE_WRITE_ERROR", {"job_id": job_id, "error": str(e)})
+        return
+
+    expiry_before = captured_at - QR_CAPTURE_HISTORY_SECONDS
+    files = _list_qr_frame_files(job_id)
+    for old_path in files[:-QR_CAPTURE_HISTORY_MAX_FRAMES]:
+        try:
+            os.remove(old_path)
+        except Exception:
+            pass
+    for old_path in _list_qr_frame_files(job_id):
+        try:
+            mtime = os.path.getmtime(old_path)
+        except Exception:
+            continue
+        if mtime < expiry_before:
+            try:
+                os.remove(old_path)
+            except Exception:
+                pass
+
+
+def _get_qr_frame_stats(job_id: str) -> Dict[str, Any]:
+    files = _list_qr_frame_files(job_id)
+    if not files:
+        return {
+            "qr_frame_count": 0,
+            "qr_image_updated_at": None,
+        }
+
+    latest_path = files[-1]
+    latest_updated_at = None
+    try:
+        latest_updated_at = os.path.getmtime(latest_path)
+    except Exception:
+        latest_updated_at = None
+
+    return {
+        "qr_frame_count": len(files),
+        "qr_image_updated_at": latest_updated_at,
+    }
 
 
 def _capture_qr_from_playwright_page(target_page, job_id: str) -> bool:
@@ -323,6 +448,7 @@ def _capture_qr_from_playwright_page(target_page, job_id: str) -> bool:
             "svg",
         ]
         screenshot_bytes = None
+        capture_mode = "unknown"
 
         for sel in selectors_to_try:
             try:
@@ -334,6 +460,7 @@ def _capture_qr_from_playwright_page(target_page, job_id: str) -> bool:
                     continue
                 screenshot_bytes = loc.screenshot(type="png", timeout=3000)
                 if screenshot_bytes and len(screenshot_bytes) > 100:
+                    capture_mode = "element"
                     break
             except Exception:
                 continue
@@ -341,16 +468,21 @@ def _capture_qr_from_playwright_page(target_page, job_id: str) -> bool:
         if not screenshot_bytes or len(screenshot_bytes) < 100:
             try:
                 screenshot_bytes = target_page.screenshot(type="png", timeout=3000)
+                if screenshot_bytes and len(screenshot_bytes) > 100:
+                    capture_mode = "viewport"
             except Exception:
                 pass
 
         if screenshot_bytes and len(screenshot_bytes) > 100:
+            captured_at = time.time()
             b64 = base64.b64encode(screenshot_bytes).decode("ascii")
             with _log_lock:
                 if job_id not in _qr_captured:
                     _qr_captured[job_id] = {}
                 _qr_captured[job_id]["qr_image_base64"] = b64
-                _qr_captured[job_id]["qr_image_updated_at"] = time.time()
+                _qr_captured[job_id]["qr_image_updated_at"] = captured_at
+                _qr_captured[job_id]["qr_capture_mode"] = capture_mode
+            _archive_qr_frame(job_id, screenshot_bytes, captured_at, capture_mode)
             return True
     except Exception as e:
         _log_qr_data("QR_CAPTURE_ERROR", {"job_id": job_id, "error": str(e)})
@@ -369,6 +501,7 @@ def _get_clone_qr_context(job_id: str) -> Dict[str, Any]:
     """Return best-effort QR clone context for a given running job."""
     with _log_lock:
         cap = dict(_qr_captured.get(job_id, {}))
+    qr_stats = _get_qr_frame_stats(job_id)
 
     aid = str(cap.get("aid") or "").strip()
     qr_url = f"{QR_PROXY_BASE_URL}{aid}" if aid else ""
@@ -380,6 +513,12 @@ def _get_clone_qr_context(job_id: str) -> Dict[str, Any]:
         "auth_spa_url": cap.get("auth_spa_url"),
         "api_ready": bool(cap.get("flytt_api_ready")),
         "api_last_url": cap.get("flytt_api_last_url"),
+        "qr_image_updated_at": cap.get("qr_image_updated_at") or qr_stats.get("qr_image_updated_at"),
+        "qr_capture_mode": cap.get("qr_capture_mode"),
+        "qr_frame_count": qr_stats.get("qr_frame_count", 0),
+        "qr_capture_interval_seconds": QR_CAPTURE_INTERVAL_SECONDS,
+        "qr_history_seconds": QR_CAPTURE_HISTORY_SECONDS,
+        "qr_archive_enabled": QR_CAPTURE_ARCHIVE_ENABLED,
     }
 
 
@@ -1921,6 +2060,12 @@ def api_clone_state(job_id: str):
         "aidPresent": bool(clone_ctx.get("aid")),
         "qrReady": bool(clone_ctx.get("qr_url")),
         "qrImageReady": bool(clone_ctx.get("qr_image_ready")),
+        "qrImageUpdatedAt": clone_ctx.get("qr_image_updated_at"),
+        "qrCaptureMode": clone_ctx.get("qr_capture_mode"),
+        "qrFrameCount": clone_ctx.get("qr_frame_count"),
+        "qrCaptureIntervalSeconds": clone_ctx.get("qr_capture_interval_seconds"),
+        "qrHistorySeconds": clone_ctx.get("qr_history_seconds"),
+        "qrArchiveEnabled": bool(clone_ctx.get("qr_archive_enabled")),
         "apiReady": bool(clone_ctx.get("api_ready")),
         "authSpaUrl": clone_ctx.get("auth_spa_url"),
         "qrProxyUrl": f"/api/clone/qr/{job_id}" if clone_ctx.get("qr_url") else None,

@@ -45,6 +45,11 @@ In local development the flow is identical except Next.js spawns a local Python 
 | `SKV_DATA_DIR` | `/var/data` | Persistent storage root for results, payloads, snapshots, and archived job state |
 | `CLONE_QR_FROMPLAYWRIGHT_TO_SITE` | `y` | Enable QR mirroring to the site |
 | `SKV_API_KEY` | (secret) | Bearer token for `/api/*` endpoints |
+| `SKV_QR_CAPTURE_INTERVAL_SECONDS` | `2` | How often the live QR capture updates while waiting for BankID |
+| `SKV_QR_HISTORY_SECONDS` | `120` | Rolling window for archived QR frames on disk |
+| `SKV_QR_HISTORY_MAX_FRAMES` | `60` | Safety cap for archived QR images |
+| `SKV_QR_ARCHIVE_ENABLED` | `y` | Persist a gentle rolling QR archive to disk |
+| `SKV_QR_ARCHIVE_MAX_BYTES` | `750000` | Skip archiving oversized fallback captures |
 
 ### Vercel (Next.js)
 
@@ -113,6 +118,7 @@ When `SKV_DATA_DIR` points at a persistent disk, the service keeps:
 - `runtime/payload_{jobId}.json` -- exact payload used for autofill
 - `snapshots/{jobId}.html` -- saved HTML snapshot of the form page
 - `jobs/{jobId}.json` -- archived final job state used by `/api/status/{jobId}` even after in-memory cleanup
+- `qr_frames/{jobId}/` -- a rolling QR archive (defaults to 1 frame every 2 seconds, max 2 minutes / 60 frames)
 
 ### Limits and cleanup
 
@@ -121,6 +127,8 @@ When `SKV_DATA_DIR` points at a persistent disk, the service keeps:
 - **Browser is closed explicitly** after every terminal state (matched, timeout, error, cancelled).
 - **Memory cleanup** runs 5 minutes after job completion: removes live job data, cancel flags, and QR captures from memory.
 - **Per-job payload files** (`runtime/payload_{jobId}.json`) ensure parallel jobs don't overwrite each other's form data and now remain on disk for later retrieval.
+- **QR frame archive** is intentionally gentle: it keeps a rolling cap, defaults to QR-sized element captures, and avoids writing oversized fallback screenshots unless they are small enough.
+- **Client polling** stops automatically when the job is done, terminal, dismissed, or has been open for too long, so the UI does not keep polling forever.
 
 ### Error handling
 

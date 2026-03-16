@@ -19,5 +19,15 @@ services:
         value: "/var/data"
       - key: CLONE_QR_FROMPLAYWRIGHT_TO_SITE
         value: "y"
+      - key: SKV_QR_CAPTURE_INTERVAL_SECONDS
+        value: "2"
+      - key: SKV_QR_HISTORY_SECONDS
+        value: "120"
+      - key: SKV_QR_HISTORY_MAX_FRAMES
+        value: "60"
+      - key: SKV_QR_ARCHIVE_ENABLED
+        value: "y"
+      - key: SKV_QR_ARCHIVE_MAX_BYTES
+        value: "750000"
       - key: SKV_API_KEY
         sync: false

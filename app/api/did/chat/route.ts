@@ -37,7 +37,6 @@ import {
 import { extractTokenUsage, trackUsage, type UsageFlow } from "@/lib/usage/tracker";
 
 const DID_BRIDGE_SECRET = process.env.DID_BRIDGE_SECRET ?? "";
-const TEST_TAL_ENABLED = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
 const MAX_SESSION_ID_CHARS = 120;
 const MAX_USER_MESSAGE_CHARS = 2000;
 const MAX_FORM_FIELDS_PER_REQUEST = 120;
@@ -157,11 +156,6 @@ function extractFieldValue(body: Record<string, unknown>): string {
   return typeof body.fieldValue === "string"
     ? body.fieldValue.trim().slice(0, MAX_FORM_VALUE_CHARS)
     : "";
-}
-
-function toLastWord(value: string): string {
-  const words = value.trim().split(/\s+/).filter(Boolean);
-  return words[words.length - 1] ?? "";
 }
 
 function sanitizeSessionId(value: unknown): string {
@@ -412,35 +406,8 @@ export async function POST(req: NextRequest) {
       const fieldValue = extractFieldValue(body);
 
       if (fieldValue) updateFormField(sessionId, fieldName, fieldValue);
-
-      if (!TEST_TAL_ENABLED) {
-        return NextResponse.json(
-          { ok: true, mode: "test_tal_disabled", shouldSpeak: false, sessionId },
-          { headers: corsHeaders },
-        );
-      }
-
-      const lastWord = toLastWord(fieldValue);
-      if (!lastWord) {
-        return NextResponse.json(
-          { ok: true, mode: "empty_value", shouldSpeak: false, sessionId },
-          { headers: corsHeaders },
-        );
-      }
-
       return NextResponse.json(
-        {
-          role: "assistant",
-          provider: "did-test-tal",
-          agentId: AGENT_ID,
-          sessionId,
-          fieldName,
-          reply: lastWord,
-          content: lastWord,
-          text: lastWord,
-          shouldSpeak: true,
-          mode: "test_tal_echo",
-        },
+        { ok: true, mode: "field_blur", shouldSpeak: false, sessionId, fieldName },
         { headers: corsHeaders },
       );
     }

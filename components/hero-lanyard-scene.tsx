@@ -8,7 +8,6 @@ interface HeroLanyardSceneProps {
 }
 
 export default function HeroLanyardScene({ frontTextureUrl, backTextureUrl }: HeroLanyardSceneProps) {
-
   return (
     <Lanyard
       position={[0, 0, 27]}

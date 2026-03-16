@@ -20,8 +20,6 @@ interface DidConfig {
   bridgeEnabled: boolean;
   clientKeySet: boolean;
   agentId: string;
-  mergeOcDid: boolean;
-  testTal: boolean;
 }
 
 export default function DidPage() {
@@ -65,14 +63,14 @@ export default function DidPage() {
         />
         <StatusCard
           icon={<Volume2 className="size-4" />}
-          title="TEST_TAL"
-          enabled={config?.testTal}
+          title="Röstavatar"
+          enabled={config?.bridgeEnabled && config?.clientKeySet}
           loading={loading}
         />
         <StatusCard
           icon={<Globe className="size-4" />}
-          title="Merge OC+DID"
-          enabled={config?.mergeOcDid}
+          title="Landing Embed"
+          enabled={config?.bridgeEnabled}
           loading={loading}
         />
       </div>
@@ -138,12 +136,8 @@ export default function DidPage() {
                   value={config?.clientKeySet ? "✓ Set" : "✗ Missing"}
                 />
                 <ConfigRow
-                  label="TEST_TAL"
-                  value={config?.testTal ? "y" : "n"}
-                />
-                <ConfigRow
-                  label="NEXT_PUBLIC_MERGE_OC_DID"
-                  value={config?.mergeOcDid ? "y" : "n"}
+                  label="Presentation"
+                  value={config?.bridgeEnabled ? "Inbäddad på startsidan" : "Avstängd"}
                 />
               </div>
             )}

@@ -1,17 +1,17 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import { ArrowRight, Fingerprint, Shield, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
+import { EmbeddedLandingAida } from "@/components/embedded-landing-aida"
 import { TextReveal } from "@/components/text-reveal"
-import { parseStartIntent } from "@/lib/start-intent"
 import { cn } from "@/lib/utils"
 
-const SHOW_LANYARD = process.env.NEXT_PUBLIC_KORT !== "en"
+const SHOW_LANYARD = true
 
 const HeroLanyard = dynamic(
   () => import("@/components/hero-lanyard").then((m) => m.HeroLanyard),
@@ -32,12 +32,6 @@ const trustItems = [
   { icon: Fingerprint, label: "BankID och trygg identifiering" },
   { icon: Shield, label: "Skatteverket och GDPR i samma flöde" },
   { icon: Sparkles, label: "AI-hjälp nu, checklista efter flytten" },
-]
-
-const quickExamples = [
-  "Storgatan 12, Göteborg",
-  "Vi flyttar 1 juni till Malmö",
-  "19900101-1234",
 ]
 
 function MovingBox({
@@ -118,15 +112,7 @@ function MovingBox({
   )
 }
 
-interface HeroSectionProps {
-  onOpenMiniMif?: (initialValue?: string) => void
-}
-
-export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
-  const [startInput, setStartInput] = useState("")
-
-  const parsedStart = useMemo(() => parseStartIntent(startInput), [startInput])
-
+export function HeroSection() {
   return (
     <section
       id="hero"
@@ -139,11 +125,7 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
       <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.03]" />
 
       <div className="relative mx-auto max-w-7xl px-4 pt-28 pb-20 sm:pt-32 lg:px-8 lg:pt-32 lg:pb-28">
-        <div className={cn(
-          SHOW_LANYARD
-            ? "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(500px,640px)] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(560px,720px)] xl:gap-10"
-            : "lg:max-w-4xl"
-        )}>
+        <div className="lg:max-w-4xl">
           <motion.div
             className="relative z-20 flex max-w-3xl flex-col items-start"
             initial="hidden"
@@ -202,80 +184,18 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
             påminnelser och smarta erbjudanden vid.
           </motion.p>
 
-          <MovingBox
-            delay={0.6}
-            className="mt-8 w-full max-w-2xl rounded-[28px] border border-border/70 bg-card/90 p-4 shadow-lg shadow-primary/10 backdrop-blur sm:p-5"
-          >
-            <form
-              onSubmit={(event) => {
-                event.preventDefault()
-                onOpenMiniMif?.(startInput)
-              }}
-              className="flex flex-col gap-3.5"
-            >
-              <div className="flex flex-col gap-1.5">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    Börja här
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Börja helst med personnummer. Annars kan du skriva fritt vad du vet om flytten.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Input
-                  name="start"
-                  value={startInput}
-                  onChange={(e) => setStartInput(e.target.value)}
-                  placeholder={'Skriv t.ex. "19900101-1234" eller "Vi flyttar 1 juni till Malmö"'}
-                  className="h-12 rounded-2xl border-border/70 bg-background/85 px-4 text-base"
-                />
-
-                <Button
-                  type="submit"
-                  size="lg"
-                  disabled={!startInput.trim()}
-                  className="shimmer-btn h-12 rounded-2xl px-5 text-base font-semibold shadow-lg shadow-primary/15 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/20 sm:px-6"
-                >
-                  Fortsätt
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {quickExamples.map((example) => (
-                  <button
-                    key={example}
-                    type="button"
-                    onClick={() => setStartInput(example)}
-                    className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
-                  >
-                    {example}
-                  </button>
-                ))}
-              </div>
-
-              <div className="min-h-5 text-xs leading-relaxed text-muted-foreground">
-                {parsedStart.summary.length > 0
-                  ? `Vi kan redan ta med ${parsedStart.summary.join(", ")}.`
-                  : "Du kan börja enkelt här och komplettera resten steg för steg."}
-              </div>
-            </form>
-          </MovingBox>
+          <EmbeddedLandingAida />
 
           <motion.div variants={fadeUp} className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
-              type="button"
+              asChild
               size="lg"
-              onClick={() => onOpenMiniMif?.()}
               className="shimmer-btn rounded-full px-8 text-base font-semibold shadow-xl shadow-primary/15 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-primary/20"
             >
-              <>
+              <Link href="/adressandring">
                 Starta din flytt
                 <ArrowRight className="ml-2 h-4 w-4" />
-              </>
+              </Link>
             </Button>
             <Button
               asChild
@@ -303,28 +223,24 @@ export function HeroSection({ onOpenMiniMif }: HeroSectionProps) {
             ))}
           </div>
           </motion.div>
-
-          {SHOW_LANYARD && (
-            <motion.div
-              className="relative z-10 hidden lg:block lg:h-[820px] xl:h-[920px]"
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
-            >
-              <div className="absolute inset-x-8 top-10 bottom-10 rounded-[3rem] bg-ring/10 blur-3xl" />
-              <HeroLanyard />
-            </motion.div>
-          )}
         </div>
 
         {SHOW_LANYARD && (
           <motion.div
-            className="relative z-10 mt-12 w-full overflow-visible lg:hidden"
+            className="relative z-10 mt-14 w-full max-w-5xl overflow-visible"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
           >
             <div className="relative overflow-visible">
+              <div className="mb-4 max-w-2xl">
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-primary/15 bg-background/85 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm"
+                >
+                  Flyttkortet finns kvar som visuell detalj
+                </Badge>
+              </div>
               <div className="absolute inset-x-8 -top-10 bottom-8 rounded-[3rem] bg-ring/10 blur-3xl sm:inset-x-12 lg:inset-x-20" />
               <HeroLanyard />
             </div>

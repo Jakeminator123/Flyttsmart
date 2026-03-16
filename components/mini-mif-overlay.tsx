@@ -12,17 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { parseStartIntent } from "@/lib/start-intent"
-import { normalizePersonalNumber } from "@/lib/personal-number"
 import {
-  createMiniMifContext,
   describeMiniMifMissing,
-  mergeStoredPrefill,
-  readStoredAdressandringPrefill,
-  writeMiniMifContext,
-  writeStoredAdressandringPrefill,
   type MiniMifContext,
 } from "@/lib/mif/prefill"
+import { persistMiniMifResult, resolveMiniMifInput } from "@/lib/mif/resolve"
 
 interface MiniMifOverlayProps {
   open: boolean
@@ -74,24 +68,16 @@ export function MiniMifOverlay({
     }
   }, [initialValue, open])
 
-  const normalizedPnr = useMemo(() => normalizePersonalNumber(input), [input])
+  const normalizedPnr = useMemo(
+    () => /^\d{8}-?\d{4}$/.test(input.replace(/\s+/g, "")),
+    [input],
+  )
   const missingLabels = describeMiniMifMissing(
     resolved?.context.missingCritical ?? [],
   )
   const foundLabels = (resolved?.context.found ?? []).map(
     (field) => FIELD_LABELS[field] ?? field,
   )
-
-  function persistContext(context: MiniMifContext, source: "pnr_lookup" | "start_intent") {
-    const current = readStoredAdressandringPrefill()
-    const nextPrefill = mergeStoredPrefill(current, {
-      fields: context.fields,
-      source,
-      miniMif: context,
-    })
-    writeStoredAdressandringPrefill(nextPrefill)
-    writeMiniMifContext(context)
-  }
 
   async function resolveInput() {
     const trimmed = input.trim()
@@ -102,78 +88,9 @@ export function MiniMifOverlay({
     setResolved(null)
 
     try {
-      if (normalizedPnr) {
-        const res = await fetch("/api/enrich/person", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ personalNumber: normalizedPnr }),
-        })
-
-        const body = await res.json().catch(() => null)
-        const fields: Record<string, string> = { personalNumber: normalizedPnr }
-        if (body?.firstName) fields.firstName = body.firstName
-        if (body?.lastName) fields.lastName = body.lastName
-        if (body?.fromStreet) fields.fromStreet = body.fromStreet
-        if (body?.fromCity) fields.fromCity = body.fromCity
-        if (body?.fromPostal) fields.fromPostal = body.fromPostal
-
-        const summary: string[] = []
-        if (fields.firstName || fields.lastName) summary.push("namn")
-        if (fields.fromStreet) summary.push("nuvarande adress")
-        if (fields.fromCity || fields.fromPostal) summary.push("nuvarande ort")
-
-        const warning =
-          !res.ok || body?.found === false
-            ? body?.error || body?.details || "Vi kunde inte hämta mer uppgifter från personnumret ännu."
-            : null
-
-        const context = createMiniMifContext({
-          mode: "personnummer",
-          rawInput: trimmed,
-          fields,
-          fieldSources: Object.fromEntries(
-            Object.keys(fields).map((field) => [field, "pnr_lookup"]),
-          ),
-          summary,
-          personLookup: {
-            found: Boolean(body?.found),
-            source: typeof body?.source === "string" ? body.source : undefined,
-            confidence:
-              body?.confidence === "high" || body?.confidence === "medium" || body?.confidence === "low"
-                ? body.confidence
-                : undefined,
-            missing: Array.isArray(body?.missing)
-              ? body.missing.filter((item: unknown): item is string => typeof item === "string")
-              : undefined,
-            displayName:
-              typeof body?.displayName === "string"
-                ? body.displayName
-                : [fields.firstName, fields.lastName].filter(Boolean).join(" ") || null,
-          },
-        })
-
-        persistContext(context, "pnr_lookup")
-        setResolved({ context, warning })
-        return
-      }
-
-      const parsedStartIntent = parseStartIntent(trimmed)
-      const context = createMiniMifContext({
-        mode: "free_text",
-        rawInput: trimmed,
-        fields: parsedStartIntent.fields as Record<string, string>,
-        fieldSources: Object.fromEntries(
-          Object.keys(parsedStartIntent.fields).map((field) => [field, "start_intent"]),
-        ),
-        summary: parsedStartIntent.summary,
-        startIntent: {
-          rawInput: parsedStartIntent.rawInput,
-          summary: parsedStartIntent.summary,
-        },
-      })
-
-      persistContext(context, "start_intent")
-      setResolved({ context })
+      const result = await resolveMiniMifInput(trimmed)
+      persistMiniMifResult(result)
+      setResolved({ context: result.context, warning: result.warning })
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Okänt fel"
       setError(msg)

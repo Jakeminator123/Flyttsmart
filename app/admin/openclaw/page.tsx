@@ -30,8 +30,6 @@ interface HealthData {
   gatewayUrl: string;
   agentId: string;
   hasGatewayToken: boolean;
-  testTalEnabled?: boolean;
-  mergeOcDid?: boolean;
 }
 
 interface OpenClawConfig {
@@ -209,8 +207,6 @@ export default function OpenClawPage() {
           gatewayUrl: data.config?.gatewayUrl ?? "–",
           agentId: data.config?.agentId ?? "–",
           hasGatewayToken: data.config?.hasGatewayToken ?? false,
-          testTalEnabled: data.config?.testTalEnabled,
-          mergeOcDid: data.config?.mergeOcDid,
         });
       })
       .catch(() => setHealth({ ok: false, gatewayUrl: "–", agentId: "–", hasGatewayToken: false }))

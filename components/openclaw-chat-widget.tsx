@@ -14,14 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { parseOpenClawResponse } from "@/lib/openclaw/response";
+import { getSharedAidaSessionId } from "@/lib/aida/client-session";
 import {
   MINI_MIF_EVENT,
   readMiniMifContext,
   type MiniMifContext,
 } from "@/lib/mif/prefill";
-
-const MERGE_OC_DID =
-  process.env.NEXT_PUBLIC_MERGE_OC_DID?.toLowerCase() === "y";
 
 // ─── Types ─────────────────────────────────────────────
 
@@ -60,17 +58,7 @@ interface OpenClawChatWidgetProps {
 // ─── Session ID helper ─────────────────────────────────
 
 function getSessionId(): string {
-  if (typeof window === "undefined") return "";
-  const KEY = "openclaw_session_id";
-  try {
-    const existing = sessionStorage.getItem(KEY);
-    if (existing) return existing;
-    const id = crypto.randomUUID();
-    sessionStorage.setItem(KEY, id);
-    return id;
-  } catch {
-    return crypto.randomUUID();
-  }
+  return getSharedAidaSessionId();
 }
 
 // ─── Component ─────────────────────────────────────────
@@ -81,8 +69,6 @@ export function OpenClawChatWidget({
   currentStep,
   onSuggestion,
 }: OpenClawChatWidgetProps) {
-  if (MERGE_OC_DID) return null;
-
   return (
     <OpenClawChatWidgetInner
       formType={formType}

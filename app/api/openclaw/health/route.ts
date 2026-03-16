@@ -33,14 +33,11 @@ export async function GET(req: NextRequest) {
     ["1", "true", "y", "yes"].includes(
       (process.env.OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH ?? "").trim().toLowerCase(),
     );
-  const testTalEnabled = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
   const scbEnabled =
     (process.env.SCB_ENABLED ?? "").toLowerCase() === "y" ||
     (process.env.SCB_ENABLED ?? "").toLowerCase() === "true";
   const scbYear = process.env.SCB_YEAR ?? "2024";
   const scbTableId = process.env.SCB_TABLE_ID ?? "TAB638";
-  const mergeOcDid =
-    (process.env.NEXT_PUBLIC_MERGE_OC_DID ?? "").toLowerCase() === "y";
   const didBridgeEnabled =
     process.env.NEXT_PUBLIC_DID_BRIDGE_ENABLED === "true";
   const {
@@ -67,11 +64,9 @@ export async function GET(req: NextRequest) {
     hasAccessToken: Boolean(accessToken),
     hasWebhookSecret: Boolean(webhookSecret),
     hasBypassSecret: Boolean(bypassSecret),
-    testTalEnabled,
     scbEnabled,
     scbYear,
     scbTableId,
-    mergeOcDid,
     didBridgeEnabled,
   };
 

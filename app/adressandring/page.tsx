@@ -49,6 +49,7 @@ import {
 } from "@/lib/start-intent";
 import {
   clearStoredAdressandringPrefill,
+  readMiniMifContext,
   readStoredAdressandringPrefill,
   type MiniMifContext,
 } from "@/lib/mif/prefill";
@@ -145,6 +146,17 @@ export default function AdressandringPage() {
   } | null>(null);
   const [startIntent, setStartIntent] = useState<StartIntentPayload | null>(null);
   const [miniMifContext, setMiniMifContext] = useState<MiniMifContext | null>(null);
+  const [showAutofillPanel, setShowAutofillPanel] = useState(false);
+
+  useEffect(() => {
+    const hostname = window.location.hostname;
+    const isLocalMode =
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "[::1]";
+
+    setShowAutofillPanel(!isLocalMode);
+  }, []);
 
   // OpenClaw real-time form mirroring
   const { mirrorField, mirrorStepChange, mirrorSubmit, mirrorEvent } =
@@ -208,6 +220,23 @@ export default function AdressandringPage() {
           setMiniMifContext(storedPrefill.miniMif);
           if (storedPrefill.miniMif.startIntent?.rawInput) {
             setStartIntent(parseStartIntent(storedPrefill.miniMif.startIntent.rawInput));
+          }
+        }
+      }
+
+      const fallbackMiniMif = readMiniMifContext();
+      if (fallbackMiniMif) {
+        if (
+          (!storedPrefill || Object.keys(storedPrefill.fields).length === 0) &&
+          Object.keys(fallbackMiniMif.fields).length > 0
+        ) {
+          setForm((prev) => ({ ...prev, ...fallbackMiniMif.fields }));
+          prefillForMirror = fallbackMiniMif.fields as Partial<FormData>;
+        }
+        if (!storedPrefill?.miniMif) {
+          setMiniMifContext(fallbackMiniMif);
+          if (fallbackMiniMif.startIntent?.rawInput) {
+            setStartIntent(parseStartIntent(fallbackMiniMif.startIntent.rawInput));
           }
         }
       }
@@ -945,28 +974,30 @@ export default function AdressandringPage() {
                 </div>
 
                 {/* AI autofill suggestion */}
-                <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-3.5">
-                  <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-                  <p className="flex-1 text-xs text-muted-foreground">
-                    {autofillActive
-                      ? `Autofyll är aktiv (${autofillConfig.mode === "auto" ? "auto" : "manuell accept"}). Förslag visas ovanför fält.`
-                      : "Autofyll är avstängd i denna miljö."}
-                  </p>
-                  <Button
-                    onClick={handleAutofill}
-                    disabled={autofillLoading || !autofillActive}
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 gap-1.5 text-xs"
-                  >
-                    {autofillLoading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
-                    )}
-                    {autofillLoading ? "Tar fram förslag..." : "Hämta AI-förslag"}
-                  </Button>
-                </div>
+                {showAutofillPanel && (
+                  <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-3.5">
+                    <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+                    <p className="flex-1 text-xs text-muted-foreground">
+                      {autofillActive
+                        ? `Autofyll är aktiv (${autofillConfig.mode === "auto" ? "auto" : "manuell accept"}). Förslag visas ovanför fält.`
+                        : "Autofyll är avstängd i denna miljö."}
+                    </p>
+                    <Button
+                      onClick={handleAutofill}
+                      disabled={autofillLoading || !autofillActive}
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 gap-1.5 text-xs"
+                    >
+                      {autofillLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      {autofillLoading ? "Tar fram förslag..." : "Hämta AI-förslag"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </>
           )}

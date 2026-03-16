@@ -10,11 +10,5 @@ export async function GET() {
         .toLowerCase() === "true",
     clientKeySet: !!(process.env.NEXT_PUBLIC_DID_CLIENT_KEY ?? "").trim(),
     agentId: (process.env.NEXT_PUBLIC_DID_AGENT_ID ?? "").trim() || "–",
-    mergeOcDid:
-      (process.env.NEXT_PUBLIC_MERGE_OC_DID ?? "")
-        .trim()
-        .toLowerCase() === "y",
-    testTal:
-      (process.env.TEST_TAL ?? "").trim().toLowerCase() === "y",
   });
 }

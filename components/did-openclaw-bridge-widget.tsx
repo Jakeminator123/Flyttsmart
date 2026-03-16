@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { parseOpenClawResponse, type EmailRequestBlock } from "@/lib/openclaw/response";
 import { cn } from "@/lib/utils";
 import { useDIDStream } from "@/lib/did-stream-context";
+import { getSharedAidaSessionId } from "@/lib/aida/client-session";
 import {
   MINI_MIF_EVENT,
   readMiniMifContext,
@@ -16,17 +17,7 @@ const DID_CLIENT_KEY = process.env.NEXT_PUBLIC_DID_CLIENT_KEY ?? "";
 const DID_AGENT_ID = process.env.NEXT_PUBLIC_DID_AGENT_ID ?? "";
 const DID_BRIDGE_ENABLED = process.env.NEXT_PUBLIC_DID_BRIDGE_ENABLED === "true";
 function getDidSessionId(): string {
-  if (typeof window === "undefined") return "";
-  const key = "did_bridge_session_id";
-  try {
-    const existing = sessionStorage.getItem(key);
-    if (existing) return existing;
-    const created = crypto.randomUUID();
-    sessionStorage.setItem(key, created);
-    return created;
-  } catch {
-    return crypto.randomUUID();
-  }
+  return getSharedAidaSessionId();
 }
 
 function pickBlurValue(target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement) {

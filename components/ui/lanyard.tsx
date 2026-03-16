@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 
 // Pre-init Rapier WASM with the non-deprecated single-object signature so
 // @react-three/rapier's internal init() becomes a no-op (already loaded).
-const rapierReady = import('@dimforge/rapier3d-compat').then((r) => r.init({}).then(() => r));
+const rapierReady = import('@dimforge/rapier3d-compat').then((r) => r.init().then(() => r));
 
 const AUTO_FLIP_AFTER_MS = 8000;
 const DAMPING_RESET_AFTER_FLIP_MS = 4000;

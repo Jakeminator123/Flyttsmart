@@ -14,8 +14,6 @@ const envChecks: Array<{ key: string; category: string; anyOf: string[] }> = [
   { key: "NEXT_PUBLIC_DID_CLIENT_KEY", category: "D-ID", anyOf: ["NEXT_PUBLIC_DID_CLIENT_KEY"] },
   { key: "NEXT_PUBLIC_DID_AGENT_ID", category: "D-ID", anyOf: ["NEXT_PUBLIC_DID_AGENT_ID"] },
   { key: "DID_BRIDGE_SECRET", category: "D-ID", anyOf: ["DID_BRIDGE_SECRET"] },
-  { key: "TEST_TAL", category: "D-ID", anyOf: ["TEST_TAL"] },
-  { key: "NEXT_PUBLIC_MERGE_OC_DID", category: "D-ID", anyOf: ["NEXT_PUBLIC_MERGE_OC_DID"] },
   { key: "REMINDER_EMAIL_PROVIDER", category: "Automation", anyOf: ["REMINDER_EMAIL_PROVIDER"] },
   { key: "REMINDER_EMAIL_FROM / EMAIL_FROM", category: "Automation", anyOf: ["REMINDER_EMAIL_FROM", "EMAIL_FROM"] },
   { key: "RESEND_API_KEY / SENDGRID_API_KEY", category: "Automation", anyOf: ["RESEND_API_KEY", "SENDGRID_API_KEY"] },

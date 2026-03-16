@@ -94,8 +94,7 @@ For `comparison` intent, enrichment and comparison run in **parallel**
 | `DID_BRIDGE_SECRET` | Auth for cross-origin DID bridge requests |
 | `NEXT_PUBLIC_DID_CLIENT_KEY` | D-ID client key (frontend, origin-locked) |
 | `NEXT_PUBLIC_DID_AGENT_ID` | D-ID agent ID (`v2_agt_THZNQGpC`) |
-| `NEXT_PUBLIC_DID_BRIDGE_ENABLED` | Enable widget (`true`) |
-| `NEXT_PUBLIC_MERGE_OC_DID` | Include form context in chat (`y`) |
+| `NEXT_PUBLIC_DID_BRIDGE_ENABLED` | Enable the embedded landing assistant (`true`) |
 
 ### Render (OpenClaw)
 

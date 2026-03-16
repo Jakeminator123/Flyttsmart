@@ -99,8 +99,6 @@ D-ID related vars:
 - NEXT_PUBLIC_DID_CLIENT_KEY=<D-ID client key from Studio Embed>
 - NEXT_PUBLIC_DID_AGENT_ID=<D-ID agent ID, e.g. v2_agt_THZNQGpC>
 - DID_BRIDGE_SECRET=<optional>
-- TEST_TAL=y or n
-- NEXT_PUBLIC_MERGE_OC_DID=y or n (when y, hides text chat, DID avatar is primary)
 
 
 5) Known Behavior (Important)
@@ -112,16 +110,10 @@ D-ID related vars:
   Channels are only for integrations like Telegram/Discord/WhatsApp.
 
 
-6) TEST_TAL Behavior
---------------------
-- TEST_TAL=y:
-  /api/did/chat field_blur events can return shouldSpeak=true and trigger browser speech.
-- TEST_TAL=n:
-  field blur speech path is disabled.
-
-Quick verification:
-- GET /api/openclaw/health?debug=1
-  Expect config.testTalEnabled true/false based on TEST_TAL.
+6) D-ID Field Sync Behavior
+---------------------------
+- `/api/did/chat` field_blur events only sync context.
+- Field blur should never trigger spoken echo in production.
 
 
 7) Smoke Test Checklist

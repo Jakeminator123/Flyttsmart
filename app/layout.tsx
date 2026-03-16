@@ -1,7 +1,6 @@
 import React from "react"
 import type { Metadata, Viewport } from 'next'
 import { DM_Sans, Playfair_Display } from 'next/font/google'
-import { DidOpenClawBridgeWidget } from '@/components/did-openclaw-bridge-widget'
 import { AnalyticsWithConsent } from '@/components/analytics-with-consent'
 import { CookieConsentBanner } from '@/components/cookie-consent-banner'
 import { JsonLd } from '@/components/json-ld'
@@ -98,7 +97,6 @@ export default function RootLayout({
           <SmoothScroll />
           <ScrollProgress />
           {children}
-          <DidOpenClawBridgeWidget />
           <CookieConsentBanner />
         </DIDStreamProvider>
         <AnalyticsWithConsent />

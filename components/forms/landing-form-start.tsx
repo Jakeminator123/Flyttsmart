@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { ArrowRight, CheckCircle2, Shield } from "lucide-react"
 import { AdressandringStepOneFields } from "@/components/forms/adressandring-step-one-fields"
@@ -20,6 +20,7 @@ import {
   describeMiniMifMissing,
   readStoredAdressandringPrefill,
   writeStoredAdressandringPrefill,
+  type MiniMifSource,
   type MiniMifContext,
 } from "@/lib/mif/prefill"
 
@@ -49,6 +50,7 @@ export function LandingFormStart({
   warning,
   className,
 }: LandingFormStartProps) {
+  const initialMiniMifFieldsRef = useRef(miniMifContext?.fields)
   const [fields, setFields] = useState<AdressandringStep1Fields>(
     emptyAdressandringStep1Fields,
   )
@@ -56,7 +58,7 @@ export function LandingFormStart({
   useEffect(() => {
     const stored = readStoredAdressandringPrefill()
     const storedFields = pickAdressandringStep1Fields(stored?.fields)
-    const miniMifFields = pickAdressandringStep1Fields(miniMifContext?.fields)
+    const miniMifFields = pickAdressandringStep1Fields(initialMiniMifFieldsRef.current)
 
     setFields(
       mergeAdressandringStep1Fields(
@@ -87,8 +89,8 @@ export function LandingFormStart({
     const manualFields = Object.fromEntries(
       Object.entries(fields).filter(([, value]) => value.trim().length > 0),
     )
-    const manualSources = Object.fromEntries(
-      Object.keys(manualFields).map((key) => [key, "manual"]),
+    const manualSources: Record<string, MiniMifSource> = Object.fromEntries(
+      Object.keys(manualFields).map((key) => [key, "manual" as const]),
     )
 
     writeStoredAdressandringPrefill({

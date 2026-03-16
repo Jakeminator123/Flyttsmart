@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   Loader2,
   Mic,
@@ -95,6 +95,7 @@ export function EmbeddedLandingAida() {
   const sessionIdRef = useRef("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const panelVideoRef = useRef<HTMLVideoElement>(null)
+  const videoMountedRef = useRef(false)
   const agentRef = useRef<any>(null)
   const recognitionRef = useRef<any>(null)
   const sdkModuleRef = useRef<any>(null)
@@ -293,7 +294,7 @@ export function EmbeddedLandingAida() {
     } finally {
       connectInFlightRef.current = false
     }
-  }, [connectionState, didAvailable, initAgent])
+  }, [connectionState, didAvailable, initAgent, syncVideoPlayback])
 
   useEffect(() => {
     if (!didAvailable) return
@@ -504,7 +505,13 @@ export function EmbeddedLandingAida() {
           <div className="overflow-hidden border-b border-border/50 bg-linear-to-b from-slate-950 via-slate-900 to-slate-950">
             <div className="relative h-[220px] bg-black sm:h-[250px] xl:h-[300px]">
               <video
-                ref={panelVideoRef}
+                ref={(el) => {
+                  panelVideoRef.current = el
+                  if (el && !videoMountedRef.current) {
+                    videoMountedRef.current = true
+                    syncVideoPlayback()
+                  }
+                }}
                 autoPlay
                 playsInline
                 muted={connectionState !== "connected" || !srcObjectRef.current}

@@ -117,17 +117,16 @@ export function HeroSection() {
     <section
       id="hero"
       className="relative overflow-visible bg-linear-to-b from-hero-gradient-from via-background to-background"
-      style={{ position: "relative" }}
     >
       <div className="hero-mesh opacity-80" />
       <div className="hero-mesh-accent opacity-50" />
       <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.18]" />
       <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.03]" />
 
-      <div className="relative mx-auto max-w-7xl px-4 pt-28 pb-20 sm:pt-32 lg:px-8 lg:pt-32 lg:pb-28">
-        <div className="lg:max-w-4xl">
+      <div className="relative mx-auto max-w-7xl px-4 pt-24 pb-16 sm:pt-28 lg:px-8 lg:pt-28 lg:pb-20">
+        <div className="w-full">
           <motion.div
-            className="relative z-20 flex max-w-3xl flex-col items-start"
+            className="relative z-20 flex w-full flex-col items-start"
             initial="hidden"
             animate="visible"
             variants={{ visible: { transition: { staggerChildren: 0.12 } } }}
@@ -177,16 +176,18 @@ export function HeroSection() {
 
           <motion.p
             variants={fadeUp}
-            className="mt-7 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg lg:text-xl"
+            className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg lg:text-xl"
           >
             Skriv in det du vet, få hjälp att fylla i resten och gå vidare med
             en trygg flyttanmälan. När flytten är registrerad tar checklista,
             påminnelser och smarta erbjudanden vid.
           </motion.p>
 
-          <EmbeddedLandingAida />
+          <div className="w-full">
+            <EmbeddedLandingAida />
+          </div>
 
-          <motion.div variants={fadeUp} className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <motion.div variants={fadeUp} className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
               asChild
               size="lg"
@@ -207,7 +208,7 @@ export function HeroSection() {
             </Button>
           </motion.div>
 
-          <div className="mt-7 grid gap-3 sm:mt-8 sm:grid-cols-3">
+          <div className="mt-5 grid gap-3 sm:mt-6 sm:grid-cols-3">
             {trustItems.map((item, i) => (
               <MovingBox
                 key={item.label}
@@ -227,7 +228,7 @@ export function HeroSection() {
 
         {SHOW_LANYARD && (
           <motion.div
-            className="relative z-10 mt-14 w-full max-w-5xl overflow-visible"
+            className="relative z-10 mt-10 w-full max-w-6xl overflow-visible"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
@@ -242,7 +243,13 @@ export function HeroSection() {
                 </Badge>
               </div>
               <div className="absolute inset-x-8 -top-10 bottom-8 rounded-[3rem] bg-ring/10 blur-3xl sm:inset-x-12 lg:inset-x-20" />
-              <HeroLanyard />
+              <motion.div
+                initial={{ y: -88, opacity: 0.55 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 1.15, ease: [0.16, 1, 0.3, 1], delay: 0.32 }}
+              >
+                <HeroLanyard />
+              </motion.div>
             </div>
           </motion.div>
         )}

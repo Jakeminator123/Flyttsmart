@@ -14,10 +14,10 @@ export default function HeroLanyardScene({ frontTextureUrl, backTextureUrl }: He
       fov={22}
       gravity={[0, -40, 0]}
       transparent
-      containerClassName="absolute -inset-x-32 inset-y-0 w-auto overflow-visible"
+      containerClassName="absolute -inset-x-32 top-6 bottom-0 w-auto overflow-visible"
       cardTextureUrl={frontTextureUrl}
       cardBackTextureUrl={backTextureUrl}
-      rigPosition={[1.55, 7.5, 0]}
+      rigPosition={[1.55, 6.1, 0]}
     />
   );
 }

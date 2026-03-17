@@ -118,10 +118,10 @@ export function HeroSection() {
       id="hero"
       className="relative overflow-visible bg-linear-to-b from-hero-gradient-from via-background to-background"
     >
-      <div className="relative mx-auto max-w-7xl px-4 pt-24 pb-16 sm:pt-28 lg:px-8 lg:pt-28 lg:pb-20">
-        <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-12">
+      <div className="relative mx-auto w-full px-4 pt-24 pb-16 sm:pt-28 lg:min-h-[85vh] lg:px-8 lg:pt-28 lg:pb-20 xl:px-12 2xl:px-20">
+        <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-6 xl:gap-0">
           <motion.div
-            className="relative z-20 flex w-full min-w-0 flex-col items-start lg:flex-1"
+            className="relative z-20 flex w-full min-w-0 flex-col items-start lg:max-w-2xl xl:max-w-3xl 2xl:max-w-4xl"
             initial="hidden"
             animate="visible"
             variants={{ visible: { transition: { staggerChildren: 0.12 } } }}
@@ -228,26 +228,26 @@ export function HeroSection() {
 
           {SHOW_LANYARD && (
             <motion.div
-              className="relative z-10 hidden w-full overflow-visible lg:mt-8 lg:block lg:min-h-128 lg:w-[340px] lg:shrink-0 xl:mt-12 xl:min-h-152 xl:w-[400px]"
+              className="pointer-events-none absolute inset-y-0 -right-4 z-30 hidden w-[50vw] overflow-visible lg:block xl:-right-8 2xl:right-0"
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
             >
-              <div className="relative overflow-visible">
-                <div className="mb-4 max-w-xs lg:ml-auto lg:text-right">
+              <div className="relative h-full overflow-visible">
+                <div className="absolute right-8 top-4 z-40 max-w-xs text-right xl:right-12">
                   <Badge
                     variant="outline"
-                    className="rounded-full border-primary/15 bg-background/85 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm"
+                    className="pointer-events-auto rounded-full border-primary/15 bg-background/85 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm"
                   >
                     Flyttkortet hänger kvar som visuell detalj
                   </Badge>
                 </div>
-                <div className="absolute inset-x-8 -top-10 bottom-8 rounded-[3rem] bg-ring/10 blur-3xl sm:inset-x-12 lg:-left-14 lg:right-4 lg:top-0 lg:bottom-16 xl:-left-24" />
+                <div className="absolute -left-24 top-0 bottom-16 right-4 rounded-[3rem] bg-ring/10 blur-3xl xl:-left-32" />
                 <motion.div
                   initial={{ y: -88, opacity: 0.55 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ duration: 1.15, ease: [0.16, 1, 0.3, 1], delay: 0.32 }}
-                  className="relative"
+                  className="pointer-events-auto relative h-full"
                 >
                   <HeroLanyard />
                 </motion.div>

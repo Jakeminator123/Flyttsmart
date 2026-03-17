@@ -11,7 +11,8 @@ import { EmbeddedLandingAida } from "@/components/embedded-landing-aida"
 import { TextReveal } from "@/components/text-reveal"
 import { cn } from "@/lib/utils"
 
-const SHOW_LANYARD = true
+// Sätt till true för att aktivera 3D-kortet igen (kan orsaka WebGL Context Lost på vissa enheter)
+const SHOW_LANYARD = false
 
 const HeroLanyard = dynamic(
   () => import("@/components/hero-lanyard").then((m) => m.HeroLanyard),

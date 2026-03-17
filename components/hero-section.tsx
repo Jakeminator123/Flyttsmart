@@ -226,13 +226,13 @@ export function HeroSection() {
             </div>
           </motion.div>
 
-          {/* Spacer so flexbox knows about the right column */}
+          {/* Spacer so flexbox reserves space for the lanyard overlay */}
           {SHOW_LANYARD && (
-            <div className="hidden lg:block lg:w-[340px] lg:shrink-0 xl:w-[420px]" aria-hidden="true" />
+            <div className="hidden lg:block lg:w-[280px] lg:shrink-0 xl:w-[320px]" aria-hidden="true" />
           )}
         </div>
       </div>
-      {/* 3D lanyard overlay – positioned absolutely so the card+rope can float over text */}
+      {/* 3D lanyard overlay – right-aligned, can overflow into text area */}
       {SHOW_LANYARD && (
         <motion.div
           className="pointer-events-none absolute inset-0 z-30 hidden overflow-visible lg:block"
@@ -240,7 +240,7 @@ export function HeroSection() {
           animate={{ opacity: 1 }}
           transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.25 }}
         >
-          <div className="pointer-events-auto absolute top-0 right-0 bottom-0 w-[55%] overflow-visible xl:w-[50%]">
+          <div className="pointer-events-auto absolute top-0 right-0 bottom-0 w-[45%] overflow-visible xl:w-[40%]">
             <HeroLanyard />
           </div>
         </motion.div>

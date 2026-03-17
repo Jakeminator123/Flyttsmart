@@ -10,14 +10,14 @@ interface HeroLanyardSceneProps {
 export default function HeroLanyardScene({ frontTextureUrl, backTextureUrl }: HeroLanyardSceneProps) {
   return (
     <Lanyard
-      position={[0, 0, 28]}
-      fov={22}
+      position={[0, 0, 30]}
+      fov={20}
       gravity={[0, -40, 0]}
       transparent
-      containerClassName="absolute -left-20 top-0 right-0 bottom-0 overflow-visible"
+      containerClassName="absolute inset-0 overflow-visible"
       cardTextureUrl={frontTextureUrl}
       cardBackTextureUrl={backTextureUrl}
-      rigPosition={[0, 6.5, 0]}
+      rigPosition={[0.5, 7, 0]}
     />
   );
 }

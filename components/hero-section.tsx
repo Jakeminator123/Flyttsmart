@@ -118,10 +118,10 @@ export function HeroSection() {
       id="hero"
       className="relative overflow-visible bg-linear-to-b from-hero-gradient-from via-background to-background"
     >
-      <div className="relative mx-auto w-full px-4 pt-24 pb-16 sm:pt-28 lg:min-h-[85vh] lg:px-8 lg:pt-28 lg:pb-20 xl:px-12 2xl:px-20">
-        <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-6 xl:gap-0">
+      <div className="relative mx-auto max-w-7xl px-4 pt-24 pb-16 sm:pt-28 lg:px-8 lg:pt-28 lg:pb-20">
+        <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-12">
           <motion.div
-            className="relative z-20 flex w-full min-w-0 flex-col items-start lg:max-w-2xl xl:max-w-3xl 2xl:max-w-4xl"
+            className="relative z-20 flex w-full min-w-0 flex-col items-start lg:flex-1"
             initial="hidden"
             animate="visible"
             variants={{ visible: { transition: { staggerChildren: 0.12 } } }}
@@ -226,25 +226,36 @@ export function HeroSection() {
             </div>
           </motion.div>
 
-          {/* Spacer so flexbox reserves space for the lanyard overlay */}
           {SHOW_LANYARD && (
-            <div className="hidden lg:block lg:w-[280px] lg:shrink-0 xl:w-[320px]" aria-hidden="true" />
+            <motion.div
+              className="relative z-30 hidden w-full overflow-visible lg:mt-8 lg:block lg:min-h-128 lg:w-[340px] lg:shrink-0 xl:mt-12 xl:min-h-152 xl:w-[400px]"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
+            >
+              <div className="relative overflow-visible">
+                <div className="mb-4 max-w-xs lg:ml-auto lg:text-right">
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-primary/15 bg-background/85 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm"
+                  >
+                    Flyttkortet hänger kvar som visuell detalj
+                  </Badge>
+                </div>
+                <div className="absolute inset-x-8 -top-10 bottom-8 rounded-[3rem] bg-ring/10 blur-3xl sm:inset-x-12 lg:-left-14 lg:right-4 lg:top-0 lg:bottom-16 xl:-left-24" />
+                <motion.div
+                  initial={{ y: -88, opacity: 0.55 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 1.15, ease: [0.16, 1, 0.3, 1], delay: 0.32 }}
+                  className="relative"
+                >
+                  <HeroLanyard />
+                </motion.div>
+              </div>
+            </motion.div>
           )}
         </div>
       </div>
-      {/* 3D lanyard overlay – right-aligned, can overflow into text area */}
-      {SHOW_LANYARD && (
-        <motion.div
-          className="pointer-events-none absolute inset-0 z-30 hidden overflow-visible lg:block"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.25 }}
-        >
-          <div className="pointer-events-auto absolute top-0 right-0 bottom-0 w-[45%] overflow-visible xl:w-[40%]">
-            <HeroLanyard />
-          </div>
-        </motion.div>
-      )}
     </section>
   )
 }

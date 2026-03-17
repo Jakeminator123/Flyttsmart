@@ -286,15 +286,29 @@ function Band({
       );
     }
     if (fixed.current) {
+      // Helper to detect NaN in a Rapier translation vector
+      const isValidVec = (v: { x: number; y: number; z: number }) =>
+        Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
+
+      // Wait until all physics bodies have valid (non-NaN) translations
+      const fixedT = fixed.current.translation();
+      const j1T = j1.current.translation();
+      const j2T = j2.current.translation();
+      const j3T = j3.current.translation();
+
+      if (!isValidVec(fixedT) || !isValidVec(j1T) || !isValidVec(j2T) || !isValidVec(j3T)) {
+        return; // physics not ready yet – skip this frame
+      }
+
       [j1, j2].forEach(ref => {
         if (!ref.current.lerped) ref.current.lerped = new THREE.Vector3().copy(ref.current.translation());
         const clampedDistance = Math.max(0.1, Math.min(1, ref.current.lerped.distanceTo(ref.current.translation())));
         ref.current.lerped.lerp(ref.current.translation(), delta * (minSpeed + clampedDistance * (maxSpeed - minSpeed)));
       });
-      curve.points[0].copy(j3.current.translation());
+      curve.points[0].copy(j3T);
       curve.points[1].copy(j2.current.lerped);
       curve.points[2].copy(j1.current.lerped);
-      curve.points[3].copy(fixed.current.translation());
+      curve.points[3].copy(fixedT);
       band.current?.geometry?.setPoints(curve.getPoints(isMobile ? 18 : 36));
       ang.copy(card.current.angvel());
       const rotation = card.current.rotation();

@@ -300,11 +300,25 @@ function Band({
         return; // physics not ready yet – skip this frame
       }
 
-      [j1, j2].forEach(ref => {
-        if (!ref.current.lerped) ref.current.lerped = new THREE.Vector3().copy(ref.current.translation());
-        const clampedDistance = Math.max(0.1, Math.min(1, ref.current.lerped.distanceTo(ref.current.translation())));
-        ref.current.lerped.lerp(ref.current.translation(), delta * (minSpeed + clampedDistance * (maxSpeed - minSpeed)));
+      // Use already-validated translations for lerp targets instead of calling translation() again
+      const translations = { j1: j1T, j2: j2T } as const;
+      [
+        [j1, translations.j1] as const,
+        [j2, translations.j2] as const,
+      ].forEach(([ref, t]) => {
+        if (!ref.current.lerped) ref.current.lerped = new THREE.Vector3().copy(t);
+        const clampedDistance = Math.max(0.1, Math.min(1, ref.current.lerped.distanceTo(t)));
+        ref.current.lerped.lerp(t, delta * (minSpeed + clampedDistance * (maxSpeed - minSpeed)));
       });
+
+      // Guard against NaN in lerped values before updating geometry
+      if (
+        !isValidVec(j1.current.lerped) ||
+        !isValidVec(j2.current.lerped)
+      ) {
+        return;
+      }
+
       curve.points[0].copy(j3T);
       curve.points[1].copy(j2.current.lerped);
       curve.points[2].copy(j1.current.lerped);

@@ -323,7 +323,15 @@ function Band({
       curve.points[1].copy(j2.current.lerped);
       curve.points[2].copy(j1.current.lerped);
       curve.points[3].copy(fixedT);
-      band.current?.geometry?.setPoints(curve.getPoints(isMobile ? 18 : 36));
+
+      // getPoints() can still produce NaN when control points are nearly
+      // coincident (division-by-zero in Catmull-Rom tangent calculation).
+      // Validate the resulting points array before handing it to setPoints.
+      const pts = curve.getPoints(isMobile ? 18 : 36);
+      const hasNaN = pts.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.z));
+      if (!hasNaN) {
+        band.current?.geometry?.setPoints(pts);
+      }
       ang.copy(card.current.angvel());
       const rotation = card.current.rotation();
       quat.set(rotation.x, rotation.y, rotation.z, rotation.w);

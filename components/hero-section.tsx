@@ -11,8 +11,7 @@ import { EmbeddedLandingAida } from "@/components/embedded-landing-aida"
 import { TextReveal } from "@/components/text-reveal"
 import { cn } from "@/lib/utils"
 
-// Sätt till true för att aktivera 3D-kortet igen (kan orsaka WebGL Context Lost på vissa enheter)
-const SHOW_LANYARD = false
+const SHOW_LANYARD = true
 
 const HeroLanyard = dynamic(
   () => import("@/components/hero-lanyard").then((m) => m.HeroLanyard),
@@ -227,36 +226,25 @@ export function HeroSection() {
             </div>
           </motion.div>
 
+          {/* Spacer so flexbox knows about the right column */}
           {SHOW_LANYARD && (
-            <motion.div
-              className="relative z-10 hidden w-full overflow-visible lg:mt-8 lg:block lg:min-h-[500px] lg:flex-1 xl:mt-12 xl:min-h-[600px]"
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
-            >
-              <div className="relative h-full overflow-visible">
-                <div className="mb-4 max-w-xs lg:ml-auto lg:text-right">
-                  <Badge
-                    variant="outline"
-                    className="rounded-full border-primary/15 bg-background/85 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm"
-                  >
-                    Flyttkortet hänger kvar som visuell detalj
-                  </Badge>
-                </div>
-                <div className="absolute inset-x-8 -top-10 bottom-8 rounded-[3rem] bg-ring/10 blur-3xl sm:inset-x-12 lg:-left-14 lg:right-4 lg:top-0 lg:bottom-16 xl:-left-24" />
-                <motion.div
-                  initial={{ y: -88, opacity: 0.55 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 1.15, ease: [0.16, 1, 0.3, 1], delay: 0.32 }}
-                  className="relative h-full"
-                >
-                  <HeroLanyard />
-                </motion.div>
-              </div>
-            </motion.div>
+            <div className="hidden lg:block lg:w-[340px] lg:shrink-0 xl:w-[420px]" aria-hidden="true" />
           )}
         </div>
       </div>
+      {/* 3D lanyard overlay – positioned absolutely so the card+rope can float over text */}
+      {SHOW_LANYARD && (
+        <motion.div
+          className="pointer-events-none absolute inset-0 z-30 hidden overflow-visible lg:block"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.25 }}
+        >
+          <div className="pointer-events-auto absolute top-0 right-0 bottom-0 w-[55%] overflow-visible xl:w-[50%]">
+            <HeroLanyard />
+          </div>
+        </motion.div>
+      )}
     </section>
   )
 }

@@ -23,7 +23,7 @@ export function HeroLanyard() {
     <>
       <HeroCardTexture onTextureReady={handleFrontReady} />
       <HeroCardBackTexture onTextureReady={handleBackReady} />
-      <div className="relative mx-auto h-96 w-full overflow-visible sm:h-120 lg:h-128 xl:h-152">
+      <div className="relative mx-auto h-96 w-full overflow-visible sm:h-120 lg:h-176 xl:h-208">
         {frontTextureUrl ? (
           <Suspense fallback={
             <div className="flex h-full items-center justify-center">

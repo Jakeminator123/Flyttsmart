@@ -674,21 +674,21 @@ export function EmbeddedLandingAida() {
                   disabled={thinking}
                 />
 
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                  <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:items-center">
                     {sttSupported && (
                       <Button
                         type="button"
                         variant="outline"
                         onClick={listening ? stopListening : startListening}
                         disabled={thinking}
-                        className="rounded-xl"
+                        className="shrink-0 rounded-xl"
                       >
                         <Mic className="mr-2 h-4 w-4" />
                         {listening ? "Sluta lyssna" : "Prata med Aida"}
                       </Button>
                     )}
-                    <p className="text-xs text-muted-foreground">
+                    <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">
                       Aida plockar ut relevanta uppgifter och förbereder nästa steg åt dig.
                     </p>
                   </div>
@@ -696,7 +696,7 @@ export function EmbeddedLandingAida() {
                   <Button
                     type="submit"
                     disabled={!input.trim() || thinking}
-                    className="rounded-xl lg:min-w-44"
+                    className="w-full shrink-0 rounded-xl lg:min-w-44 lg:w-auto"
                   >
                     {thinking ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Canvas, extend, useFrame } from '@react-three/fiber';
 import { useTexture, Environment, Lightformer } from '@react-three/drei';
 import {
@@ -21,6 +21,9 @@ const rapierReady = import('@dimforge/rapier3d-compat').then((r) => r.init().the
 
 const AUTO_FLIP_AFTER_MS = 8000;
 const DAMPING_RESET_AFTER_FLIP_MS = 4000;
+const SEGMENT_LENGTH = 1.35;
+const CARD_TOP_JOINT_OFFSET = 2.55;
+const CARD_START_OFFSET = 2.35;
 
 function angleDelta(target: number, current: number): number {
   return Math.atan2(Math.sin(target - current), Math.cos(target - current));
@@ -165,6 +168,9 @@ function Band({
   const dir = new THREE.Vector3();
   const quat = new THREE.Quaternion();
   const euler = new THREE.Euler();
+  const dragPlane = useRef(new THREE.Plane());
+  const dragIntersection = useRef(new THREE.Vector3());
+  const cameraDirection = useRef(new THREE.Vector3());
 
   const segmentProps: any = {
     type: 'dynamic' as RigidBodyProps['type'],
@@ -211,12 +217,36 @@ function Band({
   const [dragged, drag] = useState<false | THREE.Vector3>(false);
   const [hovered, hover] = useState(false);
   const flipImpulse = useRef(0);
-  const lastPointerDown = useRef(0);
+  const activePointerId = useRef<number | null>(null);
+  const activeCaptureTarget = useRef<EventTarget | null>(null);
 
-  useRopeJoint(fixed, j1, [[0, 0, 0], [0, 0, 0], 1]);
-  useRopeJoint(j1, j2, [[0, 0, 0], [0, 0, 0], 1]);
-  useRopeJoint(j2, j3, [[0, 0, 0], [0, 0, 0], 1]);
-  useSphericalJoint(j3, card, [[0, 0, 0], [0, 2.55, 0]]);
+  const stopDragging = useCallback(() => {
+    const target = activeCaptureTarget.current;
+    const pointerId = activePointerId.current;
+
+    if (
+      target &&
+      pointerId !== null &&
+      target instanceof Element &&
+      typeof target.hasPointerCapture === 'function' &&
+      target.hasPointerCapture(pointerId)
+    ) {
+      try {
+        target.releasePointerCapture(pointerId);
+      } catch {
+        /* ignore capture release failures */
+      }
+    }
+
+    activePointerId.current = null;
+    activeCaptureTarget.current = null;
+    drag(false);
+  }, []);
+
+  useRopeJoint(fixed, j1, [[0, 0, 0], [0, 0, 0], SEGMENT_LENGTH]);
+  useRopeJoint(j1, j2, [[0, 0, 0], [0, 0, 0], SEGMENT_LENGTH]);
+  useRopeJoint(j2, j3, [[0, 0, 0], [0, 0, 0], SEGMENT_LENGTH]);
+  useSphericalJoint(j3, card, [[0, 0, 0], [0, CARD_TOP_JOINT_OFFSET, 0]]);
 
   useEffect(() => {
     if (hovered) {
@@ -261,13 +291,36 @@ function Band({
     };
   }, [autoFlip]);
 
+  useEffect(() => {
+    const handleWindowPointerEnd = () => stopDragging();
+    const handleBlur = () => stopDragging();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') stopDragging();
+    };
+
+    window.addEventListener('pointerup', handleWindowPointerEnd);
+    window.addEventListener('pointercancel', handleWindowPointerEnd);
+    window.addEventListener('blur', handleBlur);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('pointerup', handleWindowPointerEnd);
+      window.removeEventListener('pointercancel', handleWindowPointerEnd);
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [stopDragging]);
+
   useFrame((state, delta) => {
     if (dragged && typeof dragged !== 'boolean') {
-      vec.set(state.pointer.x, state.pointer.y, 0.5).unproject(state.camera);
-      dir.copy(vec).sub(state.camera.position).normalize();
-      vec.add(dir.multiplyScalar(state.camera.position.length()));
-      [card, j1, j2, j3, fixed].forEach(ref => ref.current?.wakeUp());
-      card.current?.setNextKinematicTranslation({ x: vec.x - dragged.x, y: vec.y - dragged.y, z: vec.z - dragged.z });
+      if (state.raycaster.ray.intersectPlane(dragPlane.current, dragIntersection.current)) {
+        [card, j1, j2, j3, fixed].forEach(ref => ref.current?.wakeUp());
+        card.current?.setNextKinematicTranslation({
+          x: dragIntersection.current.x - dragged.x,
+          y: dragIntersection.current.y - dragged.y,
+          z: dragIntersection.current.z - dragged.z,
+        });
+      }
     }
     if (cardVisual.current) {
       cardVisual.current.rotation.y = THREE.MathUtils.damp(
@@ -329,11 +382,11 @@ function Band({
     <>
       <group position={rigPosition}>
         <RigidBody ref={fixed} {...segmentProps} type={'fixed' as RigidBodyProps['type']} />
-        <RigidBody position={[0, -1, 0]} ref={j1} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.12]} /></RigidBody>
-        <RigidBody position={[0, -2, 0]} ref={j2} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.12]} /></RigidBody>
-        <RigidBody position={[0, -3, 0]} ref={j3} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.12]} /></RigidBody>
+        <RigidBody position={[0, -SEGMENT_LENGTH, 0]} ref={j1} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.12]} /></RigidBody>
+        <RigidBody position={[0, -SEGMENT_LENGTH * 2, 0]} ref={j2} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.12]} /></RigidBody>
+        <RigidBody position={[0, -SEGMENT_LENGTH * 3, 0]} ref={j3} {...segmentProps} type={'dynamic' as RigidBodyProps['type']}><BallCollider args={[0.12]} /></RigidBody>
         <RigidBody
-          position={[0, -5.2, 0]}
+          position={[0, -(SEGMENT_LENGTH * 3 + CARD_START_OFFSET), 0]}
           ref={card}
           {...segmentProps}
           type={
@@ -349,21 +402,18 @@ function Band({
             position={[0, 0, -0.05]}
             onPointerOver={() => hover(true)}
             onPointerOut={() => hover(false)}
-            onPointerUp={(e: any) => { e.target.releasePointerCapture(e.pointerId); drag(false); }}
+            onPointerUp={() => stopDragging()}
+            onPointerCancel={() => stopDragging()}
+            onLostPointerCapture={() => stopDragging()}
             onPointerDown={(e: any) => {
-              const now = performance.now();
-              const dt = now - lastPointerDown.current;
-              lastPointerDown.current = now;
-              if (dt < 350) {
-                e.stopPropagation();
-                const hitLocal = e.point.clone().sub(vec.copy(card.current.translation()));
-                flipImpulse.current = (hitLocal.x > 0 ? -1 : 1) * 20;
-                targetVisualRotationRef.current = targetVisualRotationRef.current === 0 ? Math.PI : 0;
-                drag(false);
-                return;
-              }
+              e.stopPropagation();
               e.target.setPointerCapture(e.pointerId);
-              drag(new THREE.Vector3().copy(e.point).sub(vec.copy(card.current.translation())));
+              activePointerId.current = e.pointerId;
+              activeCaptureTarget.current = e.target;
+              vec.copy(card.current.translation());
+              e.camera.getWorldDirection(cameraDirection.current);
+              dragPlane.current.setFromNormalAndCoplanarPoint(cameraDirection.current, vec);
+              drag(new THREE.Vector3().copy(e.point).sub(vec));
             }}
           >
             <FallbackCard isMobile={isMobile} frontTex={customCardTexture} backTex={resolvedBackTex} />

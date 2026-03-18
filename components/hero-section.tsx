@@ -122,10 +122,33 @@ export function HeroSection() {
       id="hero"
       className="relative overflow-visible bg-linear-to-b from-hero-gradient-from via-background to-background"
     >
+      {SHOW_LANYARD && (
+        <motion.div
+          className="pointer-events-none absolute inset-y-0 left-0 right-0 hidden overflow-visible lg:block"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
+        >
+          <div className="pointer-events-auto relative h-full overflow-visible">
+            <div className="absolute top-6 left-[22%] right-[-12%] h-184 overflow-visible xl:top-2 xl:left-[20%] xl:right-[-14%] xl:h-216">
+              <div className="absolute inset-y-8 left-[10%] right-[-6%] rounded-[3rem] bg-ring/10 blur-3xl lg:left-[4%] xl:left-0 xl:right-[-10%]" />
+              <motion.div
+                initial={{ y: -88, opacity: 0.55 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 1.15, ease: [0.16, 1, 0.3, 1], delay: 0.32 }}
+                className="relative h-full"
+              >
+                <HeroLanyard />
+              </motion.div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       <div className="relative mx-auto max-w-7xl px-4 pt-24 pb-16 sm:pt-28 lg:px-8 lg:pt-28 lg:pb-20">
-        <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-12">
+        <div className="flex flex-col gap-10 lg:gap-12">
           <motion.div
-            className="relative z-20 flex w-full min-w-0 flex-col items-start lg:flex-1"
+            className="relative z-20 flex w-full min-w-0 flex-col items-start lg:max-w-[60%] xl:max-w-[56%]"
             initial="hidden"
             animate="visible"
             variants={{ visible: { transition: { staggerChildren: 0.12 } } }}
@@ -231,27 +254,6 @@ export function HeroSection() {
               ))}
             </div>
           </motion.div>
-
-          {SHOW_LANYARD && (
-            <motion.div
-              className="relative z-10 hidden w-full overflow-visible lg:mt-8 lg:block lg:min-h-128 lg:w-[340px] lg:shrink-0 xl:mt-12 xl:min-h-152 xl:w-[400px]"
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
-            >
-              <div className="relative overflow-visible">
-                <div className="absolute inset-x-8 -top-10 bottom-8 rounded-[3rem] bg-ring/10 blur-3xl sm:inset-x-12 lg:-left-14 lg:right-4 lg:top-0 lg:bottom-16 xl:-left-24" />
-                <motion.div
-                  initial={{ y: -88, opacity: 0.55 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 1.15, ease: [0.16, 1, 0.3, 1], delay: 0.32 }}
-                  className="relative"
-                >
-                  <HeroLanyard />
-                </motion.div>
-              </div>
-            </motion.div>
-          )}
         </div>
       </div>
     </section>

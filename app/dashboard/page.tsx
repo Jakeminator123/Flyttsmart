@@ -147,11 +147,19 @@ function DashboardContent() {
   const status = (move.status || "draft") as MoveStatus;
   const days = daysUntilMove(move.moveDate);
   const completedCount = checklist.filter((c) => c.completed).length;
+  const progressPercent =
+    checklist.length > 0
+      ? Math.round((completedCount / checklist.length) * 100)
+      : 0;
   const compareReadyCount = checklist.filter(
-    (c) => Boolean(c.taskKey) || (Array.isArray(c.comparisonHints) && c.comparisonHints.length > 0),
+    (c) =>
+      Boolean(
+        c.taskKey &&
+          Array.isArray(c.comparisonHints) &&
+          c.comparisonHints.length > 0,
+      ),
   ).length;
   const helpFlagCount = checklist.filter((c) => c.needHelp).length;
-  const firstName = user.name.split(" ")[0];
 
   async function handleStartSkv() {
     if (!data) return;
@@ -244,84 +252,120 @@ function DashboardContent() {
 
       <main className="mx-auto max-w-4xl px-4 py-8 lg:py-12">
         {/* ── Welcome ─────────────────────────────────────────── */}
-        <div className="mb-8">
-          <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Hej {firstName}!
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            {days !== null && days > 0
-              ? `${days} dagar kvar till flytten.`
-              : days === 0
-                ? "Idag är flyttdagen!"
-                : "Här ser du din flytt och checklista."}
-          </p>
-        </div>
+        <div className="relative mb-8 overflow-hidden rounded-[32px] border border-border/60 bg-linear-to-br from-hero-gradient-from via-card to-background p-6 shadow-[0_24px_80px_-42px_rgba(26,26,46,0.22)] sm:p-7">
+          <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.05]" />
+          <div className="pointer-events-none absolute -right-10 top-0 h-36 w-36 rounded-full bg-primary/10 blur-3xl" />
+          <div className="pointer-events-none absolute -left-10 bottom-0 h-28 w-28 rounded-full bg-accent/20 blur-3xl" />
 
-        {/* ── Status cards ────────────────────────────────────── */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-3">
-          <Card className="group transition-shadow hover:shadow-md">
-            <CardContent className="flex items-center gap-3 py-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/20">
-                <MapPin className="h-5 w-5 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] text-muted-foreground">Flyttar till</p>
-                <p className="truncate text-sm font-semibold text-foreground">
-                  {move.toCity || "–"}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="relative">
+            <Badge
+              variant="outline"
+              className="rounded-full border-primary/20 bg-background/85 px-4 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-primary"
+            >
+              Din översikt
+            </Badge>
+            <h1 className="mt-4 max-w-2xl font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              Din flyttplan, samlad och lite lugnare
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
+              {days !== null && days > 0
+                ? `${days} dagar kvar till flytten. Här ser du vad som är på plats, vad som återstår och var du enklast går vidare.`
+                : days === 0
+                  ? "Idag är flyttdagen. Här har du allt viktigt samlat för att hålla koll utan stress."
+                  : "Här ser du din flytt, dina uppgifter och nästa steg i ett renare upplägg."}
+            </p>
 
-          <Card className="group transition-shadow hover:shadow-md">
-            <CardContent className="flex items-center gap-3 py-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/20">
-                <CalendarDays className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-[11px] text-muted-foreground">
-                  Inflyttningsdatum
-                </p>
-                <p className="text-sm font-semibold text-foreground">
-                  {move.moveDate || "–"}
-                </p>
-                {days !== null && days > 0 && (
-                  <p className="text-[10px] text-primary font-medium">
-                    {days} dagar kvar
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Badge
+                variant="outline"
+                className="rounded-full border-border/70 bg-background/80"
+              >
+                {move.toCity || "Ort saknas"}
+              </Badge>
+              {move.moveDate && (
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-border/70 bg-background/80"
+                >
+                  Inflyttning {move.moveDate}
+                </Badge>
+              )}
+              <Badge
+                variant="outline"
+                className="rounded-full border-border/70 bg-background/80"
+              >
+                {completedCount}/{checklist.length} klara
+              </Badge>
+            </div>
 
-          <Card className="group transition-shadow hover:shadow-md">
-            <CardContent className="flex items-center gap-3 py-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/20">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-[11px] text-muted-foreground">Checklista</p>
-                <p className="text-sm font-semibold text-foreground">
-                  {completedCount}/{checklist.length} klara
-                </p>
-                {checklist.length > 0 && (
-                  <div className="mt-1 h-1.5 w-20 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-500"
-                      style={{
-                        width: `${Math.round((completedCount / checklist.length) * 100)}%`,
-                      }}
-                    />
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[24px] border border-border/60 bg-background/80 p-4 shadow-sm backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <MapPin className="h-5 w-5" />
                   </div>
-                )}
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Flyttar till
+                    </p>
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {move.toCity || "–"}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+
+              <div className="rounded-[24px] border border-border/60 bg-background/80 p-4 shadow-sm backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <CalendarDays className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Inflyttning
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {move.moveDate || "–"}
+                    </p>
+                    {days !== null && days > 0 && (
+                      <p className="mt-1 text-[11px] font-medium text-primary">
+                        {days} dagar kvar
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-border/60 bg-background/80 p-4 shadow-sm backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Checklista
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {completedCount}/{checklist.length} klara
+                    </p>
+                    {checklist.length > 0 && (
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-linear-to-r from-primary to-primary/70 transition-all duration-500"
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* ── Tabs ─────────────────────────────────────────────── */}
-        <Tabs defaultValue="skatteverket" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 h-12">
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid h-13 w-full grid-cols-3 rounded-[22px] border border-border/60 bg-card/80 p-1 shadow-sm">
             <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm">
               <Home className="h-4 w-4" />
               Översikt
@@ -338,12 +382,37 @@ function DashboardContent() {
 
           {/* ── Overview ──────────────────────────────────────── */}
           <TabsContent value="overview" className="space-y-6">
+            <div className="rounded-[30px] border border-border/60 bg-card/80 p-6 shadow-sm">
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-primary/20 bg-primary/5 text-primary"
+                >
+                  Översikt
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-border/70 bg-background/80"
+                >
+                  {progressPercent}% klart
+                </Badge>
+              </div>
+              <h2 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
+                Allt viktigt inför nästa steg
+              </h2>
+              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
+                Här får du en snabb bild av var flytten står just nu, vilka
+                uppgifter som finns sparade och vilka genvägar som är mest
+                relevanta att ta härnäst.
+              </p>
+            </div>
+
             <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Flytt-status</CardTitle>
+              <Card className="overflow-hidden border-border/60 bg-card/90 shadow-sm">
+                <CardHeader className="border-b border-border/60 bg-background/60">
+                  <CardTitle className="text-base">Var i processen du är</CardTitle>
                   <CardDescription className="text-xs">
-                    Var du befinner dig i processen
+                    Din flyttstatus steg för steg
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -351,17 +420,26 @@ function DashboardContent() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Dina uppgifter</CardTitle>
+              <Card className="overflow-hidden border-border/60 bg-card/90 shadow-sm">
+                <CardHeader className="border-b border-border/60 bg-background/60">
+                  <CardTitle className="text-base">Det vi har sparat</CardTitle>
+                  <CardDescription className="text-xs">
+                    Kontaktuppgifter och flyttadress i ett lugnare format
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <User className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">{user.name}</p>
+                  <div className="rounded-2xl border border-border/60 bg-background/70 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <User className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                          Kontakt
+                        </p>
+                        <p className="mt-1 text-sm font-semibold">{user.name}</p>
                       {user.email && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           {user.email}
                         </p>
                       )}
@@ -370,17 +448,22 @@ function DashboardContent() {
                           {user.phone}
                         </p>
                       )}
+                      </div>
                     </div>
                   </div>
                   <Separator />
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground" />
+
+                  <div className="grid gap-3">
+                    <div className="rounded-2xl border border-border/60 bg-background/70 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                          <MapPin className="h-4 w-4" />
+                        </div>
                       <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                           Från
                         </p>
-                        <p className="text-sm font-medium">
+                        <p className="mt-1 text-sm font-medium">
                           {move.fromStreet || "–"}
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -388,16 +471,24 @@ function DashboardContent() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex justify-center">
-                      <ArrowRight className="h-4 w-4 text-primary" />
                     </div>
-                    <div className="flex items-start gap-3">
-                      <MapPin className="mt-0.5 h-4 w-4 text-primary" />
+
+                    <div className="flex justify-center py-1">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <ArrowRight className="h-4 w-4" />
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-border/60 bg-background/70 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                          <MapPin className="h-4 w-4" />
+                        </div>
                       <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wider text-primary">
+                        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
                           Till
                         </p>
-                        <p className="text-sm font-semibold">
+                        <p className="mt-1 text-sm font-semibold">
                           {move.toStreet || "–"}
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -405,21 +496,25 @@ function DashboardContent() {
                         </p>
                       </div>
                     </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
             {/* Quick actions */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Snabbåtgärder</CardTitle>
+            <Card className="overflow-hidden border-border/60 bg-card/90 shadow-sm">
+              <CardHeader className="border-b border-border/60 bg-background/60 pb-4">
+                <CardTitle className="text-base">Snabbvägar</CardTitle>
+                <CardDescription>
+                  Tre rena genvägar till sådant många vill fixa direkt.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <Button
                     variant="outline"
-                    className="h-auto flex-col gap-2 py-4 text-xs"
+                    className="h-auto min-h-36 flex-col items-start justify-between rounded-[24px] border-border/60 bg-background/80 px-5 py-5 text-left text-xs shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:bg-card"
                     asChild
                   >
                     <a
@@ -427,14 +522,22 @@ function DashboardContent() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <Landmark className="h-5 w-5 text-primary" />
-                      <span className="font-medium">Flyttanmälan</span>
-                      <span className="text-muted-foreground">Skatteverket</span>
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <Landmark className="h-5 w-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="block font-medium text-foreground">
+                          Flyttanmälan
+                        </span>
+                        <span className="block text-muted-foreground">
+                          Gå vidare till Skatteverket med nästa steg tydligt nära till hands.
+                        </span>
+                      </div>
                     </a>
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-auto flex-col gap-2 py-4 text-xs"
+                    className="h-auto min-h-36 flex-col items-start justify-between rounded-[24px] border-border/60 bg-background/80 px-5 py-5 text-left text-xs shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:bg-card"
                     asChild
                   >
                     <a
@@ -442,14 +545,22 @@ function DashboardContent() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <FileText className="h-5 w-5 text-primary" />
-                      <span className="font-medium">Eftersändning</span>
-                      <span className="text-muted-foreground">PostNord</span>
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="block font-medium text-foreground">
+                          Eftersändning
+                        </span>
+                        <span className="block text-muted-foreground">
+                          Bra om posten ska hinna rätt redan från start på nya adressen.
+                        </span>
+                      </div>
                     </a>
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-auto flex-col gap-2 py-4 text-xs"
+                    className="h-auto min-h-36 flex-col items-start justify-between rounded-[24px] border-border/60 bg-background/80 px-5 py-5 text-left text-xs shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:bg-card"
                     asChild
                   >
                     <a
@@ -457,9 +568,17 @@ function DashboardContent() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <ShieldCheck className="h-5 w-5 text-primary" />
-                      <span className="font-medium">Kontaktuppgifter</span>
-                      <span className="text-muted-foreground">1177.se</span>
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <ShieldCheck className="h-5 w-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="block font-medium text-foreground">
+                          Kontaktuppgifter
+                        </span>
+                        <span className="block text-muted-foreground">
+                          Uppdatera viktiga kontaktvägar så att vård och tjänster följer med.
+                        </span>
+                      </div>
                     </a>
                   </Button>
                 </div>
@@ -469,36 +588,51 @@ function DashboardContent() {
 
           {/* ── Checklist ─────────────────────────────────────── */}
           <TabsContent value="checklist" className="space-y-6">
-            <div className="rounded-2xl border bg-linear-to-br from-primary/5 via-background to-accent/10 p-6">
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary">
+            <div className="relative overflow-hidden rounded-[30px] border border-border/60 bg-linear-to-br from-hero-gradient-from via-card to-background p-6 shadow-[0_24px_80px_-42px_rgba(26,26,46,0.2)]">
+              <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.05]" />
+              <div className="pointer-events-none absolute -right-10 top-0 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+              <div className="relative">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-primary/30 bg-background/80 text-primary"
+                  >
                   Efter flytten
-                </Badge>
-                <Badge variant="outline" className="border-border/70 bg-background/80">
-                  {completedCount}/{checklist.length} klara
-                </Badge>
-                <Badge variant="outline" className="border-border/70 bg-background/80">
-                  {compareReadyCount} kan jämföras
-                </Badge>
-                {helpFlagCount > 0 && (
-                  <Badge variant="outline" className="border-violet-300 bg-violet-50 text-violet-700">
-                    {helpFlagCount} markerade för hjälp
                   </Badge>
-                )}
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-border/70 bg-background/80"
+                  >
+                    {completedCount}/{checklist.length} klara
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-border/70 bg-background/80"
+                  >
+                    {compareReadyCount} kan jämföras
+                  </Badge>
+                  {helpFlagCount > 0 && (
+                    <Badge
+                      variant="outline"
+                      className="rounded-full border-violet-300 bg-violet-50 text-violet-700"
+                    >
+                      {helpFlagCount} markerade för hjälp
+                    </Badge>
+                  )}
+                </div>
+                <h2 className="mt-5 max-w-3xl text-2xl font-semibold tracking-tight text-foreground sm:text-[2rem]">
+                  Din checklista efter registreringen, men i ett lugnare format
+                </h2>
+                <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
+                  Fokus ligger på det som är värt att göra nu, det som kan vänta
+                  lite och de val som faktiskt är smarta att jämföra när du är
+                  redo. Mindre admin-känsla, mer tydlig riktning.
+                </p>
               </div>
-              <h2 className="mt-4 text-lg font-bold text-foreground">
-                Din AI-checklista efter registreringen
-              </h2>
-              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-                Här samlas det som faktiskt skapar värde efter flytten: vad som är
-                klart, vad som är näst på tur och vilka delar som är värda att
-                jämföra när du är redo. Öppna jämför-knapparna bara där det är
-                relevant för dig.
-              </p>
             </div>
 
-            <Card>
-              <CardHeader>
+            <Card className="overflow-hidden border-border/60 bg-card/90 shadow-sm">
+              <CardHeader className="border-b border-border/60 bg-background/60">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-primary" />
                   <CardTitle className="text-base">
@@ -516,7 +650,7 @@ function DashboardContent() {
                   )}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6">
                 {checklist.length > 0 ? (
                   <ChecklistView
                     items={checklist}

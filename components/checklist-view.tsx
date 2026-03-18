@@ -83,30 +83,64 @@ const STATUS_CONFIG = {
     label: "Ej startad",
     icon: Circle,
     color: "text-muted-foreground",
-    border: "border-l-muted-foreground/30",
+    chip: "border-border/70 bg-background text-muted-foreground",
+    surface: "bg-muted/70 text-muted-foreground",
   },
   in_progress: {
     label: "Pågår",
     icon: Clock,
     color: "text-amber-500",
-    border: "border-l-amber-400",
+    chip: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-300",
+    surface: "bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-300",
   },
   done: {
     label: "Klar",
     icon: CheckCircle2,
     color: "text-emerald-500",
-    border: "border-l-emerald-400",
+    chip: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:text-emerald-300",
+    surface: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-300",
   },
 } as const;
 
-const SECTION_EMOJI: Record<string, string> = {
-  address_authorities: "📮",
-  housing_contracts: "🏠",
-  utilities_insurance: "⚡",
-  bank_finance: "🏦",
-  broadband_tech: "📡",
-  move_logistics: "🚚",
-  post_move: "🎉",
+const SECTION_META: Record<
+  string,
+  { number: string; eyebrow: string; description: string }
+> = {
+  address_authorities: {
+    number: "01",
+    eyebrow: "Grundsteg",
+    description: "Adress, myndigheter och det som behöver landa tidigt.",
+  },
+  housing_contracts: {
+    number: "02",
+    eyebrow: "Boendet",
+    description: "Avtal, nycklar och detaljer kopplade till bostaden.",
+  },
+  utilities_insurance: {
+    number: "03",
+    eyebrow: "Praktiskt",
+    description: "El, försäkring och sådant som påverkar vardagen direkt.",
+  },
+  bank_finance: {
+    number: "04",
+    eyebrow: "Ekonomi",
+    description: "Bank, betalningar och saker som bör följa med utan glapp.",
+  },
+  broadband_tech: {
+    number: "05",
+    eyebrow: "Uppkoppling",
+    description: "Bredband och tjänster du kan vilja jämföra innan du väljer.",
+  },
+  move_logistics: {
+    number: "06",
+    eyebrow: "Flyttdagen",
+    description: "Logistik, tajming och sådant som gör själva dagen smidigare.",
+  },
+  post_move: {
+    number: "07",
+    eyebrow: "Efter flytten",
+    description: "Det sista finliret när du redan har kommit på plats.",
+  },
 };
 
 const NEXT_STATUS: Record<string, ChecklistItem["status"]> = {
@@ -184,6 +218,16 @@ function dueDateInfo(dueDate?: string) {
       cls: "text-amber-600 bg-amber-50 dark:bg-amber-950/30",
     };
   return { text: dueDate, cls: "text-muted-foreground bg-muted/50" };
+}
+
+function getSectionMeta(sectionKey: string) {
+  return (
+    SECTION_META[sectionKey] ?? {
+      number: "00",
+      eyebrow: "Övrigt",
+      description: "Fler steg som hör till din flyttplan.",
+    }
+  );
 }
 
 function ComparisonSkeleton() {
@@ -422,12 +466,28 @@ export function ChecklistView({
   }, [items]);
 
   useEffect(() => {
-    const keys = new Set(
-      items.map((i) => i.sectionKey || i.section || "other"),
+    const normalized = items
+      .map(normalize)
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const orderedKeys = Array.from(
+      new Set(normalized.map((i) => i.sectionKey || i.section || "other")),
     );
-    setExpandedSections(keys);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+    if (orderedKeys.length === 0) {
+      setExpandedSections(new Set());
+      return;
+    }
+
+    if (readOnly) {
+      const firstPending = normalized.find((item) => item.status !== "done");
+      const firstKey =
+        firstPending?.sectionKey || firstPending?.section || orderedKeys[0];
+      setExpandedSections(new Set([firstKey]));
+      return;
+    }
+
+    setExpandedSections(new Set(orderedKeys));
+  }, [items, readOnly]);
 
   const normalize = (item: ChecklistItem): ChecklistItem => ({
     ...item,
@@ -472,6 +532,16 @@ export function ChecklistView({
   ).length;
   const totalCount = localItems.length;
   const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const remainingCount = Math.max(totalCount - completedCount, 0);
+  const compareReadyCount = normalizedItems.filter(
+    (i) =>
+      Boolean(
+        i.taskKey &&
+          Array.isArray(i.comparisonHints) &&
+          i.comparisonHints.length > 0,
+      ),
+  ).length;
+  const helpWantedCount = normalizedItems.filter((i) => i.needHelp).length;
 
   const grouped = normalizedItems.reduce<Record<string, ChecklistItem[]>>(
     (acc, item) => {
@@ -481,6 +551,16 @@ export function ChecklistView({
       return acc;
     },
     {},
+  );
+
+  const groupedEntries = useMemo(
+    () =>
+      Object.entries(grouped).sort(([a], [b]) => {
+        const left = Number.parseInt(getSectionMeta(a).number, 10);
+        const right = Number.parseInt(getSectionMeta(b).number, 10);
+        return left - right;
+      }),
+    [grouped],
   );
 
   const toggleSection = (key: string) =>
@@ -538,65 +618,133 @@ export function ChecklistView({
   }
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("space-y-5", className)}>
       {/* ── Progress ──────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-[26px] border border-border/70 bg-linear-to-r from-primary/5 via-card to-primary/5 p-5 shadow-sm shadow-primary/6">
-        <div className="flex items-center justify-between gap-4">
+      <div className="relative overflow-hidden rounded-[32px] border border-border/60 bg-linear-to-br from-hero-gradient-from via-card to-background p-6 shadow-[0_24px_80px_-40px_rgba(26,26,46,0.25)]">
+        <div className="pointer-events-none absolute inset-0 dot-grid opacity-[0.05]" />
+        <div className="pointer-events-none absolute -right-12 top-0 h-40 w-40 rounded-full bg-primary/8 blur-3xl" />
+        <div className="pointer-events-none absolute -left-10 bottom-0 h-28 w-28 rounded-full bg-accent/25 blur-3xl" />
+
+        <div className="relative grid gap-6 lg:grid-cols-[1.5fr_0.9fr] lg:items-center">
           <div>
-            <p className="text-2xl font-bold tabular-nums text-foreground">
-              {completedCount}
-              <span className="text-base font-normal text-muted-foreground">
-                /{totalCount}
-              </span>
+            <Badge
+              variant="outline"
+              className="rounded-full border-primary/20 bg-background/80 px-4 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-primary"
+            >
+              Din flyttplan
+            </Badge>
+            <h3 className="mt-4 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+              En renare checklista med fokus på det viktiga
+            </h3>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
+              Håll koll på vad som är klart, vad som återstår och vilka delar som
+              är värda att jämföra utan att checklistan känns tung eller plottrig.
             </p>
-            <p className="text-sm text-muted-foreground">moment klara</p>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3 shadow-sm">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Klart
+                </p>
+                <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
+                  {completedCount}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3 shadow-sm">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Kvar
+                </p>
+                <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
+                  {remainingCount}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3 shadow-sm">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Jämförbara val
+                </p>
+                <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
+                  {compareReadyCount}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="relative h-16 w-16">
-            <svg className="h-16 w-16 -rotate-90" viewBox="0 0 64 64">
-              <circle
-                cx="32"
-                cy="32"
-                r="28"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="4"
-                className="text-muted/40"
-              />
-              <circle
-                cx="32"
-                cy="32"
-                r="28"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="4"
-                strokeDasharray={`${pct * 1.76} 176`}
-                strokeLinecap="round"
-                className="text-primary transition-all duration-700"
-              />
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-primary tabular-nums">
-              {pct}%
-            </span>
+
+          <div className="rounded-[28px] border border-border/60 bg-background/85 p-5 shadow-sm backdrop-blur-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Framsteg just nu</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  {pct}% av checklistan är avklarad.
+                </p>
+              </div>
+              <div className="relative h-18 w-18 shrink-0">
+                <svg className="h-18 w-18 -rotate-90" viewBox="0 0 72 72">
+                  <circle
+                    cx="36"
+                    cy="36"
+                    r="30"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    className="text-muted/50"
+                  />
+                  <circle
+                    cx="36"
+                    cy="36"
+                    r="30"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    strokeDasharray={`${pct * 1.88} 188`}
+                    strokeLinecap="round"
+                    className="text-primary transition-all duration-700"
+                  />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold tabular-nums text-primary">
+                  {pct}%
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <div className="h-2 overflow-hidden rounded-full bg-muted/70">
+                <div
+                  className="h-full rounded-full bg-linear-to-r from-primary to-primary/70 transition-all duration-700"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-border/70 bg-background px-3 py-1 text-[11px]"
+                >
+                  {completedCount}/{totalCount} moment klara
+                </Badge>
+                {helpWantedCount > 0 && (
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-violet-200 bg-violet-50 px-3 py-1 text-[11px] text-violet-700 dark:border-violet-800 dark:bg-violet-950/20 dark:text-violet-300"
+                  >
+                    {helpWantedCount} markerade för hjälp
+                  </Badge>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted/50">
-          <div
-            className="h-full rounded-full bg-linear-to-r from-primary to-primary/70 transition-all duration-700"
-            style={{ width: `${pct}%` }}
-          />
         </div>
       </div>
 
       {/* ── Sections ──────────────────────────────────────────────── */}
-      {Object.entries(grouped).map(([sectionKey, sectionItems]) => {
+      {groupedEntries.map(([sectionKey, sectionItems]) => {
         const open = expandedSections.has(sectionKey);
         const secDone = sectionItems.filter(
           (i) => i.status === "done" || i.completed,
         ).length;
         const secTotal = sectionItems.length;
         const label = sectionItems[0]?.section || "Övrigt";
-        const emoji = SECTION_EMOJI[sectionKey] || "📋";
         const allDone = secDone === secTotal;
+        const secPct = secTotal > 0 ? Math.round((secDone / secTotal) * 100) : 0;
+        const meta = getSectionMeta(sectionKey);
 
         return (
           <div key={sectionKey}>
@@ -605,37 +753,60 @@ export function ChecklistView({
               type="button"
               onClick={() => toggleSection(sectionKey)}
               className={cn(
-                "flex w-full items-center gap-3 rounded-2xl border border-border/70 px-4 py-3.5 text-left transition-all duration-200 shadow-sm shadow-primary/5",
+                "group relative flex w-full items-center gap-4 overflow-hidden rounded-[28px] border border-border/60 px-5 py-5 text-left transition-all duration-200 shadow-sm shadow-primary/5",
                 open
-                  ? "rounded-b-none border-b-transparent bg-card"
-                  : "bg-card/80 hover:bg-card hover:border-primary/15",
+                  ? "rounded-b-none border-b-transparent bg-card/95"
+                  : "bg-card/80 hover:border-primary/15 hover:bg-card/95",
                 allDone &&
-                  "border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/50 dark:bg-emerald-950/10",
+                  "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800/40 dark:bg-emerald-950/10",
               )}
             >
-              <span className="text-lg leading-none">{emoji}</span>
-              <span
-                className={cn(
-                  "flex-1 text-sm font-semibold",
-                  allDone
-                    ? "text-emerald-700 dark:text-emerald-400"
-                    : "text-foreground",
-                )}
-              >
-                {label}
-              </span>
-              <Badge
-                variant={allDone ? "default" : "secondary"}
-                className={cn(
-                  "text-[10px] tabular-nums",
-                  allDone && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-                )}
-              >
-                {secDone}/{secTotal}
-              </Badge>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/8 font-mono text-sm font-semibold tracking-[0.2em] text-primary shadow-inner">
+                {meta.number}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                    {meta.eyebrow}
+                  </p>
+                  {allDone && (
+                    <Badge className="rounded-full bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                      Klar
+                    </Badge>
+                  )}
+                </div>
+                <p
+                  className={cn(
+                    "mt-1 text-base font-semibold tracking-tight",
+                    allDone
+                      ? "text-emerald-700 dark:text-emerald-300"
+                      : "text-foreground",
+                  )}
+                >
+                  {label}
+                </p>
+                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                  {meta.description}
+                </p>
+              </div>
+              <div className="hidden min-w-36 shrink-0 sm:block">
+                <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+                  <span>{secDone}/{secTotal} klara</span>
+                  <span className="tabular-nums">{secPct}%</span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/70">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      allDone ? "bg-emerald-500" : "bg-primary",
+                    )}
+                    style={{ width: `${secPct}%` }}
+                  />
+                </div>
+              </div>
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                  "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
                   !open && "-rotate-90",
                 )}
               />
@@ -643,7 +814,7 @@ export function ChecklistView({
 
             {/* Items */}
             {open && (
-              <div className="animate-in fade-in slide-in-from-top-1 duration-200 divide-y divide-border/60 rounded-b-2xl border border-t-0 border-border/70 bg-card/95 shadow-sm shadow-primary/5">
+              <div className="animate-in fade-in slide-in-from-top-1 duration-200 rounded-b-[28px] border border-t-0 border-border/60 bg-card/95 p-3 shadow-sm shadow-primary/5 sm:p-4">
                 {sectionItems.map((item) => {
                   const gi = normalizedItems.findIndex(
                     (c) =>
@@ -657,13 +828,19 @@ export function ChecklistView({
                     ? expandedCompare.has(item.taskKey)
                     : false;
                   const due = dueDateInfo(item.dueDate);
+                  const isDone = item.status === "done";
 
                   return (
                     <div
                       key={`${item.taskKey || item.title}-${item.sortOrder || 0}`}
-                      className={cn("border-l-[3px] transition-colors", sc.border)}
+                      className={cn(
+                        "rounded-2xl border px-4 py-4 shadow-sm transition-all sm:px-5",
+                        isDone
+                          ? "border-emerald-200/70 bg-emerald-50/35 dark:border-emerald-800/40 dark:bg-emerald-950/10"
+                          : "border-border/70 bg-background/85 hover:border-primary/15 hover:bg-card",
+                      )}
                     >
-                      <div className="flex items-start gap-3 px-4 py-4 sm:px-5">
+                      <div className="flex items-start gap-3">
                         {/* Status icon (click to cycle) */}
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -677,13 +854,14 @@ export function ChecklistView({
                                 });
                               }}
                               className={cn(
-                                "mt-0.5 shrink-0 rounded-full p-0.5 transition-all",
-                                !readOnly && "hover:scale-110 active:scale-95 cursor-pointer",
-                                sc.color,
+                                "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition-all",
+                                !readOnly && "cursor-pointer hover:scale-[1.03] active:scale-[0.98]",
+                                readOnly && "cursor-default",
+                                sc.chip,
                               )}
                               aria-label={sc.label}
                             >
-                              <StatusIcon className="h-5 w-5" />
+                              <StatusIcon className={cn("h-4 w-4", sc.color)} />
                             </button>
                           </TooltipTrigger>
                           <TooltipContent>
@@ -694,39 +872,72 @@ export function ChecklistView({
                         </Tooltip>
 
                         {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={cn(
-                              "text-sm font-semibold leading-snug",
-                              item.status === "done"
-                                ? "line-through text-muted-foreground"
-                                : "text-foreground",
-                            )}
-                          >
-                            {item.title}
-                          </p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "rounded-full px-2.5 py-1 text-[10px] font-medium",
+                                    sc.chip,
+                                  )}
+                                >
+                                  {sc.label}
+                                </Badge>
+                                {item.needHelp && readOnly && (
+                                  <Badge
+                                    variant="outline"
+                                    className="rounded-full border-violet-200 px-2.5 py-1 text-[10px] text-violet-600 dark:border-violet-800 dark:text-violet-400"
+                                  >
+                                    Vill ha hjälp
+                                  </Badge>
+                                )}
+                              </div>
+                              <p
+                                className={cn(
+                                  "mt-3 text-[15px] font-semibold leading-snug tracking-tight",
+                                  isDone
+                                    ? "text-muted-foreground line-through"
+                                    : "text-foreground",
+                                )}
+                              >
+                                {item.title}
+                              </p>
 
-                          {!compact && item.description && (
-                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                              {item.description}
-                            </p>
-                          )}
+                              {!compact && item.description && (
+                                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                                  {item.description}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                              {due && item.status !== "done" && (
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "gap-1 rounded-full border-0 px-2.5 py-1 text-[10px] font-medium",
+                                    due.cls,
+                                  )}
+                                >
+                                  <CalendarDays className="h-3 w-3" />
+                                  {due.text}
+                                </Badge>
+                              )}
+                              {canCompare && (
+                                <Badge
+                                  variant="outline"
+                                  className="rounded-full border-primary/20 bg-primary/5 px-2.5 py-1 text-[10px] text-primary"
+                                >
+                                  Jämförbart val
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
 
                           {/* Action row */}
                           <div className="mt-3 flex flex-wrap items-center gap-2">
-                            {due && item.status !== "done" && (
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "gap-1 rounded-full border-0 px-2.5 py-1 text-[10px] font-medium",
-                                  due.cls,
-                                )}
-                              >
-                                <CalendarDays className="h-3 w-3" />
-                                {due.text}
-                              </Badge>
-                            )}
-
                             {/* Hjälp toggle */}
                             {!readOnly ? (
                               <Tooltip>
@@ -743,7 +954,7 @@ export function ChecklistView({
                                       "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all",
                                       item.needHelp
                                         ? "border-violet-200 bg-violet-100 text-violet-700 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-300"
-                                        : "border-border/70 bg-muted/50 text-muted-foreground hover:bg-muted",
+                                        : "border-border/70 bg-background text-muted-foreground hover:bg-muted",
                                     )}
                                   >
                                     <HelpCircle className="h-3 w-3" />
@@ -774,7 +985,7 @@ export function ChecklistView({
                                 variant={isCompOpen ? "default" : "outline"}
                                 size="sm"
                                 className={cn(
-                                  "h-7 gap-1 rounded-full px-3 text-[10px] font-semibold transition-all",
+                                  "h-8 gap-1 rounded-full px-3.5 text-[10px] font-semibold transition-all",
                                   !isCompOpen &&
                                     "hover:border-primary hover:text-primary",
                                 )}
@@ -800,7 +1011,7 @@ export function ChecklistView({
 
                       {/* Comparison panel (expandable) */}
                       {isCompOpen && item.taskKey && (
-                        <div className="px-4 pb-4 sm:px-5">
+                        <div className="mt-4 border-t border-border/60 pt-4">
                           <ComparisonPanel
                             result={compareData[item.taskKey]}
                             loading={compareLoading.has(item.taskKey)}

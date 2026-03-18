@@ -9,6 +9,7 @@ import base64
 import json
 import os
 import re
+import shutil
 import time
 import uuid
 import threading
@@ -39,19 +40,44 @@ APP_HOST = os.environ.get("SKV_HOST", "127.0.0.1")
 APP_PORT = int(os.environ.get("PORT", "8767"))
 SKV_API_KEY = os.environ.get("SKV_API_KEY", "").strip()
 
+
+def _config_truthy(key: str) -> bool:
+    cfg = _load_config()
+    return is_truthy(cfg.get(key, ""))
+
+
 def _resolve_headless() -> bool:
     explicit = os.environ.get("SKV_HEADLESS", "").strip().lower()
     if explicit:
         return is_truthy(explicit)
+    cfg = _load_config()
+    if "SKV_HEADLESS" in cfg:
+        return is_truthy(cfg.get("SKV_HEADLESS", ""))
     return not bool(os.environ.get("DISPLAY"))
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-RESULT_DIR = os.path.join(SCRIPT_DIR, "results")
-os.makedirs(RESULT_DIR, exist_ok=True)
-RUNTIME_DIR = os.path.join(SCRIPT_DIR, "runtime")
-os.makedirs(RUNTIME_DIR, exist_ok=True)
 
-# Single session log - one file per run, overwrites previous session
-SESSION_LOG_FILE = os.path.join(SCRIPT_DIR, "skv6_session_log.txt")
+
+def _is_synligt_skv_enabled() -> bool:
+    explicit = os.environ.get("SKV_SYNLIGT_SKV", "").strip().lower()
+    if explicit:
+        return is_truthy(explicit)
+    return _config_truthy("SKV_SYNLIGT_SKV")
+
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("SKV_DATA_DIR", "").strip() or SCRIPT_DIR
+RESULT_DIR = os.path.join(DATA_DIR, "results")
+RUNTIME_DIR = os.path.join(DATA_DIR, "runtime")
+SNAPSHOT_DIR = os.path.join(DATA_DIR, "snapshots")
+JOBS_DIR = os.path.join(DATA_DIR, "jobs")
+LOG_DIR = os.path.join(DATA_DIR, "logs")
+QR_FRAME_DIR = os.path.join(DATA_DIR, "qr_frames")
+
+for directory in (RESULT_DIR, RUNTIME_DIR, SNAPSHOT_DIR, JOBS_DIR, LOG_DIR, QR_FRAME_DIR):
+    os.makedirs(directory, exist_ok=True)
+
+# Keep the latest session log on disk while archiving job state separately per job.
+SESSION_LOG_FILE = os.path.join(LOG_DIR, "skv6_session_log.txt")
+LATEST_HTML_SNAPSHOT_FILE = os.path.join(SNAPSHOT_DIR, "senaste_formular.html")
 
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "config.txt")
 DEFAULT_PAYLOAD_FILE = os.path.join(RUNTIME_DIR, "skv_payload_latest.json")
@@ -103,7 +129,16 @@ def _check_api_key():
 
 @app.get("/api/health")
 def api_health():
-    return jsonify({"ok": True, "service": "skv-playwright", "headless": _resolve_headless()})
+    return jsonify({
+        "ok": True,
+        "service": "skv-playwright",
+        "headless": _resolve_headless(),
+        "data_dir": DATA_DIR,
+        "qr_capture_interval_seconds": QR_CAPTURE_INTERVAL_SECONDS,
+        "qr_history_seconds": QR_CAPTURE_HISTORY_SECONDS,
+        "qr_history_max_frames": QR_CAPTURE_HISTORY_MAX_FRAMES,
+        "qr_archive_enabled": QR_CAPTURE_ARCHIVE_ENABLED,
+    })
 
 
 @app.after_request
@@ -139,14 +174,120 @@ MAX_CONCURRENT_JOBS = 3
 MAX_JOB_RUNTIME_SECONDS = 600
 
 
+def _job_state_file(job_id: str) -> str:
+    return os.path.join(JOBS_DIR, f"{job_id}.json")
+
+
+def _load_persisted_job(job_id: str) -> Optional[JobStatus]:
+    path = _job_state_file(job_id)
+    if not os.path.isfile(path):
+        return None
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        if not isinstance(raw, dict):
+            return None
+        return JobStatus(
+            job_id=str(raw.get("job_id") or raw.get("jobId") or job_id),
+            state=str(raw.get("state") or "unknown"),
+            message=str(raw.get("message") or ""),
+            started_at=raw.get("started_at") if isinstance(raw.get("started_at"), (int, float)) else None,
+            ended_at=raw.get("ended_at") if isinstance(raw.get("ended_at"), (int, float)) else None,
+            screenshot_path=raw.get("screenshot_path") if isinstance(raw.get("screenshot_path"), str) else None,
+            details=raw.get("details") if isinstance(raw.get("details"), dict) else None,
+        )
+    except Exception as e:
+        print(f"Persisted job load error for {job_id}: {e}")
+        return None
+
+
+def _persist_job(job: JobStatus) -> None:
+    try:
+        with open(_job_state_file(job.job_id), "w", encoding="utf-8") as f:
+            json.dump(asdict(job), f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Persisted job save error for {job.job_id}: {e}")
+
+
+def _job_log_file(job_id: str) -> str:
+    return os.path.join(LOG_DIR, f"{job_id}.log")
+
+
+def _archive_session_log(job_id: str) -> None:
+    try:
+        if os.path.isfile(SESSION_LOG_FILE):
+            shutil.copyfile(SESSION_LOG_FILE, _job_log_file(job_id))
+    except Exception as e:
+        print(f"Session log archive error for {job_id}: {e}")
+
+
+def _save_page_artifacts(
+    job: JobStatus,
+    job_id: str,
+    target_page,
+    payload_file: Optional[str] = None,
+) -> None:
+    screenshot_file = os.path.join(RESULT_DIR, f"{job_id}.png")
+    html_snapshot_name = None
+
+    try:
+        if target_page is None or target_page.is_closed():
+            target_page = None
+    except Exception:
+        target_page = None
+
+    if target_page is not None:
+        try:
+            html_content = target_page.content()
+            html_snapshot_name = f"{job_id}.html"
+            html_path = os.path.join(SNAPSHOT_DIR, html_snapshot_name)
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            with open(LATEST_HTML_SNAPSHOT_FILE, "w", encoding="utf-8") as f:
+                f.write(html_content)
+        except Exception as e:
+            job.details = job.details or {}
+            job.details["htmlSnapshotError"] = str(e)
+
+        try:
+            target_page.screenshot(path=screenshot_file, full_page=True)
+            job.screenshot_path = f"{job_id}.png"
+        except Exception as e:
+            job.details = job.details or {}
+            job.details["screenshotError"] = str(e)
+            if not job.screenshot_path:
+                job.screenshot_path = None
+
+    job.details = job.details or {}
+    existing_artifacts = job.details.get("artifacts")
+    artifacts = existing_artifacts if isinstance(existing_artifacts, dict) else {}
+    artifacts.update({
+        "dataDir": DATA_DIR,
+        "payloadFile": os.path.basename(payload_file) if payload_file else artifacts.get("payloadFile"),
+        "payloadUrl": f"/api/payload/{job_id}",
+        "htmlSnapshotFile": html_snapshot_name or artifacts.get("htmlSnapshotFile"),
+        "htmlSnapshotUrl": f"/api/html/{job_id}",
+        "screenshotFile": job.screenshot_path,
+        "screenshotUrl": f"/api/screenshot/{job_id}" if job.screenshot_path else None,
+        "logFile": os.path.basename(_job_log_file(job_id)),
+        "logUrl": f"/api/log/{job_id}",
+    })
+    job.details["artifacts"] = artifacts
+
+
 def _set_job(job: JobStatus) -> None:
     with _jobs_lock:
         _jobs[job.job_id] = job
+    _persist_job(job)
 
 
 def _get_job(job_id: str) -> Optional[JobStatus]:
     with _jobs_lock:
-        return _jobs.get(job_id)
+        active_job = _jobs.get(job_id)
+    if active_job:
+        return active_job
+    return _load_persisted_job(job_id)
 
 
 def _cancel_job(job_id: str) -> bool:
@@ -163,7 +304,7 @@ def _is_cancelled(job_id: str) -> bool:
 
 
 def _schedule_job_cleanup(job_id: str) -> None:
-    """Remove finished job data from memory after a delay to allow final state polling."""
+    """Remove live in-memory state after a delay, but keep archived artifacts on disk."""
     def _cleanup():
         time.sleep(JOB_CLEANUP_DELAY_SECONDS)
         with _jobs_lock:
@@ -172,12 +313,6 @@ def _schedule_job_cleanup(job_id: str) -> None:
         with _log_lock:
             _qr_captured.pop(job_id, None)
             _qr_capture_last_time.pop(job_id, None)
-        try:
-            pf = os.path.join(RUNTIME_DIR, f"payload_{job_id}.json")
-            if os.path.isfile(pf):
-                os.remove(pf)
-        except Exception:
-            pass
 
     threading.Thread(target=_cleanup, daemon=True, name=f"cleanup-{job_id}").start()
 
@@ -232,10 +367,130 @@ def _log_qr_data(label: str, data: str | dict) -> None:
     _log_session(label, "QR/AUTH", payload)
 
 
+def _float_env(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+        return value if value > 0 else default
+    except Exception:
+        return default
+
+
+def _int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+        return value if value > 0 else default
+    except Exception:
+        return default
+
+
 QR_PROXY_BASE_URL = "https://auth.funktionstjanster.se/id/bankid/qr?aid="
 
 _qr_capture_last_time: Dict[str, float] = {}
-QR_CAPTURE_INTERVAL_SECONDS = 2.0
+QR_CAPTURE_INTERVAL_SECONDS = max(1.0, _float_env("SKV_QR_CAPTURE_INTERVAL_SECONDS", 2.0))
+QR_CAPTURE_HISTORY_SECONDS = max(
+    QR_CAPTURE_INTERVAL_SECONDS,
+    _float_env("SKV_QR_HISTORY_SECONDS", 120.0),
+)
+QR_CAPTURE_HISTORY_MAX_FRAMES = max(
+    1,
+    min(
+        120,
+        _int_env(
+            "SKV_QR_HISTORY_MAX_FRAMES",
+            max(1, int(QR_CAPTURE_HISTORY_SECONDS / QR_CAPTURE_INTERVAL_SECONDS)),
+        ),
+    ),
+)
+QR_CAPTURE_ARCHIVE_ENABLED = is_truthy(os.environ.get("SKV_QR_ARCHIVE_ENABLED", "y"))
+QR_CAPTURE_ARCHIVE_MAX_BYTES = max(
+    100_000,
+    _int_env("SKV_QR_ARCHIVE_MAX_BYTES", 750_000),
+)
+
+
+def _job_qr_frame_dir(job_id: str) -> str:
+    path = os.path.join(QR_FRAME_DIR, job_id)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _list_qr_frame_files(job_id: str) -> list[str]:
+    frame_dir = os.path.join(QR_FRAME_DIR, job_id)
+    if not os.path.isdir(frame_dir):
+        return []
+    files = [
+        os.path.join(frame_dir, name)
+        for name in os.listdir(frame_dir)
+        if name.lower().endswith(".png")
+    ]
+    files.sort(key=lambda path: os.path.basename(path))
+    return files
+
+
+def _archive_qr_frame(job_id: str, screenshot_bytes: bytes, captured_at: float, capture_mode: str) -> None:
+    if not QR_CAPTURE_ARCHIVE_ENABLED:
+        return
+    if not screenshot_bytes or len(screenshot_bytes) < 100:
+        return
+    # Avoid filling disk with large viewport fallbacks when element capture fails.
+    if capture_mode != "element" and len(screenshot_bytes) > QR_CAPTURE_ARCHIVE_MAX_BYTES:
+        return
+
+    frame_dir = _job_qr_frame_dir(job_id)
+    frame_name = f"{int(captured_at * 1000)}.png"
+    frame_path = os.path.join(frame_dir, frame_name)
+
+    try:
+        with open(frame_path, "wb") as f:
+            f.write(screenshot_bytes)
+    except Exception as e:
+        _log_qr_data("QR_ARCHIVE_WRITE_ERROR", {"job_id": job_id, "error": str(e)})
+        return
+
+    expiry_before = captured_at - QR_CAPTURE_HISTORY_SECONDS
+    files = _list_qr_frame_files(job_id)
+    for old_path in files[:-QR_CAPTURE_HISTORY_MAX_FRAMES]:
+        try:
+            os.remove(old_path)
+        except Exception:
+            pass
+    for old_path in _list_qr_frame_files(job_id):
+        try:
+            mtime = os.path.getmtime(old_path)
+        except Exception:
+            continue
+        if mtime < expiry_before:
+            try:
+                os.remove(old_path)
+            except Exception:
+                pass
+
+
+def _get_qr_frame_stats(job_id: str) -> Dict[str, Any]:
+    files = _list_qr_frame_files(job_id)
+    if not files:
+        return {
+            "qr_frame_count": 0,
+            "qr_image_updated_at": None,
+        }
+
+    latest_path = files[-1]
+    latest_updated_at = None
+    try:
+        latest_updated_at = os.path.getmtime(latest_path)
+    except Exception:
+        latest_updated_at = None
+
+    return {
+        "qr_frame_count": len(files),
+        "qr_image_updated_at": latest_updated_at,
+    }
 
 
 def _capture_qr_from_playwright_page(target_page, job_id: str) -> bool:
@@ -260,6 +515,7 @@ def _capture_qr_from_playwright_page(target_page, job_id: str) -> bool:
             "svg",
         ]
         screenshot_bytes = None
+        capture_mode = "unknown"
 
         for sel in selectors_to_try:
             try:
@@ -271,6 +527,7 @@ def _capture_qr_from_playwright_page(target_page, job_id: str) -> bool:
                     continue
                 screenshot_bytes = loc.screenshot(type="png", timeout=3000)
                 if screenshot_bytes and len(screenshot_bytes) > 100:
+                    capture_mode = "element"
                     break
             except Exception:
                 continue
@@ -278,16 +535,21 @@ def _capture_qr_from_playwright_page(target_page, job_id: str) -> bool:
         if not screenshot_bytes or len(screenshot_bytes) < 100:
             try:
                 screenshot_bytes = target_page.screenshot(type="png", timeout=3000)
+                if screenshot_bytes and len(screenshot_bytes) > 100:
+                    capture_mode = "viewport"
             except Exception:
                 pass
 
         if screenshot_bytes and len(screenshot_bytes) > 100:
+            captured_at = time.time()
             b64 = base64.b64encode(screenshot_bytes).decode("ascii")
             with _log_lock:
                 if job_id not in _qr_captured:
                     _qr_captured[job_id] = {}
                 _qr_captured[job_id]["qr_image_base64"] = b64
-                _qr_captured[job_id]["qr_image_updated_at"] = time.time()
+                _qr_captured[job_id]["qr_image_updated_at"] = captured_at
+                _qr_captured[job_id]["qr_capture_mode"] = capture_mode
+            _archive_qr_frame(job_id, screenshot_bytes, captured_at, capture_mode)
             return True
     except Exception as e:
         _log_qr_data("QR_CAPTURE_ERROR", {"job_id": job_id, "error": str(e)})
@@ -306,6 +568,7 @@ def _get_clone_qr_context(job_id: str) -> Dict[str, Any]:
     """Return best-effort QR clone context for a given running job."""
     with _log_lock:
         cap = dict(_qr_captured.get(job_id, {}))
+    qr_stats = _get_qr_frame_stats(job_id)
 
     aid = str(cap.get("aid") or "").strip()
     qr_url = f"{QR_PROXY_BASE_URL}{aid}" if aid else ""
@@ -317,6 +580,12 @@ def _get_clone_qr_context(job_id: str) -> Dict[str, Any]:
         "auth_spa_url": cap.get("auth_spa_url"),
         "api_ready": bool(cap.get("flytt_api_ready")),
         "api_last_url": cap.get("flytt_api_last_url"),
+        "qr_image_updated_at": cap.get("qr_image_updated_at") or qr_stats.get("qr_image_updated_at"),
+        "qr_capture_mode": cap.get("qr_capture_mode"),
+        "qr_frame_count": qr_stats.get("qr_frame_count", 0),
+        "qr_capture_interval_seconds": QR_CAPTURE_INTERVAL_SECONDS,
+        "qr_history_seconds": QR_CAPTURE_HISTORY_SECONDS,
+        "qr_archive_enabled": QR_CAPTURE_ARCHIVE_ENABLED,
     }
 
 
@@ -685,6 +954,9 @@ def _run_playwright_job(
     if not job:
         return
 
+    job.details = job.details or {}
+    if payload_file:
+        job.details["payloadFile"] = payload_file
     job.state = "running"
     job.started_at = time.time()
     job.message = "Startar webbläsare..."
@@ -697,6 +969,9 @@ def _run_playwright_job(
         _qr_capture_last_time.pop(job_id, None)
 
     screenshot_file = os.path.join(RESULT_DIR, f"{job_id}.png")
+    browser = None
+    page = None
+    flytt_page = None
 
     try:
         with sync_playwright() as p:
@@ -845,6 +1120,9 @@ def _run_playwright_job(
                     job.state = "cancelled"
                     job.ended_at = time.time()
                     job.message = "Avbruten av användaren."
+                    _log_session("Session cancelled by user", "DONE")
+                    _save_page_artifacts(job, job_id, page, payload_file=payload_file)
+                    _archive_session_log(job_id)
                     _set_job(job)
                     browser.close()
                     return
@@ -881,6 +1159,9 @@ def _run_playwright_job(
                     job.state = "cancelled"
                     job.ended_at = time.time()
                     job.message = "Avbruten av användaren."
+                    _log_session("Session cancelled by user", "DONE")
+                    _save_page_artifacts(job, job_id, page, payload_file=payload_file)
+                    _archive_session_log(job_id)
                     _set_job(job)
                     browser.close()
                     return
@@ -917,6 +1198,9 @@ def _run_playwright_job(
                     job.state = "cancelled"
                     job.ended_at = time.time()
                     job.message = "Avbruten av användaren."
+                    _log_session("Session cancelled by user", "DONE")
+                    _save_page_artifacts(job, job_id, page, payload_file=payload_file)
+                    _archive_session_log(job_id)
                     _set_job(job)
                     browser.close()
                     return
@@ -954,6 +1238,9 @@ def _run_playwright_job(
                     job.state = "cancelled"
                     job.ended_at = time.time()
                     job.message = "Avbruten av användaren."
+                    _log_session("Session cancelled by user", "DONE")
+                    _save_page_artifacts(job, job_id, page, payload_file=payload_file)
+                    _archive_session_log(job_id)
                     _set_job(job)
                     browser.close()
                     return
@@ -1031,7 +1318,7 @@ def _run_playwright_job(
                             _log_qr_data("BANKID_URL_AVAILABLE", {"url": bankid_url})
 
                         # Dev signal: keep focus on BankID QR window when requested.
-                        if is_truthy(os.environ.get("SKV_SYNLIGT_SKV", "")) and popup_page_ref and not popup_page_ref.is_closed():
+                        if _is_synligt_skv_enabled() and popup_page_ref and not popup_page_ref.is_closed():
                             try:
                                 popup_page_ref.bring_to_front()
                                 _log_qr_data("QR_FOCUSED_FOR_DEV", {"enabled": True})
@@ -1074,11 +1361,8 @@ def _run_playwright_job(
                     job.ended_at = time.time()
                     job.message = "Avbruten av användaren."
                     _log_session("Session cancelled by user", "DONE")
-                    try:
-                        page.screenshot(path=screenshot_file, full_page=True)
-                        job.screenshot_path = f"{job_id}.png"
-                    except Exception:
-                        pass
+                    _save_page_artifacts(job, job_id, flytt_page or page, payload_file=payload_file)
+                    _archive_session_log(job_id)
                     _set_job(job)
                     browser.close()
                     return
@@ -1409,52 +1693,60 @@ def _run_playwright_job(
 
             # Phase 2: Run form filler (output goes to session log)
             if flytt_page:
+                filler_log_lines: list[str] = []
                 try:
                     from formulär.flytt_form_filler import run_flytt_form_filler
 
                     def _form_log(msg: str) -> None:
-                        _log_session(msg.strip(), "FORM")
+                        line = msg.strip()
+                        if not line:
+                            return
+                        filler_log_lines.append(line)
+                        if len(filler_log_lines) > 200:
+                            del filler_log_lines[: len(filler_log_lines) - 200]
+                        _log_session(line, "FORM")
 
                     job.message = "Fyller flyttformulär..."
                     _set_job(job)
                     _log_session("Starting form filler", "FORM")
                     payload_file = payload_file or os.environ.get("SKV_PAYLOAD_FILE", DEFAULT_PAYLOAD_FILE)
                     allow_mockup = is_truthy(os.environ.get("SKV_ALLOW_MOCKUP_DATA", "y"))
-                    run_flytt_form_filler(
+                    filler_result = run_flytt_form_filler(
                         flytt_page,
                         lambda: _is_cancelled(job_id),
                         log_callback=_form_log,
                         payload_path=payload_file,
                         allow_mockup_data=allow_mockup,
                     )
+                    job.details = job.details or {}
+                    if isinstance(filler_result, dict):
+                        job.details["fillerResult"] = filler_result
+                    if filler_log_lines:
+                        job.details["fillerLogTail"] = filler_log_lines
                     _form_filler_done = True
                 except Exception as e:
                     job.details = job.details or {}
+                    if filler_log_lines:
+                        job.details["fillerLogTail"] = filler_log_lines
                     job.details["flytt_filler_error"] = str(e)
                     _log_session(f"Form filler error: {e}", "FORM")
 
             # Phase 3: Save full page HTML snapshot
-            try:
-                save_page = flytt_page or page
-                html_content = save_page.content()
-                html_path = os.path.join(SCRIPT_DIR, "senaste_formulär.html")
-                with open(html_path, "w", encoding="utf-8") as f:
-                    f.write(html_content)
-            except Exception:
-                pass
-
-            try:
-                final_page = flytt_page or page
-                final_page.screenshot(path=screenshot_file, full_page=True)
-                job.screenshot_path = f"{job_id}.png"
-            except Exception:
-                job.screenshot_path = None
-
+            _save_page_artifacts(job, job_id, flytt_page or page, payload_file=payload_file)
+            job.details = job.details or {}
+            artifacts = job.details.get("artifacts")
+            if isinstance(artifacts, dict):
+                artifacts["latestHtmlSnapshotFile"] = os.path.basename(LATEST_HTML_SNAPSHOT_FILE)
+                job.details["artifacts"] = artifacts
             job.ended_at = time.time()
 
             if _form_filler_done:
                 job.state = "matched"
-                job.message = "Formulär ifyllt! Se skv6_session_log.txt + senaste_formulär.html"
+                job.message = (
+                    f"Formulär ifyllt! Hämta payload via /api/payload/{job_id}, "
+                    f"HTML via /api/html/{job_id}, screenshot via /api/screenshot/{job_id} "
+                    f"och logg via /api/log/{job_id}"
+                )
                 _log_session("Session completed successfully", "DONE")
             elif job.state != "cancelled":
                 job.state = "timeout"
@@ -1463,6 +1755,7 @@ def _run_playwright_job(
 
             if trace_browser_windows:
                 _log_browser_windows(context, "Final browser snapshot", include_focus=True)
+            _archive_session_log(job_id)
             _set_job(job)
             try:
                 browser.close()
@@ -1475,7 +1768,14 @@ def _run_playwright_job(
         job.ended_at = time.time()
         job.message = f"Fel: {e}"
         _log_session(f"Session error: {e}", "DONE")
+        _save_page_artifacts(job, job_id, flytt_page or page, payload_file=payload_file)
+        _archive_session_log(job_id)
         _set_job(job)
+        try:
+            if browser is not None:
+                browser.close()
+        except Exception:
+            pass
         _schedule_job_cleanup(job_id)
 
 
@@ -1791,6 +2091,85 @@ def results(filename: str):
     return send_from_directory(RESULT_DIR, filename)
 
 
+@app.get("/api/html/<job_id>")
+def api_html(job_id: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):
+        return jsonify({"ok": False, "error": "invalid job id"}), 400
+
+    html_filename = f"{job_id}.html"
+    html_path = os.path.join(SNAPSHOT_DIR, html_filename)
+    if not os.path.isfile(html_path):
+        return jsonify({"ok": False, "error": "html snapshot not found", "jobId": job_id}), 404
+
+    return send_from_directory(SNAPSHOT_DIR, html_filename)
+
+
+@app.get("/api/screenshot/<job_id>")
+def api_screenshot(job_id: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):
+        return jsonify({"ok": False, "error": "invalid job id"}), 400
+
+    screenshot_filename = f"{job_id}.png"
+    screenshot_path = os.path.join(RESULT_DIR, screenshot_filename)
+    if not os.path.isfile(screenshot_path):
+        return jsonify({"ok": False, "error": "screenshot not found", "jobId": job_id}), 404
+
+    return send_from_directory(RESULT_DIR, screenshot_filename)
+
+
+@app.get("/api/qr-frames/<job_id>")
+def api_qr_frames(job_id: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):
+        return jsonify({"ok": False, "error": "invalid job id"}), 400
+
+    files = _list_qr_frame_files(job_id)
+    frames = []
+    for fpath in files:
+        name = os.path.basename(fpath)
+        try:
+            ts = os.path.getmtime(fpath)
+        except Exception:
+            ts = None
+        frames.append({"name": name, "ts": ts})
+
+    has_screenshot = os.path.isfile(os.path.join(RESULT_DIR, f"{job_id}.png"))
+    return jsonify({
+        "ok": True,
+        "jobId": job_id,
+        "frames": frames,
+        "hasScreenshot": has_screenshot,
+        "screenshotUrl": f"/api/screenshot/{job_id}" if has_screenshot else None,
+    })
+
+
+@app.get("/api/qr-frame/<job_id>/<filename>")
+def api_qr_frame(job_id: str, filename: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):
+        return jsonify({"ok": False, "error": "invalid job id"}), 400
+    if not re.fullmatch(r"[0-9]+\.png", filename or ""):
+        return jsonify({"ok": False, "error": "invalid filename"}), 400
+
+    frame_dir = os.path.join(QR_FRAME_DIR, job_id)
+    frame_path = os.path.join(frame_dir, filename)
+    if not os.path.isfile(frame_path):
+        return jsonify({"ok": False, "error": "frame not found"}), 404
+
+    return send_from_directory(frame_dir, filename)
+
+
+@app.get("/api/log/<job_id>")
+def api_log(job_id: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):
+        return jsonify({"ok": False, "error": "invalid job id"}), 400
+
+    log_filename = os.path.basename(_job_log_file(job_id))
+    log_path = _job_log_file(job_id)
+    if not os.path.isfile(log_path):
+        return jsonify({"ok": False, "error": "log not found", "jobId": job_id}), 404
+
+    return send_from_directory(LOG_DIR, log_filename, mimetype="text/plain; charset=utf-8")
+
+
 @app.get("/api/clone/state/<job_id>")
 def api_clone_state(job_id: str):
     enabled = _is_clone_qr_to_site_enabled()
@@ -1806,6 +2185,12 @@ def api_clone_state(job_id: str):
         "aidPresent": bool(clone_ctx.get("aid")),
         "qrReady": bool(clone_ctx.get("qr_url")),
         "qrImageReady": bool(clone_ctx.get("qr_image_ready")),
+        "qrImageUpdatedAt": clone_ctx.get("qr_image_updated_at"),
+        "qrCaptureMode": clone_ctx.get("qr_capture_mode"),
+        "qrFrameCount": clone_ctx.get("qr_frame_count"),
+        "qrCaptureIntervalSeconds": clone_ctx.get("qr_capture_interval_seconds"),
+        "qrHistorySeconds": clone_ctx.get("qr_history_seconds"),
+        "qrArchiveEnabled": bool(clone_ctx.get("qr_archive_enabled")),
         "apiReady": bool(clone_ctx.get("api_ready")),
         "authSpaUrl": clone_ctx.get("auth_spa_url"),
         "qrProxyUrl": f"/api/clone/qr/{job_id}" if clone_ctx.get("qr_url") else None,
@@ -1895,7 +2280,21 @@ def api_run():
     if not url.startswith(("http://", "https://")):
         return jsonify({"error": "URL måste börja med http:// eller https://"}), 400
 
-    job = JobStatus(job_id=job_id, state="queued", message="Köad...")
+    job_details: Optional[Dict[str, Any]] = None
+    if payload and isinstance(payload, dict):
+        job_details = {
+            "inputPayload": payload,
+            "payloadFile": os.path.basename(job_payload_file),
+            "artifacts": {
+                "payloadFile": os.path.basename(job_payload_file),
+                "payloadUrl": f"/api/payload/{job_id}",
+                "htmlSnapshotUrl": f"/api/html/{job_id}",
+                "screenshotUrl": f"/api/screenshot/{job_id}",
+                "logUrl": f"/api/log/{job_id}",
+            },
+        }
+
+    job = JobStatus(job_id=job_id, state="queued", message="Köad...", details=job_details)
     _set_job(job)
 
     t = threading.Thread(
@@ -1917,6 +2316,10 @@ def api_run():
     t.start()
 
     body = asdict(job)
+    body["payload_url"] = f"/api/payload/{job_id}"
+    body["html_url"] = f"/api/html/{job_id}"
+    body["screenshot_url"] = f"/api/screenshot/{job_id}"
+    body["log_url"] = f"/api/log/{job_id}"
     if _is_clone_qr_to_site_enabled():
         body["clone_qr_state_url"] = f"/api/clone/state/{job_id}"
     return jsonify(body)
@@ -1927,7 +2330,30 @@ def api_status(job_id: str):
     job = _get_job(job_id)
     if not job:
         return jsonify({"error": "job not found"}), 404
-    return jsonify(asdict(job))
+    payload = asdict(job)
+    payload["payload_url"] = f"/api/payload/{job_id}"
+    payload["html_url"] = f"/api/html/{job_id}"
+    payload["screenshot_url"] = f"/api/screenshot/{job_id}"
+    payload["log_url"] = f"/api/log/{job_id}"
+    return jsonify(payload)
+
+
+@app.get("/api/payload/<job_id>")
+def api_payload(job_id: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", job_id or ""):
+        return jsonify({"ok": False, "error": "invalid job id"}), 400
+
+    payload_path = os.path.join(RUNTIME_DIR, f"payload_{job_id}.json")
+    if not os.path.isfile(payload_path):
+        return jsonify({"ok": False, "error": "payload not found", "jobId": job_id}), 404
+
+    try:
+        with open(payload_path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"failed to read payload: {e}", "jobId": job_id}), 500
+
+    return jsonify({"ok": True, "jobId": job_id, "payload": payload})
 
 
 @app.post("/api/cancel/<job_id>")

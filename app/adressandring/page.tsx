@@ -6,11 +6,10 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  Fingerprint,
   Shield,
   Lock,
   Home,
-  CalendarDays,
-  ListChecks,
   FileText,
   Loader2,
   Sparkles,
@@ -36,70 +35,57 @@ import {
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
-import { ChecklistView, type ChecklistItem } from "@/components/checklist-view";
+import { AdressandringStepOneFields } from "@/components/forms/adressandring-step-one-fields";
+import type { ChecklistItem } from "@/components/checklist-view";
 import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
+import { DidOpenClawBridgeWidget } from "@/components/did-openclaw-bridge-widget";
 import { useOpenClawMirror } from "@/hooks/use-openclaw-mirror";
 import { useAutofill } from "@/hooks/use-autofill";
-
-import type { SuggestionSource } from "@/lib/autofill/config";
-import { SkatteverketGuide } from "@/components/skatteverket-guide";
-import { BookmarkletButton } from "@/components/bookmarklet-button";
+import {
+  emptyAdressandringForm,
+  type AdressandringFormData,
+  type AdressandringValidationResult,
+} from "@/lib/forms/adressandring";
+import {
+  parseStartIntent,
+  type StartIntentPayload,
+} from "@/lib/start-intent";
+import {
+  clearStoredAdressandringPrefill,
+  readMiniMifContext,
+  readStoredAdressandringPrefill,
+  type MiniMifContext,
+} from "@/lib/mif/prefill";
 
 const STEPS = [
-  { id: 1, label: "Identifiering", icon: Shield },
-  { id: 2, label: "Adresser", icon: Home },
-  { id: 3, label: "Flyttdetaljer", icon: CalendarDays },
-  { id: 4, label: "Checklista", icon: ListChecks },
-  { id: 5, label: "Bekräfta", icon: FileText },
+  {
+    id: 1,
+    label: "Start",
+    icon: Shield,
+    description: "Person, kontakt och en trygg början.",
+  },
+  {
+    id: 2,
+    label: "Adresser",
+    icon: Home,
+    description: "Nuvarande adress och vart du flyttar.",
+  },
+  {
+    id: 3,
+    label: "Flytt & klart",
+    icon: FileText,
+    description: "Sista detaljerna innan du skickar in.",
+  },
 ];
 
-interface FormData {
-  // Person
-  firstName: string;
-  lastName: string;
-  personalNumber: string;
-  email: string;
-  phone: string;
-  // Addresses
-  fromStreet: string;
-  fromPostal: string;
-  fromCity: string;
-  toStreet: string;
-  toPostal: string;
-  toCity: string;
-  apartmentNumber: string;
-  propertyDesignation: string;
-  propertyOwner: string;
-  // Move details
-  moveDate: string;
-  householdType: string;
-  reason: string;
-  hasChildren: boolean;
-}
-
-const emptyForm: FormData = {
-  firstName: "",
-  lastName: "",
-  personalNumber: "",
-  email: "",
-  phone: "",
-  fromStreet: "",
-  fromPostal: "",
-  fromCity: "",
-  toStreet: "",
-  toPostal: "",
-  toCity: "",
-  apartmentNumber: "",
-  propertyDesignation: "",
-  propertyOwner: "",
-  moveDate: "",
-  householdType: "",
-  reason: "",
-  hasChildren: false,
+const HOUSEHOLD_TYPE_LABELS: Record<string, string> = {
+  myself: "Jag själv",
+  family: "Hela familjen",
+  partner: "Jag och partner",
+  child: "Jag och barn",
 };
 
 export default function AdressandringPage() {
@@ -108,20 +94,23 @@ export default function AdressandringPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [moveId, setMoveId] = useState<number | null>(null);
-  const [form, setForm] = useState<FormData>(emptyForm);
+  const [form, setForm] = useState<AdressandringFormData>(emptyAdressandringForm);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
-  const [checklistLoading, setChecklistLoading] = useState(false);
   const [checklistError, setChecklistError] = useState<string | null>(null);
-  const [checklistSource, setChecklistSource] = useState<"template" | null>(null);
   const [validating, setValidating] = useState(false);
-  const [validation, setValidation] = useState<{
-    confidence: number;
-    suggestions: string[];
-  } | null>(null);
-  const [isDevMode, setIsDevMode] = useState(false);
+  const [validation, setValidation] = useState<AdressandringValidationResult | null>(null);
+  const [startIntent, setStartIntent] = useState<StartIntentPayload | null>(null);
+  const [miniMifContext, setMiniMifContext] = useState<MiniMifContext | null>(null);
+  const [showAutofillPanel, setShowAutofillPanel] = useState(false);
 
   useEffect(() => {
-    setIsDevMode(window.location.hostname === "localhost");
+    const hostname = window.location.hostname;
+    const isLocalMode =
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "[::1]";
+
+    setShowAutofillPanel(!isLocalMode);
   }, []);
 
   // OpenClaw real-time form mirroring
@@ -129,7 +118,7 @@ export default function AdressandringPage() {
     useOpenClawMirror({ formType: "adressandring" });
 
   const updateForm = useCallback(
-    (field: keyof FormData, value: string | boolean) => {
+    (field: keyof AdressandringFormData, value: string | boolean) => {
       setForm((prev) => {
         const next = { ...prev, [field]: value };
         mirrorField(field, value, next as unknown as Record<string, string | boolean | number>);
@@ -146,30 +135,91 @@ export default function AdressandringPage() {
     queueSuggestion,
     handleAutofill,
     renderSuggestionBanner,
-  } = useAutofill<keyof FormData>({
-    form: form as unknown as Record<keyof FormData, string | boolean>,
+  } = useAutofill<keyof AdressandringFormData>({
+    form: form as unknown as Record<keyof AdressandringFormData, string | boolean>,
     currentStep,
     updateForm,
     mirrorEvent,
   });
 
   const progressValue = (currentStep / STEPS.length) * 100;
+  const activeStepMeta = STEPS.find((step) => step.id === currentStep) ?? STEPS[0];
 
-  // Dev prefill from demo page (sessionStorage)
+  // Prefill from startsida/demo (sessionStorage)
   useEffect(() => {
     if (typeof window === "undefined") return;
+    let prefillForMirror: Partial<AdressandringFormData> | null = null;
+    let startIntentForMirror: StartIntentPayload | null = null;
+    const startQuery =
+      new URLSearchParams(window.location.search).get("start")?.trim() ?? "";
+
     try {
-      const raw = sessionStorage.getItem("adressandring-prefill");
-      if (!raw) return;
-      const prefill = JSON.parse(raw) as Partial<FormData>;
-      sessionStorage.removeItem("adressandring-prefill");
-      if (Object.keys(prefill).length > 0) {
-        setForm((prev) => ({ ...prev, ...prefill }));
+      if (startQuery) {
+        const parsedStartIntent = parseStartIntent(startQuery);
+        setStartIntent(parsedStartIntent);
+        startIntentForMirror = parsedStartIntent;
+
+        if (Object.keys(parsedStartIntent.fields).length > 0) {
+          setForm((prev) => ({ ...prev, ...parsedStartIntent.fields }));
+          prefillForMirror = parsedStartIntent.fields;
+        }
+      }
+
+      const storedPrefill = readStoredAdressandringPrefill();
+      if (storedPrefill) {
+        if (Object.keys(storedPrefill.fields).length > 0) {
+          setForm((prev) => ({ ...prev, ...storedPrefill.fields }));
+          prefillForMirror = storedPrefill.fields as Partial<AdressandringFormData>;
+        }
+        if (storedPrefill.miniMif) {
+          setMiniMifContext(storedPrefill.miniMif);
+          if (storedPrefill.miniMif.startIntent?.rawInput) {
+            setStartIntent(parseStartIntent(storedPrefill.miniMif.startIntent.rawInput));
+          }
+        }
+      }
+
+      const fallbackMiniMif = readMiniMifContext();
+      if (fallbackMiniMif) {
+        if (
+          (!storedPrefill || Object.keys(storedPrefill.fields).length === 0) &&
+          Object.keys(fallbackMiniMif.fields).length > 0
+        ) {
+          setForm((prev) => ({ ...prev, ...fallbackMiniMif.fields }));
+          prefillForMirror = fallbackMiniMif.fields as Partial<AdressandringFormData>;
+        }
+        if (!storedPrefill?.miniMif) {
+          setMiniMifContext(fallbackMiniMif);
+          if (fallbackMiniMif.startIntent?.rawInput) {
+            setStartIntent(parseStartIntent(fallbackMiniMif.startIntent.rawInput));
+          }
+        }
       }
     } catch {
-      sessionStorage.removeItem("adressandring-prefill");
+      /* ignore malformed session payloads */
+    } finally {
+      clearStoredAdressandringPrefill();
     }
-  }, []);
+
+    if (startIntentForMirror) {
+      mirrorEvent(
+        "field_change",
+        {
+          rawInput: startIntentForMirror.rawInput,
+          ...startIntentForMirror.fields,
+        },
+        1
+      );
+    }
+
+    if (prefillForMirror) {
+      mirrorEvent(
+        "field_change",
+        prefillForMirror as Record<string, string | boolean | number>,
+        1
+      );
+    }
+  }, [mirrorEvent]);
 
   // AI validate person data
   async function handleValidate() {
@@ -202,16 +252,14 @@ export default function AdressandringPage() {
   }
 
   // Generate checklist from deterministic template
-  async function generateChecklist() {
+  async function generateChecklist(): Promise<ChecklistItem[]> {
     if (!form.moveDate) {
       setChecklistError(
         "Du måste ange ett inflyttningsdatum i steg 3 innan checklistan kan genereras."
       );
-      return;
+      return [];
     }
-    setChecklistLoading(true);
     setChecklistError(null);
-    setChecklistSource(null);
     try {
       const res = await fetch("/api/checklist/template", {
         method: "POST",
@@ -232,54 +280,14 @@ export default function AdressandringPage() {
         throw new Error("Ingen checklista returnerades. Försök igen.");
       }
       setChecklist(items);
-      setChecklistSource("template");
+      return items;
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Kunde inte generera checklistan.";
       setChecklistError(msg);
       setChecklist([]);
-    } finally {
-      setChecklistLoading(false);
+      return [];
     }
-  }
-
-  function handleChecklistItemChange(
-    index: number,
-    changes: Partial<ChecklistItem>
-  ) {
-    const currentItem = checklist[index];
-    if (currentItem) {
-      const basePayload = {
-        taskKey: currentItem.taskKey || `index_${index}`,
-        title: currentItem.title,
-        section: currentItem.section || "",
-      };
-      if (typeof changes.needHelp === "boolean") {
-        mirrorEvent(
-          changes.needHelp ? "task_open" : "task_close",
-          { ...basePayload, needHelp: changes.needHelp },
-          currentStep
-        );
-      }
-      if (typeof changes.wantCompare === "boolean") {
-        mirrorEvent(
-          changes.wantCompare ? "compare_open" : "compare_close",
-          { ...basePayload, wantCompare: changes.wantCompare },
-          currentStep
-        );
-      }
-    }
-
-    setChecklist((prev) =>
-      prev.map((item, i) => {
-        if (i !== index) return item;
-        const next = { ...item, ...changes };
-        if (changes.status) {
-          next.completed = changes.status === "done";
-        }
-        return next;
-      })
-    );
   }
 
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -288,11 +296,18 @@ export default function AdressandringPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
+      let checklistToSubmit = checklist;
+      if (checklistToSubmit.length === 0) {
+        checklistToSubmit = await generateChecklist();
+      }
+
       const res = await fetch("/api/move", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: `${form.firstName} ${form.lastName}`.trim(),
+          firstName: form.firstName,
+          lastName: form.lastName,
           personalNumber: form.personalNumber,
           email: form.email,
           phone: form.phone,
@@ -308,7 +323,8 @@ export default function AdressandringPage() {
           moveDate: form.moveDate,
           householdType: form.householdType,
           reason: form.reason,
-          checklist,
+          hasChildren: form.hasChildren,
+          checklist: checklistToSubmit,
         }),
       });
 
@@ -332,9 +348,6 @@ export default function AdressandringPage() {
     if (currentStep === 1 && form.firstName) {
       handleValidate();
     }
-    if (currentStep === 3) {
-      generateChecklist();
-    }
     if (currentStep < STEPS.length) {
       const nextStep = currentStep + 1;
       mirrorStepChange(nextStep, form as unknown as Record<string, string | boolean | number>);
@@ -351,6 +364,9 @@ export default function AdressandringPage() {
   }
 
   // ── Success state ────────────────────────────────────────────────────
+  // Enkel bekräftelse – Skatteverket-guide, bookmarklet och "Vad händer nu?"
+  // visas i dashboarden efter att användaren skickat in via SKV (Playwright,
+  // bookmarklet eller manuell guide).
   if (submitted) {
     return (
       <div className="relative flex min-h-screen flex-col items-center justify-center bg-linear-to-b from-hero-gradient-from to-background px-4 overflow-hidden">
@@ -368,81 +384,14 @@ export default function AdressandringPage() {
             Tack, {form.firstName}!
           </h1>
           <p className="mt-3 text-lg text-muted-foreground">
-            Din flytt har registrerats hos Flytt.io. Vi tar hand om resten.
+            Din flytt är registrerad hos Flytt.io. Gå till dashboarden för att
+            fortsätta med BankID och Skatteverket.
           </p>
-          <Separator className="my-8" />
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Vad händer nu?</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <div className="flex items-start gap-3">
-                <Badge variant="secondary" className="mt-0.5 shrink-0">
-                  1
-                </Badge>
-                <span>
-                  Din personliga checklista är redo med {checklist.length}{" "}
-                  aktiviteter
-                </span>
-              </div>
-              <div className="flex items-start gap-3">
-                <Badge variant="secondary" className="mt-0.5 shrink-0">
-                  2
-                </Badge>
-                <span>
-                  Du kan följa din flytt och checklista på din dashboard
-                </span>
-              </div>
-              <div className="flex items-start gap-3">
-                <Badge variant="secondary" className="mt-0.5 shrink-0">
-                  3
-                </Badge>
-                <span>
-                  Vi hjälper dig med flyttanmälan till Skatteverket
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-          {/* Skatteverket guide + QR */}
-          <div className="mt-6 space-y-4 text-left">
-            <SkatteverketGuide
-              data={{
-                name: `${form.firstName} ${form.lastName}`.trim(),
-                personalNumber: form.personalNumber,
-                toStreet: form.toStreet,
-                toPostal: form.toPostal,
-                toCity: form.toCity,
-                apartmentNumber: form.apartmentNumber,
-                propertyDesignation: form.propertyDesignation,
-                propertyOwner: form.propertyOwner,
-                moveDate: form.moveDate,
-                householdType: form.householdType,
-              }}
-            />
 
-            {/* Bookmarklet for Skatteverket auto-fill */}
-            <BookmarkletButton
-              data={{
-                name: `${form.firstName} ${form.lastName}`.trim(),
-                personalNumber: form.personalNumber,
-                toStreet: form.toStreet,
-                toPostal: form.toPostal,
-                toCity: form.toCity,
-                apartmentNumber: form.apartmentNumber,
-                propertyDesignation: form.propertyDesignation,
-                propertyOwner: form.propertyOwner,
-                moveDate: form.moveDate,
-                email: form.email,
-                phone: form.phone,
-              }}
-            />
-
-          </div>
-
-          <div className="mt-6 flex gap-3 justify-center">
+          <div className="mt-8 flex gap-3 justify-center">
             <Button asChild className="rounded-full px-8" size="lg">
               <Link href={`/dashboard${moveId ? `?id=${moveId}` : ""}`}>
-                Min flytt
+                Till dashboarden
               </Link>
             </Button>
             <Button
@@ -461,39 +410,77 @@ export default function AdressandringPage() {
 
   // ── Main form ────────────────────────────────────────────────────────
   return (
-    <div className="relative min-h-screen bg-linear-to-b from-hero-gradient-from to-background overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden bg-linear-to-b from-hero-gradient-from via-background to-background">
+      <div className="pointer-events-none absolute inset-0 hero-mesh opacity-45" />
+      <div className="pointer-events-none absolute inset-0 hero-mesh-accent opacity-30" />
+      <div className="pointer-events-none absolute inset-0 noise-overlay opacity-[0.03]" />
       {/* Animated background orbs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
         <div className="section-orb-1 -top-1/4 -right-1/3 h-150 w-150" />
         <div className="section-orb-2 bottom-1/4 -left-1/4 h-125 w-125" />
         <div className="section-orb-accent top-1/2 right-1/4 h-100 w-100" />
-        <div className="absolute inset-0 dot-grid opacity-[0.06]" />
+        <div className="absolute inset-0 dot-grid opacity-[0.08]" />
       </div>
 
       {/* Top bar */}
-      <header className="relative border-b border-border/50 bg-card/60 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+      <header className="sticky top-0 z-30 border-b border-white/30 bg-background/60 backdrop-blur-xl supports-backdrop-filter:bg-background/45">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3.5">
           <Link
             href="/"
-            className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/80 px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm shadow-primary/5 transition-all duration-300 hover:border-primary/20 hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Tillbaka
           </Link>
-          <Link href="/" aria-label="Flytt.io - Till startsidan">
+          <Link
+            href="/"
+            aria-label="Flytt.io - Till startsidan"
+            className="rounded-full px-2 py-1 transition-transform duration-300 hover:scale-[1.02]"
+          >
             <Logo size="sm" />
           </Link>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 rounded-full border border-primary/10 bg-card/80 px-3 py-1.5 text-xs text-muted-foreground shadow-sm shadow-primary/5">
             <Lock className="h-3.5 w-3.5 text-primary" />
             <span className="hidden sm:inline">Krypterad</span>
           </div>
         </div>
       </header>
 
-      <main className="relative mx-auto max-w-3xl px-4 py-8 lg:py-12">
+      <main className="relative mx-auto max-w-4xl px-4 py-8 lg:py-10">
+        <div className="card-hover mb-8 rounded-[30px] border border-border/60 bg-card/80 p-5 shadow-xl shadow-primary/6 backdrop-blur-xl sm:p-6">
+          <Badge
+            variant="outline"
+            className="rounded-full border-primary/15 bg-background/85 px-3.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-primary"
+          >
+            Trygg flyttanmälan i tre steg
+          </Badge>
+          <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <h1 className="font-heading text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
+                Börja din flytt i lugn takt
+              </h1>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                Fyll bara i det du vet just nu. Vi håller ihop personuppgifter,
+                adresser och sista bekräftelsen i ett och samma lugna flöde.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+              <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5">
+                AI-hjälp när det behövs
+              </span>
+              <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5">
+                BankID nära nästa steg
+              </span>
+              <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5">
+                Alltid gratis
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Step indicators */}
-        <div className="mb-8">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="mb-8 rounded-[30px] border border-border/60 bg-card/78 p-4 shadow-lg shadow-primary/6 backdrop-blur-xl sm:p-5">
+          <div className="grid gap-3 md:grid-cols-3">
             {STEPS.map((step) => {
               const Icon = step.icon;
               const isActive = step.id === currentStep;
@@ -506,218 +493,148 @@ export default function AdressandringPage() {
                     if (step.id < currentStep) setCurrentStep(step.id);
                   }}
                   className={cn(
-                    "flex flex-col items-center gap-1.5 transition-all duration-300",
+                    "card-hover rounded-[24px] border p-4 text-left transition-all duration-300",
                     isActive
-                      ? "scale-105"
+                      ? "border-primary/30 bg-linear-to-br from-primary via-primary to-ring text-primary-foreground shadow-xl shadow-primary/18"
                       : isComplete
-                        ? "cursor-pointer opacity-80 hover:opacity-100"
-                        : "opacity-40 cursor-default"
+                        ? "cursor-pointer border-primary/15 bg-card/92 shadow-md shadow-primary/5 hover:border-primary/25"
+                        : "cursor-default border-border/70 bg-background/70"
                   )}
                   disabled={step.id > currentStep}
                   aria-current={isActive ? "step" : undefined}
                 >
-                  <div
-                    className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300",
-                      isActive
-                        ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                        : isComplete
-                          ? "border-primary/50 bg-primary/10 text-primary"
-                          : "border-border bg-card text-muted-foreground"
-                    )}
-                  >
-                    {isComplete ? (
-                      <CheckCircle2 className="h-5 w-5" />
-                    ) : (
-                      <Icon className="h-5 w-5" />
-                    )}
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-all duration-300",
+                        isActive
+                          ? "border-white/15 bg-white/10 text-white"
+                          : isComplete
+                            ? "border-primary/20 bg-primary/10 text-primary"
+                            : "border-border bg-card text-muted-foreground"
+                      )}
+                    >
+                      {isComplete ? (
+                        <CheckCircle2 className="h-5 w-5" />
+                      ) : (
+                        <Icon className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <p
+                        className={cn(
+                          "text-sm font-semibold",
+                          isActive
+                            ? "text-primary-foreground"
+                            : "text-foreground"
+                        )}
+                      >
+                        {step.label}
+                      </p>
+                      <p
+                        className={cn(
+                          "text-xs leading-relaxed",
+                          isActive
+                            ? "text-primary-foreground/75"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {step.description}
+                      </p>
+                    </div>
                   </div>
-                  <span
-                    className={cn(
-                      "hidden text-xs font-medium sm:block",
-                      isActive
-                        ? "text-primary"
-                        : isComplete
-                          ? "text-foreground"
-                          : "text-muted-foreground"
-                    )}
-                  >
-                    {step.label}
-                  </span>
                 </button>
               );
             })}
           </div>
-          <Progress value={progressValue} className="h-1.5" />
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            Steg {currentStep} av {STEPS.length}
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Progress value={progressValue} className="h-1.5 flex-1 bg-primary/10" />
+            <p className="shrink-0 text-xs font-medium text-muted-foreground">
+              Steg {currentStep} av {STEPS.length}
+            </p>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            Just nu: <span className="font-medium text-foreground">{activeStepMeta.label}</span>{" "}
+            – {activeStepMeta.description}
           </p>
         </div>
 
+        {startIntent && (
+          <div className="card-hover mb-6 rounded-[28px] border border-primary/20 bg-card/92 p-4 shadow-lg shadow-primary/5 backdrop-blur-sm">
+            <div className="flex items-start gap-3">
+              <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">
+                  Vi tog med din starttext från startsidan
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  "{startIntent.rawInput}"
+                </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {startIntent.summary.length > 0
+                    ? `Vi fyllde i ${startIntent.summary.join(", ")} där det kändes säkert. Bekräfta och komplettera resten steg för steg.`
+                    : "Vi kunde inte fylla i något säkert ännu, men du är igång. Fortsätt steg för steg så hjälper vi dig vidare."}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {miniMifContext && miniMifContext.mode === "personnummer" && (
+          <div className="card-hover mb-6 rounded-[28px] border border-emerald-200/80 bg-card/92 p-4 shadow-lg shadow-emerald-500/5 backdrop-blur-sm">
+            <div className="flex items-start gap-3">
+              <Fingerprint className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">
+                  Mini-MIF hämtade det vi kunde från personnumret
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {miniMifContext.summary.length > 0
+                    ? `Vi fyllde i ${miniMifContext.summary.join(", ")} direkt.`
+                    : "Vi sparade personnumret och försöker använda det i nästa steg."}
+                </p>
+                {miniMifContext.missingCritical.length > 0 && (
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Fortfarande viktigt för SKV: {miniMifContext.missingCritical.join(", ")}.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Form card */}
-        <Card className="shadow-xl shadow-primary/5 border-border/60">
+        <Card className="card-hover overflow-hidden rounded-[30px] border border-border/70 bg-card/88 shadow-2xl shadow-primary/10 backdrop-blur-xl">
           {/* ── Step 1: Identification ──────────────────────────────── */}
           {currentStep === 1 && (
             <>
-              <CardHeader>
+              <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/6 via-card/98 to-card/95 pb-5">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-primary">
-                    Steg 1
+                    Steg 1 av {STEPS.length}
                   </Badge>
                 </div>
                 <CardTitle className="font-heading text-xl">
-                  Identifiering
+                  Person och kontakt
                 </CardTitle>
                 <CardDescription>
-                  Ange dina personuppgifter nedan.
+                  Börja med det viktigaste. Har vi personnummer kan vi ofta hjälpa dig snabbare vidare.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-
-                {/* Dev mode: prefill with test data */}
-                {isDevMode && (
-                    <div className="rounded-lg border border-dashed border-yellow-400 bg-yellow-50 p-3">
-                      <p className="text-xs font-semibold text-yellow-800 mb-2">
-                        Dev mode – Fyll med testdata:
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-1.5 text-xs border-yellow-400 text-yellow-800 hover:bg-yellow-100"
-                        onClick={() => {
-                          const nextForm: FormData = {
-                            firstName: "Anna",
-                            lastName: "Andersson",
-                            personalNumber: "19900101-1234",
-                            email: "anna@exempel.se",
-                            phone: "070-123 45 67",
-                            fromStreet: "Storgatan 1, lgh 1001",
-                            fromPostal: "111 22",
-                            fromCity: "Stockholm",
-                            toStreet: "Kungsgatan 5, lgh 302",
-                            toPostal: "411 19",
-                            toCity: "Göteborg",
-                            apartmentNumber: "1302",
-                            propertyDesignation: "Rudan mindre 10",
-                            propertyOwner: "Egen",
-                            moveDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-                            householdType: "myself",
-                            reason: "work",
-                            hasChildren: false,
-                          };
-                          setForm(nextForm);
-                          mirrorEvent(
-                            "field_change",
-                            nextForm as unknown as Record<string, string | boolean | number>,
-                            currentStep
-                          );
-                        }}
-                      >
-                        <Sparkles className="h-3.5 w-3.5" />
-                        Fyll med testdata
-                      </Button>
-                    </div>
-                  )}
-
-                {/* Manual entry */}
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    {renderSuggestionBanner("firstName")}
-                    <Label htmlFor="firstName">Förnamn</Label>
-                    <Input
-                      id="firstName"
-                      placeholder="Anna"
-                      value={form.firstName}
-                      onChange={(e) => updateForm("firstName", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    {renderSuggestionBanner("lastName")}
-                    <Label htmlFor="lastName">Efternamn</Label>
-                    <Input
-                      id="lastName"
-                      placeholder="Andersson"
-                      value={form.lastName}
-                      onChange={(e) => updateForm("lastName", e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {renderSuggestionBanner("personalNumber")}
-                  <Label htmlFor="personalNumber">Personnummer</Label>
-                  <Input
-                    id="personalNumber"
-                    placeholder="YYYYMMDD-XXXX"
-                    value={form.personalNumber}
-                    onChange={(e) =>
-                      updateForm("personalNumber", e.target.value)
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Används för att verifiera din identitet.
-                  </p>
-                </div>
-                <Separator />
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    {renderSuggestionBanner("email")}
-                    <Label htmlFor="email">E-postadress</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="anna@exempel.se"
-                      value={form.email}
-                      onChange={(e) => updateForm("email", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    {renderSuggestionBanner("phone")}
-                    <Label htmlFor="phone">Telefonnummer</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="070-123 45 67"
-                      value={form.phone}
-                      onChange={(e) => updateForm("phone", e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {/* AI validation feedback */}
-                {validating && (
-                  <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
-                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-muted-foreground">
-                      AI validerar dina uppgifter...
-                    </span>
-                  </div>
-                )}
-                {validation && !validating && (
-                  <div
-                    className={cn(
-                      "rounded-lg border p-3 text-sm",
-                      validation.confidence >= 70
-                        ? "border-green-200 bg-green-50"
-                        : "border-yellow-200 bg-yellow-50"
-                    )}
-                  >
-                    <div className="flex items-center gap-2 font-medium">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      AI-validering: {validation.confidence}% konfidenspoäng
-                    </div>
-                    {validation.suggestions.length > 0 && (
-                      <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                        {validation.suggestions.map((s, i) => (
-                          <li key={i} className="flex items-start gap-1.5">
-                            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-                            {s}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
+              <CardContent className="space-y-6 pt-6">
+                <AdressandringStepOneFields
+                  fields={{
+                    firstName: form.firstName,
+                    lastName: form.lastName,
+                    personalNumber: form.personalNumber,
+                    email: form.email,
+                    phone: form.phone,
+                  }}
+                  onFieldChange={updateForm}
+                  renderSuggestionBanner={renderSuggestionBanner}
+                  validating={validating}
+                  validation={validation}
+                />
               </CardContent>
             </>
           )}
@@ -725,21 +642,21 @@ export default function AdressandringPage() {
           {/* ── Step 2: Addresses ──────────────────────────────────── */}
           {currentStep === 2 && (
             <>
-              <CardHeader>
+              <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/6 via-card/98 to-card/95 pb-5">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-primary">
-                    Steg 2
+                    Steg 2 av {STEPS.length}
                   </Badge>
                 </div>
                 <CardTitle className="font-heading text-xl">
                   Adresser
                 </CardTitle>
                 <CardDescription>
-                  Ange din nuvarande adress och din nya adress.
+                  Bekräfta din nuvarande adress och fyll i den nya. Autofyll kan hjälpa dig med resten.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
+              <CardContent className="space-y-5 pt-6">
+                <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/35 p-4 sm:p-5">
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <Home className="h-4 w-4 text-primary" />
                     Nuvarande adress
@@ -782,9 +699,7 @@ export default function AdressandringPage() {
                   </div>
                 </div>
 
-                <Separator />
-
-                <div className="space-y-4">
+                <div className="space-y-4 rounded-2xl border border-border/70 bg-muted/35 p-4 sm:p-5">
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <Home className="h-4 w-4 text-primary" />
                     Ny adress
@@ -864,28 +779,30 @@ export default function AdressandringPage() {
                 </div>
 
                 {/* AI autofill suggestion */}
-                <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
-                  <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-                  <p className="flex-1 text-xs text-muted-foreground">
-                    {autofillActive
-                      ? `Autofyll är aktiv (${autofillConfig.mode === "auto" ? "auto" : "manuell accept"}). Förslag visas ovanför fält.`
-                      : "Autofyll är avstängd i denna miljö."}
-                  </p>
-                  <Button
-                    onClick={handleAutofill}
-                    disabled={autofillLoading || !autofillActive}
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 gap-1.5 text-xs"
-                  >
-                    {autofillLoading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
-                    )}
-                    {autofillLoading ? "Tar fram förslag..." : "Hämta AI-förslag"}
-                  </Button>
-                </div>
+                {showAutofillPanel && (
+                  <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-3.5">
+                    <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+                    <p className="flex-1 text-xs text-muted-foreground">
+                      {autofillActive
+                        ? `Autofyll är aktiv (${autofillConfig.mode === "auto" ? "auto" : "manuell accept"}). Förslag visas ovanför fält.`
+                        : "Autofyll är avstängd i denna miljö."}
+                    </p>
+                    <Button
+                      onClick={handleAutofill}
+                      disabled={autofillLoading || !autofillActive}
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 gap-1.5 text-xs"
+                    >
+                      {autofillLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      {autofillLoading ? "Tar fram förslag..." : "Hämta AI-förslag"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </>
           )}
@@ -893,49 +810,51 @@ export default function AdressandringPage() {
           {/* ── Step 3: Move Details ───────────────────────────────── */}
           {currentStep === 3 && (
             <>
-              <CardHeader>
+              <CardHeader className="border-b border-border/60 bg-linear-to-r from-primary/6 via-card/98 to-card/95 pb-5">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-primary">
-                    Steg 3
+                    Steg 3 av {STEPS.length}
                   </Badge>
                 </div>
                 <CardTitle className="font-heading text-xl">
-                  Flyttdetaljer
+                  Flytt och bekräfta
                 </CardTitle>
                 <CardDescription>
-                  Ange datum, vem som flyttar och scenario.
+                  Fyll i de sista flyttdetaljerna och kontrollera sammanfattningen innan du skickar in.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    {renderSuggestionBanner("moveDate")}
-                    <Label htmlFor="moveDate">Inflyttningsdatum</Label>
-                    <Input
-                      id="moveDate"
-                      type="date"
-                      value={form.moveDate}
-                      onChange={(e) => updateForm("moveDate", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="householdType">Vem flyttar?</Label>
-                    <Select
-                      value={form.householdType}
-                      onValueChange={(v) => updateForm("householdType", v)}
-                    >
-                      <SelectTrigger id="householdType" className="w-full">
-                        <SelectValue placeholder="Välj alternativ" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="myself">Jag själv</SelectItem>
-                        <SelectItem value="family">Hela familjen</SelectItem>
-                        <SelectItem value="partner">
-                          Jag och min partner
-                        </SelectItem>
-                        <SelectItem value="child">Mitt barn</SelectItem>
-                      </SelectContent>
-                    </Select>
+              <CardContent className="space-y-5 pt-6">
+                <div className="rounded-2xl border border-border/70 bg-muted/35 p-4 sm:p-5">
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      {renderSuggestionBanner("moveDate")}
+                      <Label htmlFor="moveDate">Inflyttningsdatum</Label>
+                      <Input
+                        id="moveDate"
+                        type="date"
+                        value={form.moveDate}
+                        onChange={(e) => updateForm("moveDate", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="householdType">Vem flyttar?</Label>
+                      <Select
+                        value={form.householdType}
+                        onValueChange={(v) => updateForm("householdType", v)}
+                      >
+                        <SelectTrigger id="householdType" className="w-full">
+                          <SelectValue placeholder="Välj alternativ" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="myself">Jag själv</SelectItem>
+                          <SelectItem value="family">Hela familjen</SelectItem>
+                          <SelectItem value="partner">
+                            Jag och min partner
+                          </SelectItem>
+                          <SelectItem value="child">Mitt barn</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -956,205 +875,95 @@ export default function AdressandringPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Separator />
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    id="hasChildren"
-                    checked={form.hasChildren}
-                    onCheckedChange={(val) =>
-                      updateForm("hasChildren", val === true)
-                    }
-                  />
-                  <Label
-                    htmlFor="hasChildren"
-                    className="text-sm cursor-pointer"
-                  >
-                    Jag har barn som också flyttar
-                  </Label>
+                <div className="rounded-2xl border border-border/70 bg-muted/35 p-4">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="hasChildren"
+                      checked={form.hasChildren}
+                      onCheckedChange={(val) =>
+                        updateForm("hasChildren", val === true)
+                      }
+                    />
+                    <Label
+                      htmlFor="hasChildren"
+                      className="cursor-pointer text-sm text-muted-foreground"
+                    >
+                      Jag har barn som också flyttar
+                    </Label>
+                  </div>
                 </div>
                 {checklistError && !form.moveDate && (
-                  <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                  <div className="flex items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>{checklistError}</span>
                   </div>
                 )}
 
-                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
+                <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3.5 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2 font-medium text-foreground">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    Flyttlistan laddas i nästa steg
+                    Checklistan skapas automatiskt efter att du skickat in
                   </div>
                   <p className="mt-1">
-                    Du får en komplett checklista med kolumnerna Behöver hjälp,
-                    Vill jämföra och Status.
+                    Du får checklista, påminnelser och erbjudanden i dashboarden
+                    i stället för att behöva ta det som ett eget steg redan nu.
                   </p>
                 </div>
-              </CardContent>
-            </>
-          )}
 
-          {/* ── Step 4: Checklist matrix ───────────────────────────── */}
-          {currentStep === 4 && (
-            <>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-primary">
-                    Steg 4
-                  </Badge>
-                  {checklistSource === "template" && (
-                    <Badge className="gap-1 bg-primary/10 text-primary">
-                      <ListChecks className="h-3 w-3" />
-                      Mallbaserad
-                    </Badge>
-                  )}
-                </div>
-                <CardTitle className="font-heading text-xl">
-                  Din flyttlista
-                </CardTitle>
-                <CardDescription>
-                  Markera vilka moment du vill ha hjalp med, vad du vill jamfora
-                  och hur langt du har kommit.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {checklistLoading ? (
-                  <div className="flex flex-col items-center gap-3 py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">
-                      Laddar flyttlistan...
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Detta kan ta några sekunder
-                    </p>
-                  </div>
-                ) : checklist.length > 0 ? (
-                  <ChecklistView
-                    items={checklist}
-                    onItemChange={handleChecklistItemChange}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center gap-3 py-12 text-center">
-                    {checklistError ? (
-                      <>
-                        <AlertCircle className="h-8 w-8 text-destructive" />
-                        <p className="text-sm font-medium text-destructive">
-                          {checklistError}
-                        </p>
-                        <Button
-                          onClick={() => {
-                            if (!form.moveDate) {
-                              setCurrentStep(3);
-                            } else {
-                              generateChecklist();
-                            }
-                          }}
-                          variant="outline"
-                          className="gap-2"
-                        >
-                          {!form.moveDate ? (
-                            <>
-                              <ArrowLeft className="h-4 w-4" />
-                              Gå till steg 3
-                            </>
-                          ) : (
-                            <>
-                              <ListChecks className="h-4 w-4" />
-                              Försök igen
-                            </>
-                          )}
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <ListChecks className="h-8 w-8 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">
-                          Ingen checklista genererad ännu.
-                        </p>
-                        <Button
-                          onClick={generateChecklist}
-                          variant="outline"
-                          className="gap-2"
-                        >
-                          <ListChecks className="h-4 w-4" />
-                          Ladda flyttlista
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </>
-          )}
-
-          {/* ── Step 5: Confirm ────────────────────────────────────── */}
-          {currentStep === 5 && (
-            <>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-primary">
-                    Steg 5
-                  </Badge>
-                </div>
-                <CardTitle className="font-heading text-xl">
-                  Granska och bekräfta
-                </CardTitle>
-                <CardDescription>
-                  Kontrollera att alla uppgifter stämmer innan du skickar in.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-xl border border-border bg-secondary/50 p-4 space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/35 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Personuppgifter
                     </p>
                     <p className="text-sm font-semibold text-foreground">
-                      {form.firstName} {form.lastName}
+                      {form.firstName || form.lastName
+                        ? `${form.firstName} ${form.lastName}`.trim()
+                        : "Lägg till namn i steg 1"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {form.email}
+                      {form.email || "Ingen e-post angiven ännu"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {form.phone}
+                      {form.phone || "Inget telefonnummer angivet ännu"}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-border bg-secondary/50 p-4 space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/35 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Flyttdetaljer
                     </p>
                     <p className="text-sm font-semibold text-foreground">
-                      {form.moveDate || "–"}
+                      {form.moveDate || "Välj inflyttningsdatum"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {form.householdType || "–"}
+                      {HOUSEHOLD_TYPE_LABELS[form.householdType] || form.householdType || "Välj vem som flyttar"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Checklista: {checklist.length} aktiviteter
+                      Checklista och påminnelser skapas automatiskt efter registrering
                     </p>
                   </div>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-xl border border-border bg-secondary/50 p-4 space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <div className="space-y-2 rounded-2xl border border-border/70 bg-muted/35 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Nuvarande adress
                     </p>
                     <p className="text-sm font-semibold text-foreground">
-                      {form.fromStreet || "–"}
+                      {form.fromStreet || "Komplettera nuvarande adress i steg 2"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {form.fromPostal} {form.fromCity}
+                      {[form.fromPostal, form.fromCity].filter(Boolean).join(" ") || "Postnummer och ort saknas"}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
-                    <p className="text-xs font-medium text-primary uppercase tracking-wider">
+                  <div className="space-y-2 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wider text-primary">
                       Ny adress
                     </p>
                     <p className="text-sm font-semibold text-foreground">
-                      {form.toStreet || "–"}
+                      {form.toStreet || "Komplettera den nya adressen i steg 2"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {form.toPostal} {form.toCity}
+                      {[form.toPostal, form.toCity].filter(Boolean).join(" ") || "Postnummer och ort saknas"}
                     </p>
                     {form.apartmentNumber && (
                       <p className="text-xs text-muted-foreground">
@@ -1164,10 +973,9 @@ export default function AdressandringPage() {
                   </div>
                 </div>
 
-                <Separator />
+                <div className="section-divider" />
 
-                {/* Free service banner */}
-                <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 p-4">
+                <div className="flex items-center justify-between rounded-2xl border border-green-200 bg-green-50 p-4">
                   <div>
                     <p className="text-sm font-medium text-foreground">
                       Helt gratis
@@ -1181,36 +989,38 @@ export default function AdressandringPage() {
                   </p>
                 </div>
 
-                <Separator />
+                <div className="section-divider" />
 
                 {submitError && (
-                  <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                  <div className="flex items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>{submitError}</span>
                   </div>
                 )}
 
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    id="terms"
-                    checked={agreed}
-                    onCheckedChange={(val) => setAgreed(val === true)}
-                  />
-                  <Label
-                    htmlFor="terms"
-                    className="text-sm leading-relaxed text-muted-foreground cursor-pointer"
-                  >
-                    Jag godkänner{" "}
-                    <span className="font-medium text-primary underline underline-offset-2">
-                      användarvillkoren
-                    </span>{" "}
-                    och{" "}
-                    <span className="font-medium text-primary underline underline-offset-2">
-                      integritetspolicyn
-                    </span>
-                    . Jag samtycker till att Flytt.io behandlar mina uppgifter
-                    för att genomföra flytten.
-                  </Label>
+                <div className="rounded-2xl border border-border/70 bg-muted/35 p-4">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="terms"
+                      checked={agreed}
+                      onCheckedChange={(val) => setAgreed(val === true)}
+                    />
+                    <Label
+                      htmlFor="terms"
+                      className="cursor-pointer text-sm leading-relaxed text-muted-foreground"
+                    >
+                      Jag godkänner{" "}
+                      <span className="font-medium text-primary underline underline-offset-2">
+                        användarvillkoren
+                      </span>{" "}
+                      och{" "}
+                      <span className="font-medium text-primary underline underline-offset-2">
+                        integritetspolicyn
+                      </span>
+                      . Jag samtycker till att Flytt.io behandlar mina uppgifter
+                      för att genomföra flytten.
+                    </Label>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
@@ -1228,12 +1038,12 @@ export default function AdressandringPage() {
           )}
 
           {/* Footer with navigation */}
-          <CardFooter className="flex items-center justify-between border-t border-border pt-6">
+          <CardFooter className="flex flex-col gap-3 border-t border-border/60 bg-linear-to-r from-card/95 via-card/80 to-card/95 pt-6 sm:flex-row sm:items-center sm:justify-between">
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={handlePrev}
               disabled={currentStep === 1}
-              className="gap-1.5"
+              className="w-full gap-1.5 rounded-full border-border/70 bg-background/80 px-5 sm:w-auto"
             >
               <ArrowLeft className="h-4 w-4" />
               Tillbaka
@@ -1242,7 +1052,7 @@ export default function AdressandringPage() {
             {currentStep < STEPS.length ? (
               <Button
                 onClick={handleNext}
-                className="gap-1.5 rounded-full px-6"
+                className="shimmer-btn w-full gap-1.5 rounded-full px-6 shadow-lg shadow-primary/20 sm:w-auto"
               >
                 Nästa
                 <ArrowRight className="h-4 w-4" />
@@ -1251,29 +1061,34 @@ export default function AdressandringPage() {
               <Button
                 onClick={handleSubmit}
                 disabled={!agreed || submitting}
-                className="gap-1.5 rounded-full px-6 shadow-lg shadow-primary/25"
+                className="shimmer-btn w-full gap-1.5 rounded-full px-6 shadow-lg shadow-primary/25 sm:w-auto"
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <CheckCircle2 className="h-4 w-4" />
                 )}
-                {submitting ? "Skickar..." : "Skicka in"}
+                {submitting ? "Skickar..." : "Bekräfta och skicka"}
               </Button>
             )}
           </CardFooter>
         </Card>
       </main>
 
-      {/* OpenClaw chat widget */}
-      <OpenClawChatWidget
-        formType="adressandring"
-        formData={form as unknown as Record<string, string | boolean | number>}
-        currentStep={currentStep}
-        onSuggestion={(field, value) => {
-          queueSuggestion(field as keyof FormData, value, "openclaw");
-        }}
-      />
+      {/* D-ID voice+video agent (primary when MERGE_OC_DID is on) */}
+      <DidOpenClawBridgeWidget />
+
+      {/* OpenClaw text chat (hidden when D-ID bridge takes over) */}
+      {process.env.NEXT_PUBLIC_MERGE_OC_DID !== "y" && (
+        <OpenClawChatWidget
+          formType="adressandring"
+          formData={form as unknown as Record<string, string | boolean | number>}
+          currentStep={currentStep}
+          onSuggestion={(field, value) => {
+            queueSuggestion(field as keyof AdressandringFormData, value, "openclaw");
+          }}
+        />
+      )}
     </div>
   );
 }

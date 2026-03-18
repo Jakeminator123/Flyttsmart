@@ -1,0 +1,82 @@
+<svg width="800" height="1000" viewBox="0 0 800 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="60" x2="662" y2="928" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#243552"/>
+      <stop offset="0.45" stop-color="#1C2437"/>
+      <stop offset="1" stop-color="#0F1623"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(595 193) rotate(121.622) scale(440.004 350.984)">
+      <stop stop-color="#7EE8A2" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#7EE8A2" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(212 828) rotate(-27.431) scale(439.671 292.243)">
+      <stop stop-color="#F49B78" stop-opacity="0.36"/>
+      <stop offset="1" stop-color="#F49B78" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hair" x1="253" y1="209" x2="579" y2="632" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8A47"/>
+      <stop offset="0.56" stop-color="#E2572B"/>
+      <stop offset="1" stop-color="#A7381F"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="323" y1="313" x2="459" y2="626" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6D8C8"/>
+      <stop offset="1" stop-color="#E6B49E"/>
+    </linearGradient>
+    <linearGradient id="dress" x1="308" y1="631" x2="481" y2="891" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#223C5A"/>
+      <stop offset="1" stop-color="#131D2E"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="1000" rx="52" fill="url(#bg)"/>
+  <rect width="800" height="1000" rx="52" fill="url(#glowA)"/>
+  <rect width="800" height="1000" rx="52" fill="url(#glowB)"/>
+
+  <g opacity="0.35">
+    <circle cx="652" cy="156" r="10" fill="#EAF6FF"/>
+    <circle cx="676" cy="188" r="6" fill="#EAF6FF"/>
+    <circle cx="152" cy="120" r="8" fill="#EAF6FF"/>
+  </g>
+
+  <path d="M227 827C266.947 723.758 331.451 672.137 420.512 672.137C511.409 672.137 575.905 723.758 614 827V1000H227V827Z" fill="url(#dress)"/>
+  <path d="M352 632H486V723C486 748.368 464.368 770 439 770H399C373.632 770 352 748.368 352 723V632Z" fill="url(#skin)"/>
+  <path d="M403 698C438.24 698 467 675.24 467 647V627H339V647C339 675.24 367.76 698 403 698Z" fill="#E8B7A3"/>
+
+  <path d="M269 417C269 303.229 340.347 212 420 212C499.653 212 571 303.229 571 417C571 530.771 499.653 622 420 622C340.347 622 269 530.771 269 417Z" fill="url(#skin)"/>
+
+  <path d="M252 420C252 283.257 325.963 178 421 178C516.037 178 590 283.257 590 420C590 553.192 525.14 646 421 646C316.86 646 252 553.192 252 420Z" fill="url(#hair)"/>
+  <path d="M297 333C305.05 248.507 353.778 188 421 188C488.222 188 536.95 248.507 545 333C513.202 298.524 472.53 281.286 423 281.286C373.47 281.286 331.47 298.524 297 333Z" fill="#FFB784"/>
+  <path d="M289 410C289 329.366 347.65 264 420 264C492.35 264 551 329.366 551 410V470C551 561.127 492.35 635 420 635C347.65 635 289 561.127 289 470V410Z" fill="url(#skin)"/>
+
+  <path d="M352 438C367.464 438 380 425.464 380 410C380 394.536 367.464 382 352 382C336.536 382 324 394.536 324 410C324 425.464 336.536 438 352 438Z" fill="#F2C8B6"/>
+  <path d="M488 438C503.464 438 516 425.464 516 410C516 394.536 503.464 382 488 382C472.536 382 460 394.536 460 410C460 425.464 472.536 438 488 438Z" fill="#F2C8B6"/>
+
+  <path d="M370 408C385.464 408 398 395.464 398 380C398 364.536 385.464 352 370 352C354.536 352 342 364.536 342 380C342 395.464 354.536 408 370 408Z" fill="#1A2537" fill-opacity="0.08"/>
+  <path d="M470 408C485.464 408 498 395.464 498 380C498 364.536 485.464 352 470 352C454.536 352 442 364.536 442 380C442 395.464 454.536 408 470 408Z" fill="#1A2537" fill-opacity="0.08"/>
+
+  <path d="M358 405C371.807 405 383 393.807 383 380C383 366.193 371.807 355 358 355C344.193 355 333 366.193 333 380C333 393.807 344.193 405 358 405Z" fill="#F7F4F0"/>
+  <path d="M482 405C495.807 405 507 393.807 507 380C507 366.193 495.807 355 482 355C468.193 355 457 366.193 457 380C457 393.807 468.193 405 482 405Z" fill="#F7F4F0"/>
+
+  <circle cx="358" cy="380" r="11" fill="#243552"/>
+  <circle cx="482" cy="380" r="11" fill="#243552"/>
+  <circle cx="354" cy="376" r="4" fill="#EAF6FF"/>
+  <circle cx="478" cy="376" r="4" fill="#EAF6FF"/>
+
+  <path d="M330 337C350.23 322.143 371.304 314.714 393.222 314.714C404.889 314.714 416.593 317.306 428.333 322.49" stroke="#5B2716" stroke-width="15" stroke-linecap="round"/>
+  <path d="M451.667 322.49C463.407 317.306 475.111 314.714 486.778 314.714C508.696 314.714 529.77 322.143 550 337" stroke="#5B2716" stroke-width="15" stroke-linecap="round"/>
+
+  <path d="M420 419C410.611 446.283 405.917 462.046 405.917 466.288C405.917 472.652 412.463 476.571 420 476.571C427.537 476.571 434.083 472.652 434.083 466.288C434.083 462.046 429.389 446.283 420 419Z" fill="#D89A82"/>
+
+  <path d="M361 527C378.642 547.844 398.532 558.266 420.67 558.266C442.807 558.266 462.251 547.844 479 527" stroke="#7E2740" stroke-width="13" stroke-linecap="round"/>
+  <path d="M371 529C384.245 540.514 400.071 546.271 418.478 546.271C436.885 546.271 452.393 540.514 465 529" stroke="#F8E0DA" stroke-width="6" stroke-linecap="round"/>
+
+  <path d="M292 375C281.333 422.333 275.194 453.515 273.583 468.545C271.972 483.576 275.694 501.211 284.75 521.45L252 515C230 479.209 225.5 438.524 238.5 392.944C246.077 366.365 259.577 344.717 279 328L292 375Z" fill="url(#hair)"/>
+  <path d="M549 375C559.667 422.333 565.806 453.515 567.417 468.545C569.028 483.576 565.306 501.211 556.25 521.45L589 515C611 479.209 615.5 438.524 602.5 392.944C594.923 366.365 581.423 344.717 562 328L549 375Z" fill="url(#hair)"/>
+
+  <path d="M274 804C304.48 720.721 354.591 679.081 424.333 679.081C494.075 679.081 542.964 720.721 571 804" stroke="#5CBF84" stroke-width="3" stroke-opacity="0.22"/>
+  <path d="M258 1000V851C310.198 798.691 364.976 772.536 422.333 772.536C479.69 772.536 533.912 798.691 585 851V1000H258Z" fill="#162033"/>
+
+  <rect x="286" y="741" width="270" height="38" rx="19" fill="#EAF6FF" fill-opacity="0.08"/>
+  <circle cx="315" cy="760" r="7" fill="#7EE8A2"/>
+  <text x="341" y="767" fill="#F7FAFD" font-family="DM Sans, sans-serif" font-size="22" font-weight="700" letter-spacing="1.6">AIDA PLACEHOLDER</text>
+</svg>

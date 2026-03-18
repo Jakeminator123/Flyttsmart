@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "schemas": [
+    {
+      "name": "adressandring-form",
+      "path": "schemas/forms/adressandring-form.schema.json"
+    },
+    {
+      "name": "skv-source-data",
+      "path": "schemas/skv/skv-source-data.schema.json"
+    },
+    {
+      "name": "skv-normalized-payload",
+      "path": "schemas/skv/skv-normalized-payload.schema.json"
+    },
+    {
+      "name": "skv-int7-start-response",
+      "path": "schemas/skv/skv-int7-start-response.schema.json"
+    },
+    {
+      "name": "skv-int7-status-response",
+      "path": "schemas/skv/skv-int7-status-response.schema.json"
+    },
+    {
+      "name": "skv-int7-payload-response",
+      "path": "schemas/skv/skv-int7-payload-response.schema.json"
+    }
+  ]
+}

@@ -14,9 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { parseOpenClawResponse } from "@/lib/openclaw/response";
-
-const MERGE_OC_DID =
-  process.env.NEXT_PUBLIC_MERGE_OC_DID?.toLowerCase() === "y";
+import { getSharedAidaSessionId } from "@/lib/aida/client-session";
+import {
+  MINI_MIF_EVENT,
+  readMiniMifContext,
+  type MiniMifContext,
+} from "@/lib/mif/prefill";
 
 // ─── Types ─────────────────────────────────────────────
 
@@ -55,17 +58,7 @@ interface OpenClawChatWidgetProps {
 // ─── Session ID helper ─────────────────────────────────
 
 function getSessionId(): string {
-  if (typeof window === "undefined") return "";
-  const KEY = "openclaw_session_id";
-  try {
-    const existing = sessionStorage.getItem(KEY);
-    if (existing) return existing;
-    const id = crypto.randomUUID();
-    sessionStorage.setItem(KEY, id);
-    return id;
-  } catch {
-    return crypto.randomUUID();
-  }
+  return getSharedAidaSessionId();
 }
 
 // ─── Component ─────────────────────────────────────────
@@ -76,8 +69,6 @@ export function OpenClawChatWidget({
   currentStep,
   onSuggestion,
 }: OpenClawChatWidgetProps) {
-  if (MERGE_OC_DID) return null;
-
   return (
     <OpenClawChatWidgetInner
       formType={formType}
@@ -100,12 +91,13 @@ function OpenClawChatWidgetInner({
     {
       role: "assistant",
       content:
-        "Hej! Jag är Aida, din personliga flyttassistent. Jag följer med i formuläret du fyller i och kan hjälpa dig med frågor om flytt, adressändring eller vad du än undrar över.",
+        "Hej! Jag är Aida i textchatten. OpenClaw är hjärnan bakom mina svar, och jag hjälper dig snabbt med fält, frågor om flytten och vad som saknas just nu.",
     },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
+  const [miniMifContext, setMiniMifContext] = useState<MiniMifContext | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const sessionIdRef = useRef<string>("");
@@ -113,6 +105,18 @@ function OpenClawChatWidgetInner({
   // Initialise shared session ID
   useEffect(() => {
     sessionIdRef.current = getSessionId();
+    setMiniMifContext(readMiniMifContext());
+  }, []);
+
+  useEffect(() => {
+    const syncMiniMif = () => setMiniMifContext(readMiniMifContext());
+    syncMiniMif();
+    window.addEventListener(MINI_MIF_EVENT, syncMiniMif as EventListener);
+    window.addEventListener("storage", syncMiniMif);
+    return () => {
+      window.removeEventListener(MINI_MIF_EVENT, syncMiniMif as EventListener);
+      window.removeEventListener("storage", syncMiniMif);
+    };
   }, []);
 
   // Auto-scroll to latest message
@@ -152,6 +156,7 @@ function OpenClawChatWidgetInner({
             fields: formData ?? {},
             currentStep: currentStep ?? null,
           },
+          mifContext: miniMifContext,
         }),
       });
 
@@ -274,7 +279,7 @@ function OpenClawChatWidgetInner({
         <button
           onClick={handleOpen}
           className="fixed bottom-5 left-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-primary/30 active:scale-95"
-          aria-label="Öppna Aida-assistent"
+          aria-label="Öppna Aida textchat"
         >
           <MessageCircle className="h-6 w-6" />
           {hasUnread && (
@@ -298,7 +303,7 @@ function OpenClawChatWidgetInner({
             <Bot className="h-4 w-4 text-primary" />
           </div>
           <span className="text-sm font-medium text-foreground">
-            Aida
+            Aida text
           </span>
           <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           {hasUnread && (
@@ -334,10 +339,10 @@ function OpenClawChatWidgetInner({
               </div>
               <div>
                 <p className="text-sm font-semibold leading-none text-foreground">
-                  Aida
+                  Aida text
                 </p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Din personliga flyttassistent
+                  Snabbhjalp med OpenClaw i bakgrunden
                 </p>
               </div>
             </div>
@@ -459,7 +464,7 @@ function OpenClawChatWidgetInner({
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Fråga Aida..."
+                placeholder="Fråga Aida i textchatten..."
                 className="h-10 flex-1 rounded-xl border border-border/60 bg-muted/40 px-3.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 transition-colors focus:border-primary/40 focus:bg-background disabled:opacity-50"
                 disabled={loading}
               />

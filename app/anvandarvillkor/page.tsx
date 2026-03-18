@@ -1,14 +1,21 @@
-import type { Metadata } from "next"
 import { LegalPageLayout, LegalSection } from "@/components/legal-page-layout"
+import { createPageMetadata } from "@/lib/site-config"
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
   title: "Användarvillkor – Flytt.io",
-  description: "Användarvillkor för tjänsten Flytt.io.",
-}
+  description:
+    "Användarvillkor för Flytt.io och hur tjänsten används vid flyttanmälan, checklista och erbjudanden.",
+  path: "/anvandarvillkor",
+  keywords: ["användarvillkor", "juridik", "flyttanmälan"],
+})
 
 export default function AnvandarvillkorPage() {
   return (
-    <LegalPageLayout badge="Juridiskt" title="Användarvillkor för Flytt.io">
+    <LegalPageLayout
+      badge="Juridiskt"
+      title="Användarvillkor för Flytt.io"
+      lastUpdated="12 mars 2026"
+    >
       <p>
         Dessa användarvillkor (&quot;Användarvillkoren&quot;) gäller när du använder tjänsten Flytt.io (&quot;Tjänsten&quot;).
         Genom att logga in med BankID eller på annat sätt använda Tjänsten godkänner du dessa Användarvillkor.

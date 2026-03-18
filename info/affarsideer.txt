@@ -1,0 +1,200 @@
+AFFÄRSIDÉER & STRATEGIFÖRSLAG — flytta.nu / flytt.io
+====================================================
+Sammanställt 2026-02-28. Graderingar 1-10 avser
+kombinationen av genomförbarhet, marknadspotential
+och differentiering.
+
+
+═══════════════════════════════════════════════════
+A) KÄRNIDÉ: ADRESSUPPDATERINGSTJÄNST (8/10)
+═══════════════════════════════════════════════════
+
+Problemet: När man flyttar har 10-40 avsändare
+(bank, försäkring, el, gym, fack, e-handel, vård)
+fel adress. Eftersändning är en temporär patch —
+det verkliga problemet är att uppdatera överallt.
+
+Ingen svensk aktör gör detta bra idag.
+
+───────────────────────────────────────────────────
+A1) Hur samla in avsändarlistan — alternativ
+───────────────────────────────────────────────────
+
+1. KURERAD DATABAS + SMART CHECKLISTA (enklast, starta här)
+   - Bygg en databas med ~200 vanliga svenska avsändare:
+     banker (SEB, Nordea, Handelsbanken, Swedbank...),
+     försäkringsbolag, elbolag, bredband, fackförbund,
+     gym (SATS, Nordic Wellness), streaming, e-handel,
+     vårdcentraler, tandläkare, Försäkringskassan, CSN.
+   - Varje post har: namn, kategori, deep link till
+     "ändra adress"-sida, instruktioner, BankID-krav (j/n).
+   - Användaren bockar av vilka som gäller dem.
+   - Sortera efter kritikalitet:
+     KRITISK (bank, skatt, försäkring)
+     VIKTIG (el, bredband, fack)
+     BRA ATT GÖRA (gym, streaming, e-handel)
+   Fördel: Noll integritetsproblem, funkar direkt.
+   Nackdel: Inte personaliserat — användaren kanske
+   missar nischade avsändare.
+   Uppskattad insats: 2-3 veckor.
+
+2. E-POST-SKANNING VIA OAUTH (kraftfullast)
+   - Användaren kopplar Gmail/Outlook via OAuth2.
+   - Scope: METADATA ONLY (avsändare, datum — EJ innehåll).
+     Gmail: "gmail.metadata" scope.
+     Outlook: "Mail.ReadBasic".
+   - Extrahera unika avsändardomäner senaste 12 mån.
+   - Matcha mot kurerad databas → personlig checklista.
+   - Visa: "Vi hittade att du får post från Nordea,
+     Telia, SATS, IF... Vill du uppdatera adress hos dessa?"
+   Fördel: Hög precision, personligt, "wow-effekt".
+   Nackdel: Många användare vägrar ge e-poståtkomst.
+   Konverteringsrisk: uppskattningsvis 15-30% opt-in.
+   Uppskattad insats: 4-6 veckor + OAuth-granskning.
+
+3. BROWSER EXTENSION (tekniskt möjligt, svår distribution)
+   - Extension för Chrome/Firefox som skannar inbox
+     lokalt (aldrig skickar innehåll till server).
+   - Extraherar avsändardomäner, matchar mot databas.
+   - Skickar bara matchlistan (inte mailinnehåll) till
+     flytt.io för att generera checklista.
+   Fördel: Data lämnar aldrig användarens dator.
+   Nackdel: Extensioninstallation = hög friktion.
+   Chrome Web Store-granskning tar tid.
+   Uppskattad insats: 6-8 veckor.
+
+4. OPEN BANKING / PSD2 (identifiera via transaktioner)
+   - Koppla via Tink, Plaid eller liknande.
+   - Identifiera återkommande betalningar → "du betalar
+     till Telia, Vattenfall, IF, Nordic Wellness..."
+   - Dessa = avsändare som behöver ny adress.
+   Fördel: Fångar betalande relationer (ofta viktigast).
+   Nackdel: PSD2-licens eller partnerkostnad.
+   Hög integritetsbarriär ("ge tillgång till banken?").
+   Uppskattad insats: 8-12 veckor + compliance.
+
+5. FORWARD-INBOX ("skicka oss din post")
+   - Användaren skapar en regel/forward i sin mail:
+     "Vidarebefordra allt från senaste 30 dagarna till
+     flytt@flytt.io"
+   - Vi parsear avsändare, bygger checklista, raderar
+     allt mailinnehåll direkt.
+   Fördel: Enklare än OAuth-godkännande.
+   Nackdel: Fortfarande integritetskänsligt.
+   Manuell setup = friktion.
+   Uppskattad insats: 2-3 veckor.
+
+6. MANUELL IMPORT FRÅN KONTAKTER/CSV
+   - "Exportera dina Google-kontakter" → vi matchar
+     organisationer mot databasen.
+   - Eller: "Ladda upp din senaste kontoutdrag (PDF)"
+     → extrahera betalningsmottagare.
+   Fördel: Användaren har kontroll.
+   Nackdel: Låg datakvalitet, manuellt.
+   Uppskattad insats: 2-4 veckor.
+
+───────────────────────────────────────────────────
+A2) REKOMMENDERAD STRATEGI (fasad)
+───────────────────────────────────────────────────
+
+FAS 1 (nu → 4 veckor): Kurerad databas + smart checklista
+  - Bygg databasen med ~200 avsändare + deep links.
+  - Integrera i befintlig checklista (som redan finns).
+  - Kategorisera: kritisk / viktig / bra att göra.
+  - Påminnelser efter 30/90 dagar.
+  → Ger omedelbart värde, noll integritetsrisk.
+
+FAS 2 (månad 2-3): Gmail/Outlook OAuth (metadata only)
+  - Erbjud som opt-in: "Vill du att vi hittar dina
+    avsändare automatiskt?"
+  - Fallback: kurerad checklista för de som nekar.
+  → Wow-faktor för de som opt-in:ar.
+
+FAS 3 (månad 4+): Open Banking / PSD2 via Tink
+  - Identifiera betalningsrelationer.
+  - Komplettera checklistan med "du betalar X till Y".
+  → Premium-feature, potentiellt betalvärd.
+
+
+═══════════════════════════════════════════════════
+B) B2B: FLYTT-WIDGET FÖR MÄKLARE/BOSTADSBOLAG (8/10)
+═══════════════════════════════════════════════════
+
+Distributionslösningen. Mäklare vill ge mervärde
+efter köp, bostadsbolag vill att inflyttande snabbt
+ordnar el/bredband/post.
+
+Modell:
+  - White-label widget eller inbäddningsbar checklista.
+  - Säljs per månad eller per flytt.
+  - Mäklaren driver trafik → du slipper CAC.
+
+Potentiella kunder:
+  - Mäklarkedjor (Fastighetsbyrån, Svensk Fastighetsf.)
+  - Bostadsbolag (Riksbyggen, HSB, privata)
+  - Nyproduktionsprojekt
+  - Relocation-firmor (expats)
+
+Revenue: SaaS (fast/mån) + affiliate-kick per
+konverterad jämförelse (el, bredband, försäkring).
+
+
+═══════════════════════════════════════════════════
+C) JÄMFÖRELSETJÄNSTER (features, inte kärnaffär)
+═══════════════════════════════════════════════════
+
+C1. El-jämförelse via API             — 5/10
+C2. Bredband via PTS-dataset          — 5/10
+C3. Hemförsäkring (web_search)        — 3/10
+C4. Flyttfirma/städ (lokala aktörer)  — 6/10
+C5. Eftersändning som produkt         — 2/10
+
+Dessa är bra som komplement/affiliate men
+differentierar inte. Alla jämförelsesajter har dem.
+
+
+═══════════════════════════════════════════════════
+D) ÖVRIGA IDÉER NÄRA PROJEKTET
+═══════════════════════════════════════════════════
+
+D1. SKV-automation (folkbokföring)    — 6/10
+    Redan halvt byggt (INT7-flöde i kodbasen).
+    Bra feature, svårt som fristående affär.
+    BankID-beroende begränsar full automation.
+
+D2. AI-avatar (AIda/D-ID)            — 4/10
+    Novel men oklart om det driver konvertering.
+    Risk: dyr gimmick.
+
+D3. Affiliate/partnermodell           — 6/10
+    Klassisk jämförelsesajt-intäkt.
+    Kräver volym. Fungerar som komplement
+    om B2B-kanalen driver trafik.
+
+D4. Kommunal info vid flytt           — 5/10
+    Vad ändras i ny kommun? Skola, BVC, vårdcentral.
+    Bra content men svårt att monetisera.
+
+D5. "Flytt-garanti"                   — 3/10
+    Försäkringsliknande produkt. Svårt utan
+    försäkringspartner. Regulatoriskt tungt.
+
+
+═══════════════════════════════════════════════════
+E) SAMMANFATTNING: VAD SOM BÖR STYRA PRIORITERINGEN
+═══════════════════════════════════════════════════
+
+1. Adressuppdatering (A) är kärnan som gör allt
+   annat värdefullt. Det löser ett verkligt problem,
+   skapar data om användaren, och ger naturliga
+   kopplingar till jämförelser.
+
+2. B2B-kanalen (B) löser distributionen. Utan den
+   är kundanskaffning dyr i en marknad där folk
+   bara flyttar vart 5:e år.
+
+3. Checklistan som redan finns (punkt 10 i diskussionen)
+   ÄR grunden för allt ovan — den behöver bara utökas
+   med avsändardatabas + deep links + påminnelser.
+
+4. Jämförelser och AI-features är toppning, inte bas.

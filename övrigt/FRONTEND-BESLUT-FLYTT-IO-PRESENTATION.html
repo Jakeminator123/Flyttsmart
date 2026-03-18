@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flytt.io - Vision och beslutsunderlag</title>
+    <style>
+      :root {
+        --ink: #1a1a2e;
+        --ink-soft: #4b5563;
+        --mint: #7ee8a2;
+        --mint-soft: #edfdf2;
+        --bankid: #235971;
+        --bg: #f7fafc;
+        --card: #ffffff;
+        --line: #dbe4ea;
+        --shadow: 0 18px 40px rgba(26, 26, 46, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Segoe UI", Arial, sans-serif;
+      }
+
+      body {
+        padding: 32px;
+      }
+
+      .deck {
+        max-width: 1120px;
+        margin: 0 auto;
+      }
+
+      .page {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        margin-bottom: 28px;
+        min-height: 1000px;
+        break-inside: avoid-page;
+        page-break-inside: avoid;
+      }
+
+      .page + .page {
+        break-before: page;
+        page-break-before: always;
+      }
+
+      .cover {
+        position: relative;
+        min-height: 680px;
+        background:
+          radial-gradient(circle at top right, rgba(126, 232, 162, 0.26), transparent 32%),
+          radial-gradient(circle at left 80%, rgba(35, 89, 113, 0.12), transparent 28%),
+          linear-gradient(160deg, #ffffff 0%, #f4fbf7 38%, #eef6fb 100%);
+        padding: 56px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(26, 26, 46, 0.08);
+        background: rgba(255, 255, 255, 0.8);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .brand-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--mint);
+        box-shadow: 0 0 0 6px rgba(126, 232, 162, 0.18);
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        letter-spacing: -0.02em;
+      }
+
+      h1 {
+        max-width: 780px;
+        margin-top: 28px;
+        font-size: 64px;
+        line-height: 1.02;
+      }
+
+      .lead {
+        max-width: 760px;
+        margin-top: 22px;
+        color: var(--ink-soft);
+        font-size: 22px;
+        line-height: 1.5;
+      }
+
+      .cover-grid {
+        display: grid;
+        grid-template-columns: 1.3fr 0.9fr;
+        gap: 28px;
+        margin-top: 42px;
+      }
+
+      .hero-card,
+      .metric-card,
+      .section-card,
+      .lane,
+      .callout,
+      .table-card {
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid rgba(26, 26, 46, 0.08);
+        border-radius: 22px;
+        box-shadow: 0 12px 30px rgba(26, 26, 46, 0.06);
+      }
+
+      .hero-card {
+        padding: 24px;
+      }
+
+      .image-card {
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(26, 26, 46, 0.08);
+        border-radius: 22px;
+        box-shadow: 0 12px 30px rgba(26, 26, 46, 0.06);
+        overflow: hidden;
+      }
+
+      .image-card img {
+        display: block;
+        width: 100%;
+        height: 300px;
+        object-fit: cover;
+        object-position: center top;
+        background: #eef3f6;
+      }
+
+      .image-card-body {
+        padding: 18px 18px 20px;
+      }
+
+      .image-card-body h3 {
+        font-size: 24px;
+        margin-bottom: 8px;
+      }
+
+      .image-card-body p {
+        margin: 0;
+        color: var(--ink-soft);
+        line-height: 1.6;
+      }
+
+      .hero-card h3 {
+        font-size: 30px;
+        margin-bottom: 12px;
+      }
+
+      .hero-card p {
+        margin: 0 0 18px;
+        color: var(--ink-soft);
+        line-height: 1.6;
+      }
+
+      .input-shell {
+        display: flex;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 18px;
+        background: #f8fafc;
+        border: 1px solid #dde6ee;
+      }
+
+      .input-shell .field {
+        flex: 1;
+        border-radius: 14px;
+        background: #fff;
+        border: 1px solid #e7edf2;
+        padding: 16px 18px;
+        color: #94a3b8;
+        font-size: 15px;
+      }
+
+      .input-shell .cta {
+        min-width: 160px;
+        border: none;
+        border-radius: 14px;
+        background: var(--ink);
+        color: #fff;
+        font-size: 15px;
+        font-weight: 700;
+        padding: 16px 18px;
+      }
+
+      .tags {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+
+      .tag {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--mint-soft);
+        color: #166534;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .metric-card {
+        padding: 20px;
+      }
+
+      .metric-card .small {
+        color: var(--ink-soft);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+      }
+
+      .metric-card .big {
+        margin-top: 8px;
+        font-size: 34px;
+        font-weight: 800;
+      }
+
+      .metric-card p {
+        margin: 10px 0 0;
+        color: var(--ink-soft);
+        line-height: 1.5;
+      }
+
+      .content {
+        padding: 44px 46px 48px;
+      }
+
+      .section-heading {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 26px;
+      }
+
+      .section-heading h2 {
+        font-size: 42px;
+      }
+
+      .section-heading p {
+        max-width: 520px;
+        margin: 0;
+        color: var(--ink-soft);
+        line-height: 1.6;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+
+      .section-card {
+        padding: 22px;
+        break-inside: avoid-page;
+        page-break-inside: avoid;
+      }
+
+      .section-card h3 {
+        font-size: 24px;
+        margin-bottom: 12px;
+      }
+
+      .section-card p,
+      .section-card li {
+        color: var(--ink-soft);
+        line-height: 1.65;
+      }
+
+      .section-card ul {
+        margin: 12px 0 0;
+        padding-left: 18px;
+      }
+
+      .flow {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .node {
+        padding: 16px 18px;
+        min-width: 150px;
+        border-radius: 18px;
+        background: #fff;
+        border: 1px solid #dce5eb;
+        box-shadow: 0 8px 18px rgba(26, 26, 46, 0.05);
+        font-size: 14px;
+        line-height: 1.45;
+        font-weight: 600;
+      }
+
+      .node.dark {
+        background: var(--ink);
+        color: #fff;
+        border-color: var(--ink);
+      }
+
+      .node.mint {
+        background: var(--mint-soft);
+        color: #166534;
+        border-color: #c9f4d6;
+      }
+
+      .arrow {
+        color: #7b8794;
+        font-size: 22px;
+        font-weight: 700;
+      }
+
+      .lane-wrap {
+        display: grid;
+        gap: 18px;
+      }
+
+      .lane {
+        padding: 20px;
+        break-inside: avoid-page;
+        page-break-inside: avoid;
+      }
+
+      .lane-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+
+      .lane-title h3 {
+        font-size: 24px;
+      }
+
+      .pill {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #eef6fb;
+        color: var(--bankid);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .callout {
+        padding: 22px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #235971 100%);
+        color: #fff;
+      }
+
+      .callout h3 {
+        font-size: 28px;
+        margin-bottom: 10px;
+      }
+
+      .callout p {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.82);
+        line-height: 1.65;
+      }
+
+      .swatches {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+
+      .swatch {
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background: #fff;
+      }
+
+      .swatch-color {
+        height: 90px;
+      }
+
+      .swatch-meta {
+        padding: 12px 14px;
+      }
+
+      .swatch-meta strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .swatch-meta span {
+        color: var(--ink-soft);
+        font-size: 13px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 14px 12px;
+        border-bottom: 1px solid #e6edf2;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+
+      .table-card {
+        padding: 12px 18px 6px;
+        break-inside: avoid-page;
+        page-break-inside: avoid;
+      }
+
+      .footer-note {
+        margin-top: 20px;
+        color: var(--ink-soft);
+        font-size: 13px;
+      }
+
+      .page-break {
+        break-before: page;
+      }
+
+      @page {
+        size: A4;
+        margin: 14mm;
+      }
+
+      @media print {
+        body {
+          background: #fff;
+          padding: 0;
+        }
+
+        .page {
+          box-shadow: none;
+          margin: 0 0 14mm;
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="deck">
+      <section class="page cover">
+        <div class="eyebrow">
+          <span class="brand-dot"></span>
+          Flytt.io - vision, riktning och beslutsunderlag
+        </div>
+        <h1>Bygg om den publika upplevelsen. Behåll motorn. Låt AI, OpenClaw och BankID göra jobbet tidigt.</h1>
+        <p class="lead">
+          Rätt väg för flytt.io är inte ett helt nytt teknikspår. Rätt väg är en ny premiumfront ovanpå nuvarande backend, där användaren snabbt går från första input till BankID, autoifyllning och klart resultat, med AI-checklista och uppföljning som tydligt värde.
+        </p>
+
+        <div class="cover-grid">
+          <div class="hero-card">
+            <h3>Önskad startsida</h3>
+            <p>
+              Officiell flyttanmälan med ett smart första steg. AI-checklista, BankID, automatiska påminnelser och uppföljning ska kännas som naturliga delar av erbjudandet redan från första sidan.
+            </p>
+            <div class="input-shell">
+              <div class="field">Skriv din nya adress, flyttdatum eller bara börja här...</div>
+              <button class="cta">Fortsätt</button>
+            </div>
+            <div class="tags">
+              <span class="tag">Officiell mot Skatteverket</span>
+              <span class="tag">AI-checklista</span>
+              <span class="tag">BankID</span>
+              <span class="tag">2 mån gratis el</span>
+              <span class="tag">Påminnelser och uppföljning</span>
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="image-card">
+              <img src="file:///C:/Users/jakem/.cursor/projects/c-Users-jakem-dev-projects-flytta-nu/assets/c__Users_jakem_AppData_Roaming_Cursor_User_workspaceStorage_ff41ce91d8b77ead9f2af321a59ab70f_images__6C1014BA-1CBA-4C35-B9D0-EB9AB9DB6304_-6685ae08-13b5-45e2-b6ad-94b77c406ff5.png" alt="Aida - röstassistent för flytten" />
+              <div class="image-card-body">
+                <h3>Aida i fronten</h3>
+                <p>DID-agenten är det visuella lagret som guidar användaren. `OpenClaw` är backendhjärnan bakom hjälp, logik, formulärförståelse och nästa bästa steg.</p>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="small">Huvudbeslut</div>
+              <div class="big">Ny publik fasad</div>
+              <p>Behåll backend, dataflöden, API:er och dashboard. Bygg om den publika upplevelsen och gör den tydligare, lugnare och smartare.</p>
+            </div>
+            <div class="metric-card">
+              <div class="small">QR-strategi</div>
+              <div class="big">Nu + senare</div>
+              <p>Temporär klonad QR för testning nu. Officiell `Skatteverket`-väg senare. BankID ska vara nära start i båda fallen.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page">
+        <div class="content">
+          <div class="section-heading">
+            <h2>North Star</h2>
+            <p>Flytt.io ska kännas officiell, snabb, trygg, modern och intelligent. Användaren ska omedelbart förstå att detta är det smartaste sättet att bli klar med flytten.</p>
+          </div>
+
+          <div class="grid-3">
+            <div class="section-card">
+              <h3>Chefens riktning</h3>
+              <ul>
+                <li>Marin mörk ton, mintgrön accent och BankID-blå.</li>
+                <li>Tydlig CTA och kort väg till resultat.</li>
+                <li>Fokus på trygghet, enkelhet och officiell känsla.</li>
+              </ul>
+            </div>
+            <div class="section-card">
+              <h3>Vad som ska upplevas</h3>
+              <ul>
+                <li>Ingen tung myndighetskänsla.</li>
+                <li>Ingen techdemo med för mycket effekter.</li>
+                <li>AI som konkret nytta, inte abstrakt hype.</li>
+              </ul>
+            </div>
+            <div class="section-card">
+              <h3>Slutmålet</h3>
+              <ul>
+                <li>Snabb väg från startsida till BankID och klart resultat.</li>
+                <li>AI-checklista och uppföljning som tydligt eftervärde.</li>
+                <li>Backend, jämförelser och dashboard bevaras.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page">
+        <div class="content">
+          <div class="section-heading">
+            <h2>Hur bossens input format planen</h2>
+            <p>Planen bygger inte bara på tekniska möjligheter i nuvarande kodbas, utan på vad bossens material faktiskt signalerar om affär, känsla och produktprioritering.</p>
+          </div>
+
+          <div class="grid-3">
+            <div class="section-card">
+              <h3>Vad vi tog in</h3>
+              <ul>
+                <li>Den riktiga `flytt.io` som referens.</li>
+                <li>Ett modernare, lugnare och mer förtroendeingivande uttryck.</li>
+                <li>Kortare väg till klart resultat.</li>
+              </ul>
+            </div>
+            <div class="section-card">
+              <h3>Vad det påverkade</h3>
+              <ul>
+                <li>Informationshierarki och första intryck.</li>
+                <li>Att `BankID` ska ligga nära kärnan.</li>
+                <li>Att checklistan och AI-värdet ska sälja in produkten tidigt.</li>
+              </ul>
+            </div>
+            <div class="section-card">
+              <h3>Varför det är rätt</h3>
+              <ul>
+                <li>Bossens material är inte färdig teknik, men stark affärsriktning.</li>
+                <li>Det styr design, tonalitet och prioritering bättre än nuvarande techspår.</li>
+                <li>Därför bygger vi om den publika upplevelsen men behåller motorn.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="section-card" style="margin-top: 22px;">
+            <div class="flow">
+              <div class="node">Bossens input</div>
+              <div class="arrow">→</div>
+              <div class="node">Produkt- och varumärkesriktning</div>
+              <div class="arrow">→</div>
+              <div class="node mint">Ny informationshierarki</div>
+              <div class="arrow">→</div>
+              <div class="node dark">Ny publik UX ovanpå befintlig backend</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page page-break">
+        <div class="content">
+          <div class="section-heading">
+            <h2>Huvudflöde</h2>
+            <p>Användaren ska kunna börja direkt, få AI-stöd tidigt, komma till BankID tidigt och sedan bara fylla i det som saknas innan flytten registreras.</p>
+          </div>
+
+          <div class="section-card">
+            <div class="flow">
+              <div class="node dark">Startsida med fri input</div>
+              <div class="arrow">→</div>
+              <div class="node">OpenClaw tolkar intent</div>
+              <div class="arrow">→</div>
+              <div class="node mint">BankID tidigt</div>
+              <div class="arrow">→</div>
+              <div class="node">Identitet och persondata</div>
+              <div class="arrow">→</div>
+              <div class="node">Komplettera saknade uppgifter</div>
+              <div class="arrow">→</div>
+              <div class="node dark">Granska och klart</div>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 22px;">
+            <div class="section-card">
+              <h3>Det som ska ske tidigt</h3>
+              <ul>
+                <li>Fri input på startsidan.</li>
+                <li>`OpenClaw` som förståelse och hjälp.</li>
+                <li>`BankID` så nära start som möjligt.</li>
+                <li>Försök till tidig hämtning av personuppgifter.</li>
+              </ul>
+            </div>
+            <div class="section-card">
+              <h3>Det som ska ske efter registrering</h3>
+              <ul>
+                <li>AI-checklista.</li>
+                <li>Automatiska påminnelser.</li>
+                <li>Jämförelser och uppföljning.</li>
+                <li>Lokal nytta och erbjudanden.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page">
+        <div class="content">
+          <div class="section-heading">
+            <h2>OpenClaw, DID och AI-värdet</h2>
+            <p>AI ska vara synligt och modernt, men presenterat som konkret nytta. `OpenClaw` ska inte gömmas undan till efterflödet utan bidra redan i registreringen.</p>
+          </div>
+
+          <div class="grid-2">
+            <div class="section-card">
+              <h3>OpenClaw = backendhjärnan</h3>
+              <ul>
+                <li>Tolkar fri input från startsidan.</li>
+                <li>Styr användaren till rätt nästa steg.</li>
+                <li>Hjälper till att förbereda rätt ifyllning.</li>
+                <li>Orkestrerar hjälp, logik och backendnära beslut.</li>
+              </ul>
+            </div>
+            <div class="section-card">
+              <h3>DID-agenten = guidande ansikte</h3>
+              <ul>
+                <li>Visuell guide när problem uppstår.</li>
+                <li>Förklarar nästa steg och minskar friktion.</li>
+                <li>Gör flödet mänskligare utan att vara själva logiken.</li>
+                <li>Bygger på `OpenClaw`, men är inte samma lager.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 22px;">
+            <div class="callout">
+              <h3>Föreslagen AI-positionering</h3>
+              <p>
+                "Få en AI-checklista med påminnelser, jämförelser och smart uppföljning efter flytten. Flytt.io hjälper dig från första adressen till sista beslutet."
+              </p>
+            </div>
+            <div class="section-card">
+              <h3>Personuppgifter och TOS</h3>
+              <ul>
+                <li>Viktiga personuppgifter ska hämtas tidigt och effektivt där det är möjligt.</li>
+                <li>Detta ska vara tydligt beskrivet i användarvillkor och integritetspolicy.</li>
+                <li>Användaren ska förstå att data kan användas för förifyllning, checklista och uppföljning.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page page-break">
+        <div class="content">
+          <div class="section-heading">
+            <h2>BankID och QR</h2>
+            <p>QR ska hanteras realistiskt. Den klonade QR-lösningen är bra för testning nu, men den slutliga riktningen bör peka mot officiell implementation när den finns.</p>
+          </div>
+
+          <div class="lane-wrap">
+            <div class="lane">
+              <div class="lane-title">
+                <h3>Nuvarande testspår</h3>
+                <span class="pill">Dev / test</span>
+              </div>
+              <p>Temporär QR-kloning via extern `docker` / Playwright. Bra för att testa UX, sekvens och desktopflöde, men inte något vi ska behandla som slutgiltig produktarkitektur.</p>
+            </div>
+
+            <div class="lane">
+              <div class="lane-title">
+                <h3>Framtida målbild</h3>
+                <span class="pill">Produktion</span>
+              </div>
+              <p>Officiell `Skatteverket`-väg när den finns tillgänglig för vårt spår. Detta ger bäst hållbarhet, förtroende och teknisk robusthet över tid.</p>
+            </div>
+
+            <div class="lane">
+              <div class="lane-title">
+                <h3>Fallback</h3>
+                <span class="pill">Måste finnas</span>
+              </div>
+              <p>Om full autoifyllning inte fungerar ska flödet fortfarande kännas bra: `BankID` först där det går, sedan bara komplettering av saknade uppgifter.</p>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 22px;">
+            <div class="section-card">
+              <h3>Kan QR ha logga i mitten?</h3>
+              <p>Ja, om det är en egen QR som vi själva genererar och kontrollerar. Då kan man ofta använda branding, rundare moduler och logga i mitten med rätt felkorrigering.</p>
+            </div>
+            <div class="section-card">
+              <h3>Kan BankID-QR göras om visuellt?</h3>
+              <p>Inte på ett riskfritt sätt. För BankID eller extern klonad QR bör vi i stället designa ett snyggt kort runt QR:n och låta själva QR-mönstret vara intakt.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page">
+        <div class="content">
+          <div class="section-heading">
+            <h2>Designprofil</h2>
+            <p>Nuvarande sida lutar mot lila/guld-tech. Chefens riktning är tydligare marin, mint, editorial och premium-enkel.</p>
+          </div>
+
+          <div class="swatches">
+            <div class="swatch">
+              <div class="swatch-color" style="background:#1A1A2E;"></div>
+              <div class="swatch-meta">
+                <strong>Mörk huvudton</strong>
+                <span>#1A1A2E</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch-color" style="background:#7EE8A2;"></div>
+              <div class="swatch-meta">
+                <strong>Mintaccent</strong>
+                <span>#7EE8A2</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch-color" style="background:#235971;"></div>
+              <div class="swatch-meta">
+                <strong>BankID-blå</strong>
+                <span>#235971</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch-color" style="background:linear-gradient(135deg,#ffffff,#eef6fb);"></div>
+              <div class="swatch-meta">
+                <strong>Ljus bas</strong>
+                <span>vit + ljus gradient</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 22px;">
+            <div class="section-card">
+              <h3>Typografi att gå mot</h3>
+              <ul>
+                <li>`DM Sans` för brödtext.</li>
+                <li>`Playfair Display` för rubriker.</li>
+                <li>Mindre `Space Grotesk`-känsla i den publika upplevelsen.</li>
+              </ul>
+            </div>
+            <div class="section-card">
+              <h3>Det vi tar bort eller minskar</h3>
+              <ul>
+                <li>Videobakgrund i hero.</li>
+                <li>Överdrivna animationer.</li>
+                <li>Magnetiska knappar och showiga effekter.</li>
+                <li>Visuellt brus som skymmer huvudlöftet.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page page-break">
+        <div class="content">
+          <div class="section-heading">
+            <h2>Vad som ska ligga kvar intakt</h2>
+            <p>Vi bygger om sekvensen och uttrycket, men inte kärnan i systemet. Backend, sparning, jämförelser och checklistor ska ligga kvar.</p>
+          </div>
+
+          <div class="table-card">
+            <table>
+              <thead>
+                <tr>
+                  <th>Behåll</th>
+                  <th>Kan kopplas om</th>
+                  <th>Skall inte brytas</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>`POST /api/move` och datalagring</td>
+                  <td>Publik route-orkestrering</td>
+                  <td>Sparning av flytt</td>
+                </tr>
+                <tr>
+                  <td>`POST /api/checklist/template`</td>
+                  <td>Stegens ordning i UI</td>
+                  <td>Checklistan</td>
+                </tr>
+                <tr>
+                  <td>`GET/POST /api/compare/[taskKey]`</td>
+                  <td>När jämförelser visas</td>
+                  <td>Jämförelseintegrationer</td>
+                </tr>
+                <tr>
+                  <td>`POST /api/openclaw/chat`</td>
+                  <td>Hur `OpenClaw` kommer in tidigt</td>
+                  <td>`OpenClaw`-stödet</td>
+                </tr>
+                <tr>
+                  <td>`POST /api/skv/int7/start` och QR-routes</td>
+                  <td>Hur QR presenteras i UX</td>
+                  <td>SKV-int7 / QR-mirroring</td>
+                </tr>
+                <tr>
+                  <td>Dashboard och efterflöde</td>
+                  <td>Vad användaren ser före och efter registrering</td>
+                  <td>Dashboardlogik</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="footer-note">
+            Rekommendationen är alltså tydlig: bygg om fronten, inte motorn.
+          </div>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

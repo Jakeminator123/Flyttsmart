@@ -55,10 +55,12 @@ export function useAutofill<F extends string>({
 
   const fromPostalAbortRef = useRef<AbortController | null>(null);
   const toPostalAbortRef = useRef<AbortController | null>(null);
+  const pnrLookupAbortRef = useRef<AbortController | null>(null);
 
   const log = useCallback(
     (action: string, detail: Record<string, unknown>) => {
       if (!config.debug) return;
+      // eslint-disable-next-line no-console -- debug-only instrumentation, gated by config.debug
       console.log(
         `%c[autofill] ${action}`,
         "color:#0ea5e9;font-weight:bold",
@@ -138,7 +140,7 @@ export function useAutofill<F extends string>({
         return next;
       });
     },
-    [currentStep, fieldSuggestions, mirrorEvent, updateForm]
+    [currentStep, fieldSuggestions, log, mirrorEvent, updateForm]
   );
 
   const dismissSuggestion = useCallback((field: F) => {
@@ -151,11 +153,44 @@ export function useAutofill<F extends string>({
     });
   }, [log]);
 
+  // Personnummer -> namn + adress (pnr_lookup)
+  const personalNumber = String(form["personalNumber" as F] ?? "").replace(/\s|-/g, "");
+  const pnrValid = personalNumber.length === 12 && /^\d{12}$/.test(personalNumber);
+
   // Postal code -> city auto-lookup (only when city is empty)
   const fromPostal = String(form["fromPostal" as F] ?? "").replace(/\s+/g, "");
   const fromCity = String(form["fromCity" as F] ?? "");
   const toPostal = String(form["toPostal" as F] ?? "").replace(/\s+/g, "");
   const toCity = String(form["toCity" as F] ?? "");
+
+  useEffect(() => {
+    if (!active || !config.sources.pnr_lookup || !pnrValid) return;
+    const pnr = `${personalNumber.slice(0, 8)}-${personalNumber.slice(8)}`;
+
+    pnrLookupAbortRef.current?.abort();
+    const controller = new AbortController();
+    pnrLookupAbortRef.current = controller;
+
+    fetch("/api/enrich/person", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ personalNumber: pnr }),
+      signal: controller.signal,
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data?.found) return;
+        if (data.firstName) queueSuggestion("firstName" as F, data.firstName, "pnr_lookup");
+        if (data.lastName) queueSuggestion("lastName" as F, data.lastName, "pnr_lookup");
+        if (data.fromStreet) queueSuggestion("fromStreet" as F, data.fromStreet, "pnr_lookup");
+        if (data.fromCity) queueSuggestion("fromCity" as F, data.fromCity, "pnr_lookup");
+        if (data.fromPostal) queueSuggestion("fromPostal" as F, data.fromPostal, "pnr_lookup");
+        if (data.apartmentNumber) queueSuggestion("apartmentNumber" as F, data.apartmentNumber, "pnr_lookup");
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, [active, config.sources.pnr_lookup, pnrValid, personalNumber, queueSuggestion]);
 
   useEffect(() => {
     if (!active || !config.sources.postal) return;

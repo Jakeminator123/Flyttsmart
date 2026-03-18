@@ -9,13 +9,17 @@
  *  - Flyttdatum-analys (tidsfrister, prioriteringar)
  */
 
+import { eniroCompanySearch, type EniroResult } from "@/lib/services/eniro";
+import { trackUsage } from "@/lib/usage/tracker";
+
 const PAP_API_KEY = process.env.PAP_API_KEY ?? "";
-const ENIRO_API_KEY = process.env.ENIRO_API_KEY ?? "";
 const NOMINATIM_ENABLED =
   (process.env.NOMINATIM_ENABLED ?? "true").trim().toLowerCase() !== "false";
 const SCB_ENABLED =
   (process.env.SCB_ENABLED ?? "false").trim().toLowerCase() === "y" ||
   (process.env.SCB_ENABLED ?? "false").trim().toLowerCase() === "true";
+const SCB_YEAR = (process.env.SCB_YEAR ?? "2024").trim();
+const SCB_TABLE_ID = (process.env.SCB_TABLE_ID ?? "TAB638").trim();
 
 interface FormFields {
   firstName?: string;
@@ -36,13 +40,7 @@ interface FormFields {
   [key: string]: unknown;
 }
 
-interface EniroResult {
-  title?: string;
-  address?: string;
-  phoneNumber?: string;
-  city?: string;
-  zipCode?: string;
-}
+// EniroResult is imported from @/lib/services/eniro
 
 interface NominatimResult {
   displayName: string;
@@ -73,9 +71,14 @@ interface EnrichmentResult {
   eniroResults: EniroResult[];
   scbData: ScbPopulation | null;
   personInsights: string[];
+  personLookup: { firstName?: string; lastName?: string; fromStreet?: string; fromCity?: string; fromPostal?: string; address?: string } | null;
   fieldHelp: string[];
   moveDateInsights: string[];
+  comparisonOpportunities: string[];
 }
+
+const SCB_CACHE = new Map<string, { data: ScbPopulation; ts: number }>();
+const SCB_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 async function lookupPostal(postalCode: string): Promise<{
   city: string;
@@ -86,6 +89,7 @@ async function lookupPostal(postalCode: string): Promise<{
   if (!/^\d{5}$/.test(clean)) return null;
 
   if (PAP_API_KEY) {
+    const started = Date.now();
     try {
       const res = await fetch(
         `https://api.papapi.se/lite/?query=${clean}&format=json&apikey=${PAP_API_KEY}`,
@@ -95,6 +99,13 @@ async function lookupPostal(postalCode: string): Promise<{
         const data = await res.json();
         const item = data?.results?.[0];
         if (item?.city) {
+          trackUsage({
+            provider: "pap",
+            flow: "enrichment",
+            route: "/api/enrich/postal",
+            durationMs: Date.now() - started,
+            ok: true,
+          });
           return {
             city: item.city.trim(),
             municipality: item.county?.trim(),
@@ -102,7 +113,22 @@ async function lookupPostal(postalCode: string): Promise<{
           };
         }
       }
-    } catch { /* fall through */ }
+      trackUsage({
+        provider: "pap",
+        flow: "enrichment",
+        route: "/api/enrich/postal",
+        durationMs: Date.now() - started,
+        ok: false,
+      });
+    } catch {
+      trackUsage({
+        provider: "pap",
+        flow: "enrichment",
+        route: "/api/enrich/postal",
+        durationMs: Date.now() - started,
+        ok: false,
+      });
+    }
   }
   return null;
 }
@@ -114,6 +140,7 @@ async function nominatimLookup(
 ): Promise<NominatimResult | null> {
   if (!NOMINATIM_ENABLED) return null;
   const q = [street, postalCode, city, "Sweden"].filter(Boolean).join(", ");
+  const started = Date.now();
   try {
     const params = new URLSearchParams({
       q,
@@ -129,11 +156,36 @@ async function nominatimLookup(
         headers: { "User-Agent": "Flytt.io/1.0 (flyttanmalan-assistent)" },
       }
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      trackUsage({
+        provider: "nominatim",
+        flow: "enrichment",
+        route: "/api/enrich/nominatim",
+        durationMs: Date.now() - started,
+        ok: false,
+      });
+      return null;
+    }
     const data = await res.json();
-    if (!Array.isArray(data) || data.length === 0) return null;
+    if (!Array.isArray(data) || data.length === 0) {
+      trackUsage({
+        provider: "nominatim",
+        flow: "enrichment",
+        route: "/api/enrich/nominatim",
+        durationMs: Date.now() - started,
+        ok: false,
+      });
+      return null;
+    }
     const item = data[0];
     const addr = item.address ?? {};
+    trackUsage({
+      provider: "nominatim",
+      flow: "enrichment",
+      route: "/api/enrich/nominatim",
+      durationMs: Date.now() - started,
+      ok: true,
+    });
     return {
       displayName: item.display_name ?? "",
       lat: String(item.lat ?? ""),
@@ -150,44 +202,18 @@ async function nominatimLookup(
       },
     };
   } catch {
+    trackUsage({
+      provider: "nominatim",
+      flow: "enrichment",
+      route: "/api/enrich/nominatim",
+      durationMs: Date.now() - started,
+      ok: false,
+    });
     return null;
   }
 }
 
-async function eniroCompanySearch(
-  query: string,
-  geoArea?: string
-): Promise<EniroResult[]> {
-  if (!ENIRO_API_KEY || !query.trim()) return [];
-  try {
-    const params = new URLSearchParams({
-      profile: "APIGW",
-      key: ENIRO_API_KEY,
-      country: "se",
-      search_word: query,
-    });
-    if (geoArea) params.set("geo_area", geoArea);
-
-    const res = await fetch(
-      `https://api.eniro.com/cs/search/basic?${params.toString()}`,
-      { signal: AbortSignal.timeout(4000) }
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    const adverts = data?.adverts;
-    if (!Array.isArray(adverts)) return [];
-
-    return adverts.slice(0, 5).map((a: Record<string, unknown>) => ({
-      title: String(a.companyName ?? ""),
-      address: String(a.address ?? ""),
-      phoneNumber: String(a.phoneNumber ?? ""),
-      city: String(a.city ?? ""),
-      zipCode: String(a.zipCode ?? ""),
-    }));
-  } catch {
-    return [];
-  }
-}
+// eniroCompanySearch is now in @/lib/services/eniro
 
 const CITY_TO_MUNICIPALITY_CODE: Record<string, string> = {
   stockholm: "0180", göteborg: "1480", goteborg: "1480", malmö: "1280",
@@ -213,46 +239,104 @@ async function scbPopulationLookup(city: string): Promise<ScbPopulation | null> 
   const code = CITY_TO_MUNICIPALITY_CODE[city.toLowerCase().trim()];
   if (!code) return null;
 
-  try {
+  const cacheKey = `${code}:${SCB_YEAR}:${SCB_TABLE_ID}`;
+  const cached = SCB_CACHE.get(cacheKey);
+  if (cached && Date.now() - cached.ts < SCB_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const fetchMetricSum = async (
+    contentsCode: "BE0101N1" | "BE0101N2"
+  ): Promise<number | null> => {
     const body = JSON.stringify({
-      query: [
-        { code: "Region", selection: { filter: "item", values: [code] } },
-        { code: "Civilstand", selection: { filter: "item", values: ["OG", "G", "SK", "\u00c4"] } },
-        { code: "Alder", selection: { filter: "item", values: ["tot"] } },
-        { code: "Kon", selection: { filter: "item", values: ["1", "2"] } },
-        { code: "Tid", selection: { filter: "item", values: ["2024"] } },
+      selection: [
+        { variableCode: "ContentsCode", valueCodes: [contentsCode] },
+        { variableCode: "Tid", valueCodes: [SCB_YEAR] },
+        { variableCode: "Region", valueCodes: [code] },
+        { variableCode: "Civilstand", valueCodes: ["OG", "G", "SK", "ÄNKL"] },
+        { variableCode: "Alder", valueCodes: ["tot"] },
+        { variableCode: "Kon", valueCodes: ["1", "2"] },
       ],
-      response: { format: "json" },
     });
 
-    const res = await fetch(
-      "https://api.scb.se/OV0104/v1/doris/sv/ssd/BE/BE0101/BE0101A/BefolkningNy",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-        signal: AbortSignal.timeout(5000),
+    const started = Date.now();
+    try {
+      const res = await fetch(
+        `https://statistikdatabasen.scb.se/api/v2/tables/${encodeURIComponent(
+          SCB_TABLE_ID
+        )}/data?lang=sv&outputFormat=json-stat2`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          signal: AbortSignal.timeout(5500),
+        }
+      );
+      if (!res.ok) {
+        trackUsage({
+          provider: "scb",
+          flow: "enrichment",
+          route: "/api/enrich/scb",
+          durationMs: Date.now() - started,
+          ok: false,
+        });
+        return null;
       }
-    );
-    if (!res.ok) return null;
 
-    const data = await res.json();
-    const rows = data?.data;
-    if (!Array.isArray(rows) || rows.length === 0) return null;
+      const data = await res.json();
+      const values = Array.isArray((data as any)?.value) ? (data as any).value : [];
+      if (values.length === 0) {
+        trackUsage({
+          provider: "scb",
+          flow: "enrichment",
+          route: "/api/enrich/scb",
+          durationMs: Date.now() - started,
+          ok: false,
+        });
+        return null;
+      }
 
-    let totalPop = 0;
-    let totalGrowth = 0;
-    for (const row of rows) {
-      totalPop += parseInt(row.values?.[0] ?? "0", 10);
-      totalGrowth += parseInt(row.values?.[1] ?? "0", 10);
+      let total = 0;
+      for (const raw of values) {
+        const value = typeof raw === "number" ? raw : Number.parseFloat(String(raw));
+        if (Number.isFinite(value)) total += value;
+      }
+      trackUsage({
+        provider: "scb",
+        flow: "enrichment",
+        route: "/api/enrich/scb",
+        durationMs: Date.now() - started,
+        ok: true,
+      });
+      return Math.round(total);
+    } catch {
+      trackUsage({
+        provider: "scb",
+        flow: "enrichment",
+        route: "/api/enrich/scb",
+        durationMs: Date.now() - started,
+        ok: false,
+      });
+      return null;
     }
+  };
 
-    return {
+  try {
+    const [population, growth] = await Promise.all([
+      fetchMetricSum("BE0101N1"),
+      fetchMetricSum("BE0101N2"),
+    ]);
+    if (population === null) return null;
+
+    const normalized: ScbPopulation = {
       municipality: city,
-      population: totalPop,
-      growth: totalGrowth,
-      year: "2024",
+      population,
+      growth: growth ?? 0,
+      year: SCB_YEAR,
     };
+
+    SCB_CACHE.set(cacheKey, { data: normalized, ts: Date.now() });
+    return normalized;
   } catch {
     return null;
   }
@@ -304,6 +388,92 @@ function getMoveDateInsights(moveDate: string): string[] {
   return insights;
 }
 
+import { postalToElArea } from "@/lib/comparison/elarea";
+import { getLiveTaskKeys, getStubTaskKeys, getApiTaskKeys } from "@/lib/comparison/compare";
+
+function getComparisonOpportunities(fields: FormFields): string[] {
+  const ideas: string[] = [];
+  const toCity = typeof fields.toCity === "string" ? fields.toCity.trim() : "";
+  const toPostal = typeof fields.toPostal === "string" ? fields.toPostal.trim() : "";
+  const hasToAddress = Boolean(fields.toStreet && toPostal && toCity);
+  const moveDate = typeof fields.moveDate === "string" ? fields.moveDate.trim() : "";
+
+  const elAreaInfo = toPostal ? postalToElArea(toPostal) : null;
+  if (elAreaInfo) {
+    ideas.push(
+      `Elnatsomrade: ${elAreaInfo.area} (${elAreaInfo.label}, ${elAreaInfo.city}). ` +
+      `Nämn detta nar el diskuteras.`
+    );
+  }
+
+  if (hasToAddress) {
+    const qs = `toPostal=${encodeURIComponent(toPostal)}&toCity=${encodeURIComponent(toCity)}${moveDate ? `&moveDate=${encodeURIComponent(moveDate)}` : ""}`;
+    const apiKeys = getApiTaskKeys();
+    const liveKeys = getLiveTaskKeys();
+    const stubKeys = getStubTaskKeys();
+
+    if (apiKeys.length > 0) {
+      ideas.push(
+        `JAMFORELSE-API (dedikerad): ${apiKeys.map((k) => `GET /api/compare/${k}?${qs}`).join(", ")}. ` +
+        `Dessa anvander riktiga externa APIer (t.ex. elprisetjustnu.se for el) och ger exakta priser.`
+      );
+    }
+    if (liveKeys.length > 0) {
+      ideas.push(
+        `JAMFORELSE-API (web search): ` +
+        `Erbjud att hamta data nar anvandaren fragar om bredband, forsakring, flyttfirma eller stadning. ` +
+        `Aktiva endpoints: ` +
+        liveKeys.map((k) => `GET /api/compare/${k}?${qs}`).join(", ") +
+        `. Stubbade (hints only): ${stubKeys.join(", ")}.`
+      );
+    }
+  }
+
+  if (hasToAddress) {
+    ideas.push(
+      `Bredband: erbjuda jamforelse for ${toCity} nu. Installation kan ta 1-3 veckor.`
+    );
+    ideas.push(
+      `El: foresla elavtal for ${toCity} innan inflyttning for att undvika dyrt tillsvidarepris.`
+    );
+    ideas.push(
+      `Hemforsakring: ge 2-3 alternativ och rekommendera start senast inflyttningsdatum.`
+    );
+  }
+
+  if (moveDate) {
+    const move = new Date(moveDate);
+    if (!isNaN(move.getTime())) {
+      const now = new Date();
+      const diffDays = Math.ceil(
+        (move.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      if (diffDays <= 14) {
+        ideas.push(
+          "Tidspress: prioritera flyttfirma och stadning med snabb tillgang."
+        );
+      } else if (diffDays <= 45) {
+        ideas.push(
+          "God timing: jamfor flyttfirma, forsakring och bredband i samma steg."
+        );
+      } else if (diffDays > 45) {
+        ideas.push(
+          "Lang framforhallning: trigga mjuk uppfoljning med stegvis jamforelse over tid."
+        );
+      }
+    }
+  }
+
+  if (toCity) {
+    ideas.push(
+      `Ge lokalt anpassad checklista for ${toCity}: vardcentral, matbutiker, pendling och praktiska flytttips.`
+    );
+  }
+
+  return ideas;
+}
+
 function getEmptyFieldHelp(fields: FormFields): string[] {
   const help: string[] = [];
   const empty = (v: unknown) => !v || (typeof v === "string" && !v.trim());
@@ -324,20 +494,83 @@ function getEmptyFieldHelp(fields: FormFields): string[] {
   return help;
 }
 
-export async function enrichContext(
-  formContext: { fields?: FormFields; currentStep?: number } | null
-): Promise<string> {
-  if (!formContext?.fields) return "";
+export interface EnrichResult {
+  text: string;
+  resolvedFields: Record<string, string>;
+}
 
-  const fields = formContext.fields;
+async function personLookup(pnr: string, apiBaseUrl: string): Promise<{
+  firstName?: string;
+  lastName?: string;
+  fromStreet?: string;
+  fromCity?: string;
+  fromPostal?: string;
+  address?: string;
+} | null> {
+  const clean = pnr.replace(/\s|-/g, "");
+  if (!/^\d{12}$/.test(clean)) return null;
+  const enrichSecret = (process.env.ENRICH_API_SECRET ?? "").trim();
+  const started = Date.now();
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (enrichSecret) headers["Authorization"] = `Bearer ${enrichSecret}`;
+    const res = await fetch(`${apiBaseUrl}/api/enrich/person`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        personalNumber: `${clean.slice(0, 8)}-${clean.slice(8)}`,
+      }),
+      signal: AbortSignal.timeout(40000),
+    });
+    const data = await res.json();
+    const found = Boolean(data?.found && (data.firstName || data.lastName || data.fromStreet));
+    trackUsage({
+      provider: "ratsit",
+      flow: "enrichment",
+      route: "/api/enrich/person",
+      durationMs: Date.now() - started,
+      ok: found,
+    });
+    if (found) return data;
+  } catch {
+    trackUsage({
+      provider: "ratsit",
+      flow: "enrichment",
+      route: "/api/enrich/person",
+      durationMs: Date.now() - started,
+      ok: false,
+    });
+  }
+  return null;
+}
+
+function extractPnrFromText(text: string): string | null {
+  const m = text.match(/\b(\d{8})[- ]?(\d{4})\b/);
+  if (!m) return null;
+  const candidate = m[1] + m[2];
+  const parsed = parsePersonalNumber(candidate);
+  return parsed?.valid ? candidate : null;
+}
+
+export async function enrichContext(
+  formContext: { fields?: FormFields; currentStep?: number } | null | undefined,
+  apiBaseUrl?: string,
+  latestMessage?: string
+): Promise<EnrichResult> {
+  const chatPnr = latestMessage ? extractPnrFromText(latestMessage) : null;
+  if (!formContext?.fields && !chatPnr) return { text: "", resolvedFields: {} };
+
+  const fields = formContext?.fields ?? ({} as FormFields);
   const result: EnrichmentResult = {
     postalLookups: {},
     nominatimResults: [],
     eniroResults: [],
     scbData: null,
     personInsights: [],
+    personLookup: null,
     fieldHelp: [],
     moveDateInsights: [],
+    comparisonOpportunities: [],
   };
 
   const lookups: Promise<void>[] = [];
@@ -357,16 +590,16 @@ export async function enrichContext(
     );
   }
 
-  if (fields.toStreet && fields.toCity) {
+  if (fields.toStreet) {
     lookups.push(
-      nominatimLookup(fields.toStreet, fields.toCity, fields.toPostal).then((r) => {
+      nominatimLookup(fields.toStreet, fields.toCity ?? "", fields.toPostal).then((r) => {
         if (r) result.nominatimResults.push(r);
       })
     );
   }
-  if (fields.fromStreet && fields.fromCity) {
+  if (fields.fromStreet) {
     lookups.push(
-      nominatimLookup(fields.fromStreet, fields.fromCity, fields.fromPostal).then((r) => {
+      nominatimLookup(fields.fromStreet, fields.fromCity ?? "", fields.fromPostal).then((r) => {
         if (r) result.nominatimResults.push(r);
       })
     );
@@ -376,7 +609,10 @@ export async function enrichContext(
     const searchTerms = ["matbutik", "vardcentral", "apotek"];
     for (const term of searchTerms) {
       lookups.push(
-        eniroCompanySearch(term, fields.toCity).then((r) => {
+        eniroCompanySearch(term, fields.toCity, {
+          flow: "enrichment",
+          route: "/api/enrich/eniro",
+        }).then((r) => {
           result.eniroResults.push(...r);
         })
       );
@@ -391,12 +627,18 @@ export async function enrichContext(
 
   await Promise.all(lookups);
 
-  if (fields.personalNumber) {
-    const parsed = parsePersonalNumber(fields.personalNumber);
+  const pnrSource = fields.personalNumber || chatPnr;
+
+  if (pnrSource) {
+    const parsed = parsePersonalNumber(pnrSource);
     if (parsed?.valid) {
       result.personInsights.push(
         `Personnumret tillhor nagon fodd ${parsed.birthDate} (${parsed.age} ar).`
       );
+    }
+    if (apiBaseUrl && (!fields.firstName || !fields.lastName || !fields.fromStreet) && parsed?.valid) {
+      const lookup = await personLookup(pnrSource, apiBaseUrl);
+      if (lookup) result.personLookup = lookup;
     }
   }
 
@@ -404,6 +646,7 @@ export async function enrichContext(
     result.moveDateInsights = getMoveDateInsights(fields.moveDate);
   }
 
+  result.comparisonOpportunities = getComparisonOpportunities(fields);
   result.fieldHelp = getEmptyFieldHelp(fields);
 
   const sections: string[] = [];
@@ -452,6 +695,19 @@ export async function enrichContext(
     );
   }
 
+  if (result.personLookup) {
+    const p = result.personLookup;
+    const lines = [
+      p.firstName && `  Fornamn: ${p.firstName}`,
+      p.lastName && `  Efternamn: ${p.lastName}`,
+      p.fromStreet && `  Gatuadress: ${p.fromStreet}`,
+      p.fromCity && `  Stad: ${p.fromCity}`,
+      p.fromPostal && `  Postnummer: ${p.fromPostal}`,
+      p.address && `  Adress: ${p.address}`,
+    ].filter(Boolean);
+    sections.push("## Personuppslag (Ratsit/Biluppgifter/Merinfo)\n" + lines.join("\n"));
+  }
+
   if (result.personInsights.length > 0) {
     sections.push("## Personinsikter\n" + result.personInsights.join("\n"));
   }
@@ -466,8 +722,107 @@ export async function enrichContext(
     );
   }
 
-  if (sections.length === 0) return "";
-  return "\n\n## Uppslagna data (fran Flytt.io APIer)\n\n" + sections.join("\n\n");
+  if (result.comparisonOpportunities.length > 0) {
+    sections.push(
+      "## Proaktiv jamforelse (nasta basta steg)\n" +
+        result.comparisonOpportunities.join("\n")
+    );
+  }
+
+  const resolvedFields: Record<string, string> = {};
+  const autoFilled: string[] = [];
+
+  if (!fields.toPostal && fields.toStreet) {
+    const toNom = result.nominatimResults.find((r) => r.addressParts.postcode);
+    if (toNom?.addressParts.postcode) {
+      resolvedFields.toPostal = toNom.addressParts.postcode.replace(/\s+/g, "");
+      autoFilled.push(`toPostal=${resolvedFields.toPostal} (fran Nominatim)`);
+    }
+    if (!fields.toCity && toNom?.addressParts.city) {
+      resolvedFields.toCity = toNom.addressParts.city;
+      autoFilled.push(`toCity=${toNom.addressParts.city} (fran Nominatim)`);
+    }
+  }
+
+  if (!fields.fromPostal && fields.fromStreet) {
+    const fromNom = result.nominatimResults.find(
+      (r) =>
+        r.addressParts.postcode &&
+        (!fields.fromCity || r.displayName.toLowerCase().includes(fields.fromCity.toLowerCase())),
+    );
+    if (fromNom?.addressParts.postcode) {
+      resolvedFields.fromPostal = fromNom.addressParts.postcode.replace(/\s+/g, "");
+      autoFilled.push(`fromPostal=${resolvedFields.fromPostal} (fran Nominatim)`);
+    }
+    if (!fields.fromCity && fromNom?.addressParts.city) {
+      resolvedFields.fromCity = fromNom.addressParts.city;
+      autoFilled.push(`fromCity=${fromNom.addressParts.city} (fran Nominatim)`);
+    }
+  }
+
+  if (fields.toPostal || resolvedFields.toPostal) {
+    const postal = fields.toPostal || resolvedFields.toPostal;
+    const lookup = result.postalLookups[postal!];
+    if (lookup?.city && !fields.toCity) {
+      resolvedFields.toCity = lookup.city;
+      autoFilled.push(`toCity=${lookup.city} (fran PAP)`);
+    }
+  }
+
+  if (fields.fromPostal || resolvedFields.fromPostal) {
+    const postal = fields.fromPostal || resolvedFields.fromPostal;
+    const lookup = result.postalLookups[postal!];
+    if (lookup?.city && !fields.fromCity) {
+      resolvedFields.fromCity = lookup.city;
+      autoFilled.push(`fromCity=${lookup.city} (fran PAP)`);
+    }
+  }
+
+  const postalFollowups: Promise<void>[] = [];
+
+  if (resolvedFields.toPostal && !fields.toPostal) {
+    postalFollowups.push(
+      lookupPostal(resolvedFields.toPostal).then((newLookup) => {
+        if (!newLookup) return;
+        result.postalLookups[resolvedFields.toPostal] = newLookup;
+        if (!fields.toCity && !resolvedFields.toCity && newLookup.city) {
+          resolvedFields.toCity = newLookup.city;
+          autoFilled.push(`toCity=${newLookup.city} (fran PAP via auto-postal)`);
+        }
+      }),
+    );
+  }
+
+  if (resolvedFields.fromPostal && !fields.fromPostal) {
+    postalFollowups.push(
+      lookupPostal(resolvedFields.fromPostal).then((newLookup) => {
+        if (!newLookup) return;
+        result.postalLookups[resolvedFields.fromPostal] = newLookup;
+        if (!fields.fromCity && !resolvedFields.fromCity && newLookup.city) {
+          resolvedFields.fromCity = newLookup.city;
+          autoFilled.push(`fromCity=${newLookup.city} (fran PAP via auto-postal)`);
+        }
+      }),
+    );
+  }
+
+  await Promise.all(postalFollowups);
+
+  if (autoFilled.length > 0) {
+    sections.push(
+      "## Auto-ifyllda falt (systemet har slagit upp dessa)\n" +
+      "Foljande falt saknades i formularet men har automatiskt slagits upp:\n" +
+      autoFilled.map((f) => `  - ${f}`).join("\n") + "\n" +
+      "Anvand dessa varden direkt. Fraga INTE anvandaren om dem — de ar redan kanda. " +
+      "Inkludera dem i suggestion-block om anvandaren ber om hjalp med formularet.",
+    );
+  }
+
+  if (sections.length === 0) return { text: "", resolvedFields };
+  return {
+    text: "\n\n## Uppslagna data (fran Flytt.io APIer)\n\n" + sections.join("\n\n"),
+    resolvedFields,
+  };
 }
 
 export const FIELD_KNOWLEDGE = `

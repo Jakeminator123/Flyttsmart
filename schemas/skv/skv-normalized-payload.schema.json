@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flytta.nu/schemas/skv/skv-normalized-payload.schema.json",
+  "title": "NormalizedSkvPayload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "inflyttningsdatum",
+    "gatuadress",
+    "postnummer",
+    "postort",
+    "lagenhetsnummer",
+    "fastighetsbeteckning",
+    "fastighetsagare",
+    "telefonnummer",
+    "email",
+    "name",
+    "personalNumber"
+  ],
+  "properties": {
+    "inflyttningsdatum": { "type": "string" },
+    "gatuadress": { "type": "string" },
+    "postnummer": {
+      "type": "string",
+      "description": "Rensas till siffror utan mellanslag."
+    },
+    "postort": { "type": "string" },
+    "lagenhetsnummer": { "type": "string" },
+    "fastighetsbeteckning": { "type": "string" },
+    "fastighetsagare": { "type": "string" },
+    "telefonnummer": {
+      "type": "string",
+      "description": "Normaliserad telefon (siffror och eventuellt +)."
+    },
+    "email": { "type": "string" },
+    "name": { "type": "string" },
+    "personalNumber": { "type": "string" }
+  }
+}

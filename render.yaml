@@ -6,12 +6,28 @@ services:
     rootDir: inlogg
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
+    disk:
+      name: skv-playwright-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: SKV_HEADLESS
         value: "y"
       - key: SKV_HOST
         value: "0.0.0.0"
+      - key: SKV_DATA_DIR
+        value: "/var/data"
       - key: CLONE_QR_FROMPLAYWRIGHT_TO_SITE
         value: "y"
+      - key: SKV_QR_CAPTURE_INTERVAL_SECONDS
+        value: "2"
+      - key: SKV_QR_HISTORY_SECONDS
+        value: "120"
+      - key: SKV_QR_HISTORY_MAX_FRAMES
+        value: "60"
+      - key: SKV_QR_ARCHIVE_ENABLED
+        value: "y"
+      - key: SKV_QR_ARCHIVE_MAX_BYTES
+        value: "750000"
       - key: SKV_API_KEY
         sync: false

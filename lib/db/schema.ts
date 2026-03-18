@@ -1,9 +1,11 @@
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 
 // ── Users ──────────────────────────────────────────────────────────────
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
   personalNumber: text("personal_number"), // encrypted / hashed
   email: text("email"),
   phone: text("phone"),
@@ -30,7 +32,24 @@ export const moves = sqliteTable("moves", {
   moveDate: text("move_date"), // ISO date string
   householdType: text("household_type"), // "myself" | "family" | "partner" | "child"
   reason: text("reason"),
+  hasChildren: integer("has_children", { mode: "boolean" }).notNull().default(false),
   status: text("status").notNull().default("draft"), // draft | submitted | confirmed | completed
+  ipAddress: text("ip_address"),
+  ipCity: text("ip_city"),
+  ipRegion: text("ip_region"),
+  ipCountry: text("ip_country"),
+  ipLatitude: text("ip_latitude"),
+  ipLongitude: text("ip_longitude"),
+  userAgent: text("user_agent"),
+  fromMunicipality: text("from_municipality"),
+  fromCounty: text("from_county"),
+  fromLatitude: text("from_latitude"),
+  fromLongitude: text("from_longitude"),
+  toMunicipality: text("to_municipality"),
+  toCounty: text("to_county"),
+  toLatitude: text("to_latitude"),
+  toLongitude: text("to_longitude"),
+  enrichmentData: text("enrichment_data"), // JSON blob with full API responses
   createdAt: text("created_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
@@ -97,6 +116,79 @@ export const reminderLogs = sqliteTable(
   })
 );
 
+// ── SKV Runs (INT7 / Playwright job tracking) ───────────────────────────────
+export const skvRuns = sqliteTable(
+  "skv_runs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    moveId: integer("move_id").references(() => moves.id),
+    jobId: text("job_id").notNull(),
+    sourceData: text("source_data"), // JSON from request body/formData
+    normalizedPayload: text("normalized_payload"), // JSON sent to /api/run payload
+    status: text("status").notNull().default("queued"),
+    message: text("message"),
+    remote: integer("remote", { mode: "boolean" }).notNull().default(false),
+    cloneQrEnabled: integer("clone_qr_enabled", { mode: "boolean" }).notNull().default(false),
+    cloneQrStateUrl: text("clone_qr_state_url"),
+    cloneQrImageUrl: text("clone_qr_image_url"),
+    screenshotPath: text("screenshot_path"),
+    details: text("details"), // JSON from /api/status details + fillerResult
+    startedAt: text("started_at"),
+    endedAt: text("ended_at"),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    jobIdUnique: uniqueIndex("skv_runs_job_id_idx").on(table.jobId),
+    createdAtIdx: index("skv_runs_created_at_idx").on(table.createdAt),
+    moveIdIdx: index("skv_runs_move_id_idx").on(table.moveId),
+    statusUpdatedAtIdx: index("skv_runs_status_updated_at_idx").on(
+      table.status,
+      table.updatedAt,
+    ),
+  }),
+);
+
+// ── Usage Events (cost/tokens tracking) ────────────────────────────────
+export const usageEvents = sqliteTable(
+  "usage_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    provider: text("provider").notNull(), // openai | brave | pap | eniro | nominatim | scb | ratsit | openclaw_gateway | elpris
+    flow: text("flow").notNull(), // web_search | enrichment | comparison | gateway_simple | gateway_general | gateway_comparison | keepalive
+    route: text("route").notNull(), // /api/did/chat, /api/openclaw/chat, etc
+    model: text("model"),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    totalTokens: integer("total_tokens"),
+    estimatedCostUsd: text("estimated_cost_usd"), // stored as string, ex: "0.0032"
+    durationMs: integer("duration_ms"),
+    ok: integer("ok", { mode: "boolean" }).notNull().default(true),
+    sessionId: text("session_id"),
+    createdAt: text("created_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => ({
+    providerCreatedAtIdx: index("usage_events_provider_created_at_idx").on(
+      table.provider,
+      table.createdAt,
+    ),
+    flowCreatedAtIdx: index("usage_events_flow_created_at_idx").on(
+      table.flow,
+      table.createdAt,
+    ),
+    routeCreatedAtIdx: index("usage_events_route_created_at_idx").on(
+      table.route,
+      table.createdAt,
+    ),
+  }),
+);
+
 // ── Type helpers ───────────────────────────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -108,3 +200,7 @@ export type QrToken = typeof qrTokens.$inferSelect;
 export type NewQrToken = typeof qrTokens.$inferInsert;
 export type ReminderLog = typeof reminderLogs.$inferSelect;
 export type NewReminderLog = typeof reminderLogs.$inferInsert;
+export type SkvRun = typeof skvRuns.$inferSelect;
+export type NewSkvRun = typeof skvRuns.$inferInsert;
+export type UsageEvent = typeof usageEvents.$inferSelect;
+export type NewUsageEvent = typeof usageEvents.$inferInsert;

@@ -3,6 +3,7 @@ import path from "path";
 import { promises as fs } from "fs";
 import { NextRequest, NextResponse } from "next/server";
 import { buildNormalizedSkvPayload, type SkvSourceData } from "@/lib/skv/payload";
+import { resolveMoveId, upsertSkvRun } from "@/lib/skv/run-tracker";
 import {
   isTruthy,
   isCloneQrToSiteEnabled,
@@ -14,7 +15,9 @@ import {
 export const runtime = "nodejs";
 
 const INLOGG_DIR = path.join(process.cwd(), "inlogg");
-const RUNTIME_DIR = path.join(INLOGG_DIR, "runtime");
+const SKV_DATA_DIR = (process.env.SKV_DATA_DIR ?? "").trim();
+const RUNTIME_ROOT = SKV_DATA_DIR || INLOGG_DIR;
+const RUNTIME_DIR = path.join(RUNTIME_ROOT, "runtime");
 const PAYLOAD_FILE = path.join(RUNTIME_DIR, "skv_payload_latest.json");
 const PROCESS_FILE = path.join(RUNTIME_DIR, "skv_int7_process.json");
 const JOB_FILE = path.join(RUNTIME_DIR, "skv_int7_job.json");
@@ -50,6 +53,16 @@ function resolvePythonCommand() {
   if (configured) return { command: configured, extraArgs: [] as string[] };
   if (process.platform === "win32") return { command: "py", extraArgs: ["-3"] };
   return { command: "python3", extraArgs: [] as string[] };
+}
+
+async function readCurrentJobFile(): Promise<{ jobId?: string; flaskPort?: number; cloneQrStateUrl?: string } | null> {
+  try {
+    const raw = await fs.readFile(JOB_FILE, "utf-8");
+    const data = JSON.parse(raw);
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 async function readJobFileWithRetry(
@@ -91,11 +104,28 @@ function buildAuthHeaders(): Record<string, string> {
   return { Authorization: `Bearer ${key}` };
 }
 
+interface StartTrackingContext {
+  moveId: number | null;
+  sourceData: SkvSourceData;
+}
+
+function buildArtifactUrls(jobId: string, portQ = "") {
+  return {
+    statusUrl: `/api/skv/int7/status/${jobId}${portQ}`,
+    payloadUrl: `/api/skv/int7/payload/${jobId}${portQ}`,
+    htmlUrl: `/api/skv/int7/html/${jobId}${portQ}`,
+    screenshotUrl: `/api/skv/int7/screenshot/${jobId}${portQ}`,
+    logUrl: `/api/skv/int7/log/${jobId}${portQ}`,
+    qrFramesUrl: `/api/skv/int7/qr-frames/${jobId}${portQ}`,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Production mode: delegate to remote Flask service (Render/Docker)
 // ---------------------------------------------------------------------------
 async function startRemote(
   payload: unknown,
+  tracking: StartTrackingContext,
 ): Promise<NextResponse> {
   const baseUrl = getSkvServiceUrl();
 
@@ -125,6 +155,7 @@ async function startRemote(
   const jobId = data.job_id as string;
   const cloneQrEnabled = await isCloneQrToSiteEnabled();
   let cloneData: Record<string, unknown> = {};
+  const artifactUrls = jobId ? buildArtifactUrls(jobId) : null;
   if (cloneQrEnabled && jobId) {
     cloneData = {
       cloneQrEnabled: true,
@@ -133,12 +164,41 @@ async function startRemote(
       cloneQrImageUrl: `/api/skv/clone/qr/${jobId}`,
     };
   }
+  if (jobId) {
+    await upsertSkvRun({
+      jobId,
+      moveId: tracking.moveId,
+      sourceData: tracking.sourceData,
+      normalizedPayload: payload,
+      status: typeof data.state === "string" ? data.state : "running",
+      message:
+        typeof data.message === "string"
+          ? data.message
+          : "SKV remote-job startad via /api/skv/int7/start",
+      remote: true,
+      cloneQrEnabled,
+      cloneQrStateUrl:
+        typeof cloneData.cloneQrStateUrl === "string"
+          ? cloneData.cloneQrStateUrl
+          : null,
+      cloneQrImageUrl:
+        typeof cloneData.cloneQrImageUrl === "string"
+          ? cloneData.cloneQrImageUrl
+          : null,
+      startedAt: typeof data.started_at === "number" ? data.started_at : null,
+      details: data.details ?? null,
+      screenshotPath:
+        typeof data.screenshot_path === "string" ? data.screenshot_path : null,
+    });
+  }
 
   return NextResponse.json({
     ok: true,
     started: true,
     remote: true,
     payload,
+    jobId,
+    ...(artifactUrls ?? {}),
     ...cloneData,
   });
 }
@@ -148,6 +208,7 @@ async function startRemote(
 // ---------------------------------------------------------------------------
 async function startLocal(
   payload: unknown,
+  tracking: StartTrackingContext,
 ): Promise<NextResponse> {
   await fs.mkdir(RUNTIME_DIR, { recursive: true });
   await fs.writeFile(PAYLOAD_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
@@ -156,12 +217,19 @@ async function startLocal(
     const existingRaw = await fs.readFile(PROCESS_FILE, "utf-8");
     const existing = JSON.parse(existingRaw) as { pid?: number; startedAt?: string };
     if (existing?.pid && isProcessAlive(existing.pid)) {
+      const currentJob = await readCurrentJobFile();
+      const jobId = typeof currentJob?.jobId === "string" ? currentJob.jobId : null;
+      const port = currentJob?.flaskPort ?? 8767;
+      const portQ = port !== 8767 ? `?port=${port}` : "";
+      const artifactUrls = jobId ? buildArtifactUrls(jobId, portQ) : null;
       return NextResponse.json({
         ok: true,
         started: false,
         alreadyRunning: true,
         pid: existing.pid,
         startedAt: existing.startedAt ?? null,
+        jobId,
+        ...(artifactUrls ?? {}),
         payload,
         script: "int7/runner.py",
       });
@@ -192,20 +260,46 @@ async function startLocal(
   child.unref();
 
   const cloneQrEnabled = await isCloneQrToSiteEnabled();
+  const jobInfo = await readJobFileWithRetry(spawnedAt, 12, 300);
   let cloneData: Record<string, unknown> = {};
+  let jobData: Record<string, unknown> = {};
 
-  if (cloneQrEnabled) {
-    const jobInfo = await readJobFileWithRetry(spawnedAt);
-    if (jobInfo?.jobId) {
-      const port = jobInfo.flaskPort ?? 8767;
-      const portQ = port !== 8767 ? `?port=${port}` : "";
-      cloneData = {
-        cloneQrEnabled: true,
-        jobId: jobInfo.jobId,
-        cloneQrStateUrl: `/api/skv/clone/state/${jobInfo.jobId}${portQ}`,
-        cloneQrImageUrl: `/api/skv/clone/qr/${jobInfo.jobId}${portQ}`,
-      };
-    }
+  if (jobInfo?.jobId) {
+    const port = jobInfo.flaskPort ?? 8767;
+    const portQ = port !== 8767 ? `?port=${port}` : "";
+    jobData = { jobId: jobInfo.jobId, ...buildArtifactUrls(jobInfo.jobId, portQ) };
+  }
+
+  if (cloneQrEnabled && jobInfo?.jobId) {
+    const port = jobInfo.flaskPort ?? 8767;
+    const portQ = port !== 8767 ? `?port=${port}` : "";
+    cloneData = {
+      cloneQrEnabled: true,
+      jobId: jobInfo.jobId,
+      cloneQrStateUrl: `/api/skv/clone/state/${jobInfo.jobId}${portQ}`,
+      cloneQrImageUrl: `/api/skv/clone/qr/${jobInfo.jobId}${portQ}`,
+    };
+  }
+
+  if (jobInfo?.jobId) {
+    await upsertSkvRun({
+      jobId: jobInfo.jobId,
+      moveId: tracking.moveId,
+      sourceData: tracking.sourceData,
+      normalizedPayload: payload,
+      status: "running",
+      message: "SKV local-job startad via /api/skv/int7/start",
+      remote: false,
+      cloneQrEnabled,
+      cloneQrStateUrl:
+        typeof cloneData.cloneQrStateUrl === "string"
+          ? cloneData.cloneQrStateUrl
+          : null,
+      cloneQrImageUrl:
+        typeof cloneData.cloneQrImageUrl === "string"
+          ? cloneData.cloneQrImageUrl
+          : null,
+    });
   }
 
   return NextResponse.json({
@@ -213,6 +307,7 @@ async function startLocal(
     started: true,
     payload,
     script: "int7/runner.py",
+    ...jobData,
     ...cloneData,
   });
 }
@@ -222,14 +317,22 @@ async function startLocal(
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as { formData?: SkvSourceData } & SkvSourceData;
+    const body = (await req.json()) as {
+      moveId?: unknown;
+      formData?: SkvSourceData & { moveId?: unknown };
+    } & SkvSourceData;
     const source = body?.formData ?? body ?? {};
     const payload = buildNormalizedSkvPayload(source);
+    const moveId = resolveMoveId(body?.moveId ?? body?.formData?.moveId);
+    const tracking: StartTrackingContext = {
+      moveId,
+      sourceData: source,
+    };
 
     if (isRemoteSkvService()) {
-      return await startRemote(payload);
+      return await startRemote(payload, tracking);
     }
-    return await startLocal(payload);
+    return await startLocal(payload, tracking);
   } catch (error) {
     console.error("[SKV int7] failed to start:", error);
     return NextResponse.json(

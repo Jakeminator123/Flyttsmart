@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flytta.nu/schemas/forms/adressandring-form.schema.json",
+  "title": "AdressandringFormData",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "firstName": { "type": "string" },
+    "lastName": { "type": "string" },
+    "personalNumber": {
+      "type": "string",
+      "description": "Svenskt personnummer, vanligtvis YYYYMMDD-NNNN."
+    },
+    "email": { "type": "string", "format": "email" },
+    "phone": { "type": "string" },
+    "fromStreet": { "type": "string" },
+    "fromPostal": { "type": "string", "pattern": "^[0-9\\s]{0,6}$" },
+    "fromCity": { "type": "string" },
+    "toStreet": { "type": "string" },
+    "toPostal": { "type": "string", "pattern": "^[0-9\\s]{0,6}$" },
+    "toCity": { "type": "string" },
+    "apartmentNumber": { "type": "string" },
+    "propertyDesignation": { "type": "string" },
+    "propertyOwner": { "type": "string" },
+    "moveDate": {
+      "type": "string",
+      "description": "ISO-datum, vanligtvis YYYY-MM-DD."
+    },
+    "householdType": {
+      "type": "string",
+      "enum": ["", "myself", "family", "partner", "child"]
+    },
+    "reason": {
+      "type": "string",
+      "enum": ["", "work", "studies", "family", "housing", "other"]
+    },
+    "hasChildren": { "type": "boolean" }
+  }
+}

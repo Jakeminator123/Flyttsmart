@@ -1,0 +1,178 @@
+{
+  "_doc": "Vilka fält hämtas från vilken källa. Används av alla lookup-skript.",
+  "_priority": "Lägre nummer = provas först. Första källan som ger värde vinner.",
+
+  "sources": {
+    "ratsit_search":   { "id": "RS", "name": "Ratsit /search",       "type": "api",    "needs": ["RATSIT_SCRAPER_URL"] },
+    "ratsit_lookup":   { "id": "RL", "name": "Ratsit /lookup",       "type": "api",    "needs": ["RATSIT_SCRAPER_URL"] },
+    "biluppgifter":    { "id": "BIL","name": "Biluppgifter.se",      "type": "scrape", "needs": [] },
+    "eniro_person":    { "id": "EP", "name": "Eniro person (LD)",    "type": "scrape", "needs": [] },
+    "eniro_company":   { "id": "EC", "name": "Eniro företag (REST)", "type": "api",    "needs": ["ENIRO_API_KEY"] },
+    "eniro_map_co":    { "id": "MC", "name": "Eniro karta företag",  "type": "scrape", "needs": [] },
+    "eniro_map_person":{ "id": "MP", "name": "Eniro karta person",   "type": "scrape", "needs": [] },
+    "pap":             { "id": "PAP","name": "PAP API",              "type": "api",    "needs": ["PAP_API_KEY"] },
+    "manual":          { "id": "MAN","name": "Manuell input",        "type": "input",  "needs": [] }
+  },
+
+  "fields": {
+    "personalNumber": {
+      "skv": "personalNumber",
+      "label": "Personnummer",
+      "required": true,
+      "sources_pnr":  [{ "source": "manual",       "priority": 1 }],
+      "sources_name": [{ "source": "ratsit_search", "priority": 1 }, { "source": "manual", "priority": 2 }]
+    },
+    "firstName": {
+      "skv": null,
+      "label": "Förnamn",
+      "required": true,
+      "sources_pnr":  [{ "source": "biluppgifter", "priority": 1 }, { "source": "manual", "priority": 2 }],
+      "sources_name": [{ "source": "ratsit_search", "priority": 1 }, { "source": "eniro_person", "priority": 2 }, { "source": "biluppgifter", "priority": 3 }, { "source": "manual", "priority": 4 }]
+    },
+    "lastName": {
+      "skv": null,
+      "label": "Efternamn",
+      "required": true,
+      "sources_pnr":  [{ "source": "biluppgifter", "priority": 1 }, { "source": "manual", "priority": 2 }],
+      "sources_name": [{ "source": "ratsit_search", "priority": 1 }, { "source": "eniro_person", "priority": 2 }, { "source": "biluppgifter", "priority": 3 }, { "source": "manual", "priority": 4 }]
+    },
+    "name": {
+      "skv": "name",
+      "label": "Fullständigt namn",
+      "required": true,
+      "derived_from": ["firstName", "lastName"]
+    },
+    "fromStreet": {
+      "skv": null,
+      "label": "Nuvarande gatuadress",
+      "required": false,
+      "sources_pnr":  [{ "source": "biluppgifter", "priority": 1 }, { "source": "eniro_person", "priority": 2 }, { "source": "manual", "priority": 3 }],
+      "sources_name": [{ "source": "ratsit_search", "priority": 1 }, { "source": "eniro_person", "priority": 2 }, { "source": "biluppgifter", "priority": 3 }, { "source": "manual", "priority": 4 }]
+    },
+    "fromPostal": {
+      "skv": null,
+      "label": "Nuvarande postnr",
+      "required": false,
+      "sources_pnr":  [{ "source": "biluppgifter", "priority": 1 }, { "source": "eniro_person", "priority": 2 }, { "source": "pap", "priority": 3 }, { "source": "manual", "priority": 4 }],
+      "sources_name": [{ "source": "eniro_person", "priority": 1 }, { "source": "biluppgifter", "priority": 2 }, { "source": "manual", "priority": 3 }]
+    },
+    "fromCity": {
+      "skv": null,
+      "label": "Nuvarande ort",
+      "required": false,
+      "sources_pnr":  [{ "source": "biluppgifter", "priority": 1 }, { "source": "eniro_person", "priority": 2 }, { "source": "pap", "priority": 3 }, { "source": "manual", "priority": 4 }],
+      "sources_name": [{ "source": "ratsit_search", "priority": 1 }, { "source": "eniro_person", "priority": 2 }, { "source": "biluppgifter", "priority": 3 }, { "source": "pap", "priority": 4 }, { "source": "manual", "priority": 5 }]
+    },
+    "apartmentNumber": {
+      "skv": "lagenhetsnummer",
+      "label": "Lägenhetsnummer",
+      "required": false,
+      "sources_pnr":  [{ "source": "biluppgifter", "priority": 1, "note": "Parsas ur gatuadress (lgh XXXX)" }],
+      "sources_name": [{ "source": "ratsit_search", "priority": 1, "note": "Parsas ur streetAddress" }, { "source": "biluppgifter", "priority": 2 }]
+    },
+    "phone": {
+      "skv": "telefonnummer",
+      "label": "Telefonnummer",
+      "required": false,
+      "sources_pnr":  [{ "source": "eniro_person", "priority": 1 }, { "source": "manual", "priority": 2 }],
+      "sources_name": [{ "source": "eniro_person", "priority": 1 }, { "source": "manual", "priority": 2 }]
+    },
+    "email": {
+      "skv": "email",
+      "label": "E-post",
+      "required": false,
+      "sources_pnr":  [{ "source": "manual", "priority": 1 }],
+      "sources_name": [{ "source": "manual", "priority": 1 }],
+      "note": "Kan aldrig hämtas automatiskt"
+    },
+    "toStreet": {
+      "skv": "gatuadress",
+      "label": "Ny gatuadress",
+      "required": true,
+      "sources_pnr":  [{ "source": "manual", "priority": 1 }],
+      "sources_name": [{ "source": "manual", "priority": 1 }]
+    },
+    "toPostal": {
+      "skv": "postnummer",
+      "label": "Nytt postnr",
+      "required": true,
+      "sources_pnr":  [{ "source": "manual", "priority": 1 }],
+      "sources_name": [{ "source": "manual", "priority": 1 }]
+    },
+    "toCity": {
+      "skv": "postort",
+      "label": "Ny ort",
+      "required": true,
+      "sources_pnr":  [{ "source": "pap", "priority": 1, "note": "Auto från postnr" }, { "source": "manual", "priority": 2 }],
+      "sources_name": [{ "source": "pap", "priority": 1 }, { "source": "manual", "priority": 2 }]
+    },
+    "moveDate": {
+      "skv": "inflyttningsdatum",
+      "label": "Inflyttningsdatum",
+      "required": true,
+      "sources_pnr":  [{ "source": "manual", "priority": 1 }],
+      "sources_name": [{ "source": "manual", "priority": 1 }]
+    },
+    "period": {
+      "skv": "period",
+      "label": "Tills vidare",
+      "required": true,
+      "default": "true",
+      "sources_pnr":  [{ "source": "manual", "priority": 1, "note": "Default true, frågar om ändring" }],
+      "sources_name": [{ "source": "manual", "priority": 1 }]
+    },
+    "propertyDesignation": {
+      "skv": "fastighetsbeteckning",
+      "label": "Fastighetsbeteckning (ny adress)",
+      "required": false,
+      "sources_pnr":  [{ "source": "eniro_map_person", "priority": 1, "note": "Via boende på nya adressen" }, { "source": "manual", "priority": 2 }],
+      "sources_name": [{ "source": "eniro_map_person", "priority": 1 }, { "source": "manual", "priority": 2 }]
+    },
+    "propertyOwner": {
+      "skv": "fastighetsagare",
+      "label": "Fastighetsägare (ny adress)",
+      "required": false,
+      "sources_pnr":  [{ "source": "eniro_map_co", "priority": 1, "note": "BRF/HSB prioriteras" }, { "source": "eniro_company", "priority": 2 }, { "source": "manual", "priority": 3 }],
+      "sources_name": [{ "source": "eniro_map_co", "priority": 1 }, { "source": "eniro_company", "priority": 2 }, { "source": "manual", "priority": 3 }]
+    },
+    "fastighet": {
+      "skv": null,
+      "label": "Fastighetsbeteckning (nuvarande adress)",
+      "required": false,
+      "note": "Inte del av SKV-payload, men nyttig referens",
+      "sources_pnr":  [{ "source": "eniro_person", "priority": 1 }],
+      "sources_name": [{ "source": "eniro_person", "priority": 1 }]
+    }
+  },
+
+  "enrichment_fields": {
+    "_doc": "Extra data som sparas i separat fil (bara name-skriptet)",
+    "medboende":          { "source": "ratsit_lookup", "label": "Medboende på adressen" },
+    "fordon":             { "source": "ratsit_lookup", "label": "Registrerade fordon" },
+    "snittLonGata":       { "source": "ratsit_lookup", "label": "Genomsnittlig lön på gatan" },
+    "anmarkningProcent":  { "source": "ratsit_lookup", "label": "Andel med anmärkningar" },
+    "gift":               { "source": "ratsit_lookup", "label": "Gift" },
+    "harForetag":         { "source": "ratsit_lookup", "label": "Har företagsengagemang" },
+    "koordinater":        { "source": "ratsit_lookup", "label": "GPS-koordinater" }
+  },
+
+  "output_format": {
+    "main": {
+      "generatedAt":    "ISO 8601 UTC",
+      "version":        "v7 | name-v1",
+      "entryMethod":    "personnummer | name",
+      "status":         "complete | partial | dry-run",
+      "lookups":        "Rådata från alla källor (för felsökning)",
+      "flyttioPayload": "Fält för flytt.io-formuläret",
+      "skvPayload":     "Fält för Skatteverkets blankett",
+      "requiredMissing":"Lista på obligatoriska fält som saknas",
+      "diagnostics":    "Varningar och info"
+    },
+    "enrichment": {
+      "generatedAt":    "ISO 8601 UTC",
+      "personnummer":   "PNR som berikades",
+      "searchQuery":    "Ursprunglig sökterm",
+      "...":            "Se enrichment_fields ovan"
+    }
+  }
+}

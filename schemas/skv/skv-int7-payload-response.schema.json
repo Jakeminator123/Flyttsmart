@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flytta.nu/schemas/skv/skv-int7-payload-response.schema.json",
+  "title": "SkvInt7PayloadResponse",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["ok", "jobId"],
+  "properties": {
+    "ok": { "type": "boolean" },
+    "jobId": { "type": "string" },
+    "payload": { "type": "object", "additionalProperties": true },
+    "error": { "type": "string" }
+  }
+}

@@ -1,46 +1,207 @@
 import { NextRequest, NextResponse } from "next/server";
+
+export const maxDuration = 120;
+
 import {
   buildOpenClawSiteAccess,
   getOpenClawAgentId,
-  getOpenClawChatModel,
   getOpenClawGatewayBaseUrl,
   getOpenClawTokens,
+  getModelForIntent,
 } from "@/lib/openclaw/server-config";
 import { extractOpenClawText } from "@/lib/openclaw/response";
 import { enrichContext, FIELD_KNOWLEDGE } from "@/lib/aida/enrich";
+import { parseDirectSuggestion } from "@/lib/aida/direct-suggestion";
+import {
+  runExplicitWebSearch,
+  shouldRunExplicitWebSearch,
+} from "@/lib/aida/explicit-web-search";
+import {
+  classifyMessage,
+  isGreetingOnlyMessage,
+  isSiteCapabilitiesQuestion,
+} from "@/lib/aida/classify";
+import {
+  runComparison,
+  getActiveTaskKeys,
+  type CompareResult,
+} from "@/lib/comparison/compare";
+import { extractTokenUsage, trackUsage, type UsageFlow } from "@/lib/usage/tracker";
 
 const GATEWAY_BASE_URL = getOpenClawGatewayBaseUrl();
 const AGENT_ID = getOpenClawAgentId();
-const CHAT_MODEL = getOpenClawChatModel(AGENT_ID);
 const { gatewayToken: GATEWAY_TOKEN } = getOpenClawTokens();
+const GATEWAY_TIMEOUT_MS_RAW = Number(process.env.OPENCLAW_CHAT_TIMEOUT_MS ?? "25000");
+const OPENCLAW_GATEWAY_TIMEOUT_MS =
+  Number.isFinite(GATEWAY_TIMEOUT_MS_RAW) && GATEWAY_TIMEOUT_MS_RAW >= 5000
+    ? GATEWAY_TIMEOUT_MS_RAW
+    : 25000;
+const MAX_SESSION_ID_CHARS = 120;
+const MAX_MESSAGE_CONTENT_CHARS = 2000;
+const MAX_MESSAGES_FROM_CLIENT = 40;
 
-/**
- * Build a system message that includes form context
- * so the agent knows what the user is doing on the page.
- */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const name = (error as { name?: string }).name;
+  return name === "AbortError" || name === "TimeoutError";
+}
+
+function gatewayFlowFromIntent(intent: string): UsageFlow {
+  if (intent === "simple") return "gateway_simple";
+  if (intent === "comparison") return "gateway_comparison";
+  return "gateway_general";
+}
+
+// ─── Comparison pre-fetch ────────────────────────────────
+
+async function prefetchComparisons(
+  taskKeys: string[],
+  formCtx: Record<string, string> | null,
+): Promise<string> {
+  if (taskKeys.length === 0 || !formCtx) return "";
+  const toPostal = formCtx.toPostal;
+  const toCity = formCtx.toCity;
+  if (!toPostal && !toCity) return "";
+
+  const activeKeys = new Set(getActiveTaskKeys());
+  const activeTasks = taskKeys.filter((k) => activeKeys.has(k));
+  if (activeTasks.length === 0) return "";
+
+  const results: CompareResult[] = [];
+  await Promise.all(
+    activeTasks.map(async (taskKey) => {
+      try {
+        const r = await runComparison({
+          taskKey,
+          toPostal,
+          toCity,
+          moveDate: formCtx.moveDate,
+          toStreet: formCtx.toStreet,
+        });
+        results.push(r);
+      } catch { /* skip failed comparison */ }
+    }),
+  );
+
+  if (results.length === 0) return "";
+
+  const sections = results.map((r) => {
+    const providerLines = r.providers
+      .map(
+        (p) =>
+          `  - ${p.name}: ${p.price}` +
+          (p.pros.length ? ` | Fordelar: ${p.pros.join(", ")}` : "") +
+          (p.cons.length ? ` | Nackdelar: ${p.cons.join(", ")}` : ""),
+      )
+      .join("\n");
+    return (
+      `### ${r.category} (${r.taskKey}, mode: ${r.mode})\n` +
+      `Sammanfattning: ${r.summary}\n` +
+      (providerLines ? `Leverantörer:\n${providerLines}\n` : "") +
+      (r.tip ? `Tips: ${r.tip}\n` : "") +
+      (r.elArea ? `Elområde: ${r.elArea}\n` : "") +
+      (r.sources.length ? `Källor: ${r.sources.join(", ")}` : "")
+    );
+  });
+
+  return (
+    "\n\n## Faktisk jämförelsedata (hämtad från Flytt.io API:er — använd BARA denna data, hitta INTE PÅ priser)\n\n" +
+    sections.join("\n\n")
+  );
+}
+
+// ─── System prompt (aligned with DID chat) ───────────────
+
 function buildSystemMessage(
   formContext?: Record<string, unknown> | null,
   enrichedData?: string,
-  siteAccess?: Record<string, unknown> | null
+  siteAccess?: Record<string, unknown> | null,
+  mifContext?: Record<string, unknown> | null,
 ) {
   let base =
-    "Du ar Aida, en hjalpsam svensk flyttassistent for Flytt.io. " +
-    "Svara alltid pa svenska. Hjalp anvandaren med adressandring, flytt och relaterade fragor.\n\n" +
-    "## Formularforslag\n" +
-    "Nar du vill foreslå att ett formularfalt fylls i, inkludera ett suggestion-block:\n" +
-    "```suggestion\n{\"faltnamn\": \"varde\"}\n```\n" +
+    "Du ar Aida, en hjalpsam flyttassistent for Flytt.io. " +
+    "Svara pa samma sprak som anvandaren skriver. " +
+    "Om anvandaren skriver pa engelska, svara pa engelska. Om svenska, svara pa svenska. " +
+    "Standardsprak ar svenska om inget annat framgar.\n\n" +
+    "## Formularforslag (viktigt)\n" +
+    "Nar anvandaren ber dig fylla i ett falt, ska du foresla varden via suggestion-block.\n" +
+    "Svara med en kort forklaring + exakt detta format:\n" +
+    "```suggestion\n" +
+    "{\"firstName\":\"Jakob\"}\n" +
+    "```\n" +
     "Tillatna faltnamn: firstName, lastName, personalNumber, fromStreet, fromPostal, fromCity, " +
-    "toStreet, toPostal, toCity, apartmentNumber, propertyDesignation, propertyOwner, " +
-    "email, phone, moveDate.\n" +
+    "toStreet, toPostal, toCity, apartmentNumber, propertyDesignation, propertyOwner, email, phone, moveDate.\n" +
+    "Om anvandaren skriver naturligt sprak (t.ex. 'fyll i Jakob i fornamn'), mappa till korrekt faltnamn " +
+    "(fornamn -> firstName) och returnera suggestion-block. Svara inte att du saknar mojlighet om faltet finns i listan.\n" +
     "Foreslå BARA falt du ar saker pa. Skriv en forklaring INNAN suggestion-blocket.\n\n" +
-    FIELD_KNOWLEDGE + "\n\n" +
+    "## Faltkunskap\n" + FIELD_KNOWLEDGE + "\n\n" +
+    "## Jamforelsesystem\n" +
+    "Systemet hamtar AUTOMATISKT jamforelsedata fran Flytt.io APIer nar anvandaren fragar om el, bredband, " +
+    "forsakring, flyttfirma eller stadning. Resultaten visas under 'Faktisk jamforelsedata' nedan.\n" +
+    "Vissa kategorier anvander dedikerade APIer: el fran elprisetjustnu.se (exakta spotpriser), " +
+    "lokala flytt/stadfirmor fran Eniro (riktiga foretag med adress och telefon), " +
+    "och bredband fran PTS bredbandskartlaggning (tillgangliga tekniker och operatorer per kommun). " +
+    "Dessa markeras med 'mode: api' i datan nedan. Data fran api-laget ar verklig, inte uppskattningar.\n" +
+    "VIKTIGT: Nar du svarar pa jamforelsefragor, anvand BARA data fran 'Faktisk jamforelsedata'. " +
+    "HITTA INTE PA priser, leverantorer eller villkor. Om ingen jamforelsedata finns, " +
+    "be anvandaren fylla i postnummer/ort forst sa data kan hamtas.\n\n" +
+    "Elnatsomrade harlds automatiskt fran postnummer (SE1-SE4). " +
+    "Namn alltid omradet nar el diskuteras, t.ex. 'Du tillhor elomrade SE3.'\n\n" +
+    "## E-post-sammanfattning\n" +
+    "Nar anvandaren ber om att fa ett mejl, en sammanfattning, eller en oversikt skickad:\n" +
+    "1. Svara med en kort forklaring.\n" +
+    "2. Inkludera ett email_request-block i EXAKT detta format:\n" +
+    "```email_request\n" +
+    "{\"to\":\"\",\"subject\":\"Sammanfattning av din flytt\",\"includeFields\":true,\"includeChecklist\":true}\n" +
+    "```\n" +
+    "Fyll i 'to' med anvandarens e-post om den finns i formularkontexten (email-faltet). Annars lamna tom.\n" +
+    "Anvandaren far bekrafta innan mejlet skickas.\n\n" +
+    "## Formularets steg-struktur\n" +
+    "Formularet har 4 steg: 1) Start och identifiering (namn, personnummer, e-post, telefon), " +
+    "2) Adresser (fran/till-adress), 3) Flyttdetaljer (datum, lagenhetsnr, fastighetsbeteckning), " +
+    "4) Bekrafta.\n" +
+    "Anvandaren ser bara falt for det aktuella steget i DOM. " +
+    "Falt fran tidigare steg ar SPARADE i sessionen och finns i formularkontexten nedan. " +
+    "Checklistan ar inte langre ett eget steg i formularet utan skapas efter registrering och visas i dashboarden. " +
+    "Anta INTE att falt saknas bara for att de inte syns — kolla hela kontexten.\n\n" +
     "## Proaktivt beteende\n" +
-    "- Om du ser saknade falt i kontexten, papminn anvandaren och forklara vad de betyder.\n" +
+    "- Om du ser saknade falt i kontexten, paminn anvandaren och forklara vad de betyder.\n" +
     "- Om postnummer ar ifyllt och ort saknas, foreslå orten via suggestion-block (data finns i uppslagna data).\n" +
-    "- Om toCity ar ifyllt, erbjud lokala tips (kollektivtrafik, matbutiker, vardcentral).\n" +
-    "- Nar anvandaren fragar om jamforelser (el, bredband, forsakring, flyttfirma, stadning), " +
-    "ge konkreta tips med riktiga svenska foretag och prisintervall.\n" +
-    "- Nar anvandaren fragar vad ett falt ar, forklara tydligt med exempel och var man hittar uppgiften.";
+    "- Om toCity ar ifyllt, erbjud lokala tips och foreslå att jamfora el/bredband/forsakring.\n" +
+    "- Vid jamforelsefragor, anvand BARA data fran 'Faktisk jamforelsedata'. Hitta INTE PA.\n" +
+    "- Nar anvandaren fragar vad ett falt ar, forklara tydligt med exempel och var man hittar uppgiften.\n" +
+    "- Sag ALDRIG att sessionen har kraschat, dog eller tappade data om det inte uttryckligen finns i kontexten.\n" +
+    "- Om gatuadress och stad finns men postnummer saknas, har systemet AUTOMATISKT slagit upp postnumret " +
+    "via Nominatim/OpenStreetMap. Resultatet finns i 'Auto-uppslaget postnummer' nedan. " +
+    "Anvand det direkt — fraga INTE anvandaren om postnumret om det redan ar uppslaget.\n" +
+    "- Nar du har postnummer (fran formularet ELLER auto-uppslaget), kor jamforelser direkt utan att fraga.\n\n" +
+    "## Webbsokning\n" +
+    "Om anvandaren uttryckligen ber dig 'soka pa natet', 'googla', 'web searcha' eller liknande, " +
+    "sa gor systemet en riktig webbsokning via Brave Search at dig automatiskt. " +
+    "Du behover INTE saga att du inte kan soka pa natet — systemet hanterar det. " +
+    "Svara ALDRIG 'jag kan inte soka pa natet' om anvandaren ber dig. " +
+    "Resultatet kommer tillbaka som ditt svar.\n\n" +
+    "## Tillgangliga datakallor i denna session\n" +
+    "- PAP: postnummer -> ort, kommun, lan, GPS — anvand detta for att ge ortinfo, kommuninfo etc\n" +
+    "- Nominatim: adressvalidering och geodata\n" +
+    "- Eniro: foretagslistor nara destinationen + lokala flytt/stadfirmor (verkliga foretag med adress och telefon, mode: api)\n" +
+    "- SCB: befolkningsdata per kommun\n" +
+    "- PTS: bredbandsdata per kommun (tillgangliga tekniker, operatorer, fibertackning)\n" +
+    "- Personuppslag via Ratsit/Biluppgifter/Merinfo: personnummer -> namn, adress, stad (koers automatiskt om personnummer finns men namn/adress saknas)\n" +
+    "- Brave Search: webbsokning (triggas automatiskt nar anvandaren ber om det)";
+
+  if (mifContext) {
+    base +=
+      "\n\n## Mini-MIF status\n" +
+      "Mini-MIF ar startsidans snabba personnummer/fritext-flode. Om Mini-MIF redan har hittat namn eller nuvarande adress ska du inte fraga efter dem igen. " +
+      "Efter ett lyckat personnummeruppslag ska du prioritera blockerande SKV-falt i denna ordning: toStreet, toPostal/toCity, moveDate. " +
+      "Om Mini-MIF lyckades delvis, utga fran att dessa falt ar mer tillforlitliga an fria gissningar.\n" +
+      JSON.stringify(mifContext, null, 2);
+  }
 
   if (formContext) {
     base +=
@@ -63,8 +224,29 @@ function buildSystemMessage(
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { sessionId, messages, formContext } = body;
+    let body: Record<string, unknown>;
+    try {
+      const parsed = await req.json();
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return NextResponse.json(
+          { error: "Invalid JSON body" },
+          { status: 400 }
+        );
+      }
+      body = parsed as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON body" },
+        { status: 400 }
+      );
+    }
+
+    const sessionId =
+      (typeof body.sessionId === "string" ? body.sessionId.trim().slice(0, MAX_SESSION_ID_CHARS) : "") ||
+      `oc-${crypto.randomUUID()}`;
+    const messages = Array.isArray(body.messages) ? body.messages : null;
+    const formContext = body.formContext;
+    const mifContext = isRecord(body.mifContext) ? body.mifContext : null;
 
     if (!sessionId || !messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -73,12 +255,108 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If no agent URL is configured, return a helpful fallback
+    const sanitizedMessages = messages
+      .slice(-MAX_MESSAGES_FROM_CLIENT)
+      .filter(
+        (m): m is { role?: unknown; content?: unknown } =>
+          typeof m === "object" && m !== null,
+      )
+      .map((m) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content:
+          typeof m.content === "string"
+            ? m.content.trim().slice(0, MAX_MESSAGE_CONTENT_CHARS)
+            : "",
+      }))
+      .filter((m) => m.content.length > 0);
+
+    const latestUserMessage = [...sanitizedMessages]
+      .reverse()
+      .find(
+        (m: { role?: unknown; content?: unknown }) =>
+          m &&
+          m.role !== "assistant" &&
+          typeof m.content === "string" &&
+          m.content.trim()
+      ) as { content: string } | undefined;
+
+    if (latestUserMessage && shouldRunExplicitWebSearch(latestUserMessage.content)) {
+      try {
+        const searchReply =
+          (await runExplicitWebSearch(latestUserMessage.content, {
+            route: "/api/openclaw/chat",
+            sessionId,
+          })) ||
+          "Jag kunde inte fa fram nagot tydligt webbsokresultat just nu. Forsok igen med en mer specifik fraga.";
+        return NextResponse.json({
+          role: "assistant",
+          content: searchReply,
+          provider: "openclaw-local-web-search",
+        });
+      } catch (error) {
+        const searchError = error instanceof Error ? error.message : "Webbsokning misslyckades";
+        return NextResponse.json(
+          {
+            role: "assistant",
+            content: "Jag kunde inte gora webbsokningen just nu. Forsok igen om en liten stund.",
+            provider: "openclaw-local-web-search-fallback",
+            error: searchError,
+          },
+          { status: 502 },
+        );
+      }
+    }
+
+    const directSuggestion = latestUserMessage
+      ? parseDirectSuggestion(latestUserMessage.content)
+      : null;
+
+    if (directSuggestion) {
+      const suggestionBlock = JSON.stringify(
+        { [directSuggestion.field]: directSuggestion.value },
+        null,
+        0
+      );
+      const directReply =
+        `Absolut, jag föreslår ${directSuggestion.label} direkt.\n` +
+        `\`\`\`suggestion\n${suggestionBlock}\n\`\`\``;
+
+      return NextResponse.json({
+        role: "assistant",
+        content: directReply,
+        provider: "openclaw-local-autofill",
+        directSuggestion: {
+          field: directSuggestion.field,
+          value: directSuggestion.value,
+        },
+      });
+    }
+
+    if (latestUserMessage && isGreetingOnlyMessage(latestUserMessage.content)) {
+      const greetingReply =
+        "Hej! Jag är med. Säg bara vad du vill göra i flyttflödet så hjälper jag direkt.";
+      return NextResponse.json({
+        role: "assistant",
+        content: greetingReply,
+        provider: "openclaw-local-greeting",
+      });
+    }
+
+    if (latestUserMessage && isSiteCapabilitiesQuestion(latestUserMessage.content)) {
+      const capabilitiesReply =
+        "Här kan du göra din flyttanmälan steg för steg, få hjälp med fälten, få smarta förslag i formuläret och sedan fortsätta till dashboard med checklista, påminnelser och jämförelser. Jag kan guida dig genom det som saknas just nu.";
+      return NextResponse.json({
+        role: "assistant",
+        content: capabilitiesReply,
+        provider: "openclaw-local-capabilities",
+      });
+    }
+
     if (!GATEWAY_BASE_URL) {
       return NextResponse.json({
         content:
-          "Hej! Jag ar Aida, men jag ar inte helt konfigurerad annu. " +
-          "Be administratoren satta OPENCLAW_GATEWAY_URL eller OPENCLAW_AGENT_URL i miljovariablerna.",
+          "Hej! Jag är Aida, men jag är inte helt konfigurerad ännu. " +
+          "Be administratören sätta OPENCLAW_GATEWAY_URL eller OPENCLAW_AGENT_URL i miljövariablerna.",
         role: "assistant",
       });
     }
@@ -86,8 +364,8 @@ export async function POST(req: NextRequest) {
     if (!GATEWAY_TOKEN) {
       return NextResponse.json({
         content:
-          "Hej! Jag ar Aida, men jag saknar gateway-token. " +
-          "Be administratoren satta OPENCLAW_GATEWAY_TOKEN (eller OPENCLAW_AGENT_TOKEN i enkel setup).",
+          "Hej! Jag är Aida, men jag saknar gateway-token. " +
+          "Be administratören sätta OPENCLAW_GATEWAY_TOKEN (eller OPENCLAW_AGENT_TOKEN i enkel setup).",
         role: "assistant",
       });
     }
@@ -95,37 +373,167 @@ export async function POST(req: NextRequest) {
     const siteAccess = buildOpenClawSiteAccess(req);
     const chatUrl = `${GATEWAY_BASE_URL}/v1/chat/completions`;
 
-    const enrichedData = await enrichContext(formContext);
+    const { intent, comparisonTasks } = latestUserMessage
+      ? classifyMessage(latestUserMessage.content)
+      : { intent: "general" as const, comparisonTasks: [] as string[] };
 
-    // Build messages array in OpenAI format
+    const mifFields: Record<string, string> = isRecord(mifContext?.fields)
+      ? Object.fromEntries(
+          Object.entries(mifContext.fields).filter(
+            ([, value]) => typeof value === "string" && value.trim().length > 0,
+          ),
+        ) as Record<string, string>
+      : {};
+
+    const mergedFields: Record<string, string> = {
+      ...mifFields,
+      ...(isRecord(formContext) && isRecord(formContext.fields)
+        ? Object.fromEntries(
+            Object.entries(formContext.fields).filter(
+              ([, value]) => typeof value === "string" && value.trim().length > 0,
+            ),
+          )
+        : {}),
+    } as Record<string, string>;
+
+    const mergedCurrentStep =
+      isRecord(formContext) && typeof formContext.currentStep === "number"
+        ? formContext.currentStep
+        : undefined;
+
+    const mergedFormContextForEnrichment = {
+      fields: mergedFields,
+      currentStep: mergedCurrentStep,
+    };
+
+    const mergedFormContext = isRecord(formContext)
+      ? {
+          ...formContext,
+          fields: mergedFields,
+          ...(mergedCurrentStep !== undefined ? { currentStep: mergedCurrentStep } : {}),
+          mifContext,
+        }
+      : {
+          formType: "mif",
+          fields: mergedFields,
+          mifContext,
+        };
+
+    const formFields = mergedFields;
+
+    let enrichedData: string | undefined;
+    let comparisonData = "";
+
+    const apiBaseUrl = req.nextUrl.origin;
+
+    if (intent === "simple") {
+      // Fast path: skip enrichment + comparison for simple knowledge questions
+    } else if (intent === "comparison") {
+      const [enrichResult, compResult] = await Promise.all([
+        enrichContext(mergedFormContextForEnrichment, apiBaseUrl, latestUserMessage?.content),
+        prefetchComparisons(comparisonTasks, formFields ?? null),
+      ]);
+      enrichedData = enrichResult?.text || undefined;
+      comparisonData = compResult;
+    } else {
+      const enrichResult = await enrichContext(
+        mergedFormContextForEnrichment,
+        apiBaseUrl,
+        latestUserMessage?.content,
+      );
+      enrichedData = enrichResult?.text || undefined;
+    }
+
     const openaiMessages = [
-      { role: "system", content: buildSystemMessage(formContext, enrichedData, siteAccess) },
-      ...messages.slice(-15).map((m: { role: string; content: string }) => ({
+      {
+        role: "system",
+        content: buildSystemMessage(mergedFormContext, enrichedData, siteAccess, mifContext) + comparisonData,
+      },
+      ...sanitizedMessages.slice(-15).map((m) => ({
         role: m.role === "assistant" ? "assistant" : "user",
         content: m.content,
       })),
     ];
+    const gatewayFlow = gatewayFlowFromIntent(intent);
+    const gatewayStarted = Date.now();
+    const gatewayModel = getModelForIntent(intent);
 
-    const agentResponse = await fetch(chatUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GATEWAY_TOKEN}`,
-        "x-openclaw-agent-id": AGENT_ID,
-      },
-      body: JSON.stringify({
-        model: CHAT_MODEL,
-        stream: true,
-        user: sessionId,
-        messages: openaiMessages,
-      }),
-    });
+    const timeoutSignal =
+      typeof (AbortSignal as { timeout?: (ms: number) => AbortSignal }).timeout === "function"
+        ? (AbortSignal as { timeout: (ms: number) => AbortSignal }).timeout(OPENCLAW_GATEWAY_TIMEOUT_MS)
+        : undefined;
+
+    let agentResponse: Response;
+    try {
+      agentResponse = await fetch(chatUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${GATEWAY_TOKEN}`,
+          "x-openclaw-agent-id": AGENT_ID,
+        },
+        body: JSON.stringify({
+          model: gatewayModel,
+          stream: true,
+          user: sessionId,
+          messages: openaiMessages,
+        }),
+        signal: timeoutSignal,
+      });
+    } catch (error) {
+      if (isAbortError(error)) {
+        trackUsage({
+          provider: "openclaw_gateway",
+          flow: gatewayFlow,
+          route: "/api/openclaw/chat",
+          model: gatewayModel,
+          sessionId,
+          durationMs: Date.now() - gatewayStarted,
+          ok: false,
+        });
+        return NextResponse.json(
+          {
+            content: "Aida tog för lång tid att svara. Försök igen direkt så fortsätter vi.",
+            role: "assistant",
+            provider: "openclaw-timeout-fallback",
+          },
+          { status: 504 }
+        );
+      }
+      console.error("[v0] OpenClaw chat fetch error:", error);
+      trackUsage({
+        provider: "openclaw_gateway",
+        flow: gatewayFlow,
+        route: "/api/openclaw/chat",
+        model: gatewayModel,
+        sessionId,
+        durationMs: Date.now() - gatewayStarted,
+        ok: false,
+      });
+      return NextResponse.json(
+        {
+          content: "Aida kunde inte nås just nu. Försök igen om en stund.",
+          role: "assistant",
+          provider: "openclaw-network-fallback",
+        },
+        { status: 502 }
+      );
+    }
 
     if (!agentResponse.ok) {
       const errText = await agentResponse.text().catch(() => "Unknown");
       console.error(
         `[v0] OpenClaw chat error ${agentResponse.status}: ${errText}`
       );
+      trackUsage({
+        provider: "openclaw_gateway",
+        flow: gatewayFlow,
+        route: "/api/openclaw/chat",
+        model: gatewayModel,
+        sessionId,
+        durationMs: Date.now() - gatewayStarted,
+        ok: false,
+      });
       return NextResponse.json(
         {
           content: `Aida kunde inte svara just nu (${agentResponse.status}). Forsok igen om en stund.`,
@@ -206,6 +614,16 @@ export async function POST(req: NextRequest) {
         }
       })();
 
+      trackUsage({
+        provider: "openclaw_gateway",
+        flow: gatewayFlow,
+        route: "/api/openclaw/chat",
+        model: gatewayModel,
+        sessionId,
+        durationMs: Date.now() - gatewayStarted,
+        ok: true,
+      });
+
       return new Response(readable, {
         headers: {
           "Content-Type": "text/event-stream",
@@ -217,20 +635,37 @@ export async function POST(req: NextRequest) {
 
     // Non-streaming JSON fallback
     const data = await agentResponse.json().catch(() => null);
+    const usage = extractTokenUsage((data as any)?.usage);
+    trackUsage({
+      provider: "openclaw_gateway",
+      flow: gatewayFlow,
+      route: "/api/openclaw/chat",
+      model: gatewayModel,
+      sessionId,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+      durationMs: Date.now() - gatewayStarted,
+      ok: true,
+    });
 
-    const parsedContent = extractOpenClawText(data);
-    if (parsedContent) {
-      return NextResponse.json({
-        content: parsedContent,
-        role: "assistant",
-      });
-    }
+    const reply = extractOpenClawText(data) || data?.content || "Inget svar fran agenten.";
 
     return NextResponse.json({
-      content: data?.content || "Inget svar fran agenten.",
+      content: reply,
       role: "assistant",
     });
   } catch (error) {
+    if (isAbortError(error)) {
+      return NextResponse.json(
+        {
+          content: "Aida tog för lång tid att svara. Försök igen direkt så fortsätter vi.",
+          role: "assistant",
+          provider: "openclaw-timeout-fallback",
+        },
+        { status: 504 }
+      );
+    }
     console.error("[v0] OpenClaw chat proxy error:", error);
     return NextResponse.json(
       {

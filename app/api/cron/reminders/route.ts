@@ -9,12 +9,38 @@ import {
   getOpenClawTokens,
 } from "@/lib/openclaw/server-config";
 import { extractOpenClawText } from "@/lib/openclaw/response";
+import {
+  sendViaResend,
+  sendViaSendgrid,
+  type EmailContent,
+  type MailProvider,
+} from "@/lib/email/send";
 
 export const runtime = "nodejs";
 
-const DEFAULT_LOOKAHEAD_DAYS = 3;
 const MAX_LOOKAHEAD_DAYS = 30;
 const REMINDER_KIND = "due_soon";
+
+function parseBooleanString(value: string | undefined): boolean | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "y", "yes"].includes(normalized)) return true;
+  if (["0", "false", "n", "no"].includes(normalized)) return false;
+  return undefined;
+}
+
+function getDefaultLookaheadDays(): number {
+  const envValue = process.env.REMINDER_DEFAULT_LOOKAHEAD_DAYS;
+  const parsed = Number(envValue);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 3;
+  return Math.min(Math.floor(parsed), MAX_LOOKAHEAD_DAYS);
+}
+
+function getDefaultDryRun(): boolean {
+  const envValue = parseBooleanString(process.env.REMINDER_DEFAULT_DRY_RUN);
+  if (typeof envValue === "boolean") return envValue;
+  return process.env.NODE_ENV !== "production";
+}
 
 type DueItem = {
   taskKey: string | null;
@@ -33,13 +59,6 @@ type ReminderCandidate = {
   dueItems: DueItem[];
 };
 
-type EmailContent = {
-  subject: string;
-  text: string;
-  html: string;
-};
-
-type MailProvider = "resend" | "sendgrid";
 
 function toIsoDate(date: Date): string {
   return date.toISOString().split("T")[0];
@@ -64,16 +83,31 @@ function isChecklistDone(item: {
 function parseLookaheadDays(value: string | null): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_LOOKAHEAD_DAYS;
+    return getDefaultLookaheadDays();
   }
   return Math.min(Math.floor(parsed), MAX_LOOKAHEAD_DAYS);
+}
+
+function parseOptionalBoolean(value: string | null): boolean | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "y", "yes"].includes(normalized)) return true;
+  if (["0", "false", "n", "no"].includes(normalized)) return false;
+  return undefined;
+}
+
+function normalizeEmail(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed || !trimmed.includes("@")) return null;
+  return trimmed;
 }
 
 function parseDryRun(req: NextRequest): boolean {
   const param = req.nextUrl.searchParams.get("dryRun");
   if (param === "true" || param === "1") return true;
   if (param === "false" || param === "0") return false;
-  return process.env.NODE_ENV !== "production";
+  return getDefaultDryRun();
 }
 
 function escapeHtml(input: string): string {
@@ -169,7 +203,8 @@ function normalizeAidaContent(value: unknown): EmailContent | null {
 
 async function generateAidaContent(
   candidate: ReminderCandidate,
-  lookaheadDays: number
+  lookaheadDays: number,
+  useAida: boolean
 ): Promise<EmailContent | null> {
   const gatewayBaseUrl = getOpenClawGatewayBaseUrl();
   const agentId = getOpenClawAgentId();
@@ -177,7 +212,7 @@ async function generateAidaContent(
   const { gatewayToken } = getOpenClawTokens();
 
   if (!gatewayBaseUrl || !gatewayToken) return null;
-  if ((process.env.REMINDER_USE_AIDA ?? "true") !== "true") return null;
+  if (!useAida) return null;
 
   const minimalItems = candidate.dueItems
     .slice()
@@ -242,82 +277,50 @@ async function generateAidaContent(
   }
 }
 
-function resolveProvider(): { provider: MailProvider | null; missing: string[] } {
-  const requested = (process.env.REMINDER_EMAIL_PROVIDER || "").trim().toLowerCase();
+function resolveProvider(
+  requestedOverride?: string
+): { provider: MailProvider | null; missing: string[]; requested: string } {
+  const requested = (
+    requestedOverride ??
+    process.env.REMINDER_EMAIL_PROVIDER ??
+    ""
+  )
+    .trim()
+    .toLowerCase();
   const hasResend = Boolean(process.env.RESEND_API_KEY);
   const hasSendgrid = Boolean(process.env.SENDGRID_API_KEY);
 
+  if (requested === "auto") {
+    if (hasResend) return { provider: "resend", missing: [], requested };
+    if (hasSendgrid) return { provider: "sendgrid", missing: [], requested };
+    return {
+      provider: null,
+      missing: ["RESEND_API_KEY or SENDGRID_API_KEY"],
+      requested,
+    };
+  }
+
   if (requested === "resend") {
-    return { provider: hasResend ? "resend" : null, missing: hasResend ? [] : ["RESEND_API_KEY"] };
+    return {
+      provider: hasResend ? "resend" : null,
+      missing: hasResend ? [] : ["RESEND_API_KEY"],
+      requested,
+    };
   }
   if (requested === "sendgrid") {
     return {
       provider: hasSendgrid ? "sendgrid" : null,
       missing: hasSendgrid ? [] : ["SENDGRID_API_KEY"],
+      requested,
     };
   }
-  if (hasResend) return { provider: "resend", missing: [] };
-  if (hasSendgrid) return { provider: "sendgrid", missing: [] };
-  return { provider: null, missing: ["RESEND_API_KEY or SENDGRID_API_KEY"] };
-}
-
-async function sendViaResend(args: {
-  apiKey: string;
-  from: string;
-  to: string;
-  content: EmailContent;
-}): Promise<string | null> {
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${args.apiKey}`,
-    },
-    body: JSON.stringify({
-      from: args.from,
-      to: [args.to],
-      subject: args.content.subject,
-      text: args.content.text,
-      html: args.content.html,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Resend returned ${response.status}`);
-  }
-
-  const data = (await response.json().catch(() => null)) as { id?: string } | null;
-  return data?.id ?? null;
-}
-
-async function sendViaSendgrid(args: {
-  apiKey: string;
-  from: string;
-  to: string;
-  content: EmailContent;
-}): Promise<string | null> {
-  const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${args.apiKey}`,
-    },
-    body: JSON.stringify({
-      personalizations: [{ to: [{ email: args.to }] }],
-      from: { email: args.from },
-      subject: args.content.subject,
-      content: [
-        { type: "text/plain", value: args.content.text },
-        { type: "text/html", value: args.content.html },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`SendGrid returned ${response.status}`);
-  }
-
-  return response.headers.get("x-message-id");
+  if (hasResend) return { provider: "resend", missing: [], requested };
+  if (hasSendgrid) return { provider: "sendgrid", missing: [], requested };
+  return {
+    provider: null,
+    missing: ["RESEND_API_KEY or SENDGRID_API_KEY"],
+    requested,
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -330,8 +333,23 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const lookaheadDays = parseLookaheadDays(req.nextUrl.searchParams.get("lookaheadDays"));
+    const lookaheadDays = parseLookaheadDays(
+      req.nextUrl.searchParams.get("lookaheadDays")
+    );
     const dryRun = parseDryRun(req);
+    const targetEmail = normalizeEmail(
+      req.nextUrl.searchParams.get("targetEmail")
+    );
+    const providerOverride = (req.nextUrl.searchParams.get("provider") || "")
+      .trim()
+      .toLowerCase();
+    const fromEmailOverride = req.nextUrl.searchParams.get("fromEmail")?.trim();
+    const useAidaOverride = parseOptionalBoolean(
+      req.nextUrl.searchParams.get("useAida")
+    );
+    const useAida =
+      useAidaOverride ??
+      (parseBooleanString(process.env.REMINDER_USE_AIDA) ?? true);
 
     const today = new Date();
     const todayIso = toIsoDate(today);
@@ -354,6 +372,8 @@ export async function GET(req: NextRequest) {
 
     for (const moveRow of moveRows) {
       if (!moveRow.userEmail) continue;
+      const normalizedUserEmail = moveRow.userEmail.trim().toLowerCase();
+      if (targetEmail && normalizedUserEmail !== targetEmail) continue;
 
       const rows = await db
         .select({
@@ -386,14 +406,20 @@ export async function GET(req: NextRequest) {
       candidates.push({
         moveId: moveRow.moveId,
         userName: moveRow.userName,
-        userEmail: moveRow.userEmail,
+        userEmail: normalizedUserEmail,
         moveDate: moveRow.moveDate,
         dueItems,
       });
     }
 
-    const { provider, missing } = resolveProvider();
-    const fromEmail = (process.env.REMINDER_EMAIL_FROM || process.env.EMAIL_FROM || "").trim();
+    const { provider, missing, requested } = resolveProvider(
+      providerOverride || undefined
+    );
+    const fromEmail =
+      (fromEmailOverride && fromEmailOverride.length > 0
+        ? fromEmailOverride
+        : process.env.REMINDER_EMAIL_FROM || process.env.EMAIL_FROM || ""
+      ).trim();
 
     const processed: Array<{
       moveId: number;
@@ -433,7 +459,11 @@ export async function GET(req: NextRequest) {
       }
 
       const deterministicContent = buildDeterministicContent(candidate, lookaheadDays);
-      const aidaContent = await generateAidaContent(candidate, lookaheadDays);
+      const aidaContent = await generateAidaContent(
+        candidate,
+        lookaheadDays,
+        useAida
+      );
       const content = aidaContent ?? deterministicContent;
       const usedAida = Boolean(aidaContent);
 
@@ -537,6 +567,10 @@ export async function GET(req: NextRequest) {
       ok: true,
       dryRun,
       lookaheadDays,
+      targetEmail,
+      providerRequested: requested || "auto",
+      fromEmail: fromEmail || null,
+      useAida,
       window: { from: todayIso, to: horizonIso },
       provider: provider ?? null,
       counts,

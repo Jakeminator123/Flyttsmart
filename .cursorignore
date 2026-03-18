@@ -17,10 +17,6 @@ __pycache__
 # Low: noise
 Thumbs.db
 
-addressandring
-adressandring/sida_*
-adressandring/skrapning_sajt.py
-
 next-env.d.ts
 *.tsbuildinfo
 *.log

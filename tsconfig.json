@@ -36,6 +36,9 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "rats_meri_docker_scraper",
+    "skrapning_ratsit",
+    "inlogg"
   ]
 }

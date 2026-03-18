@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: rats-meri-docker-scraper
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { ArrowRight } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -41,22 +42,27 @@ export function Header() {
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-700 ease-out",
         scrolled
-          ? "glass shadow-lg shadow-primary/5"
-          : "bg-transparent"
+          ? "glass py-2.5 shadow-lg shadow-primary/8 supports-backdrop-filter:bg-background/45"
+          : "bg-transparent py-3"
       )}
     >
       {/* Animated gradient line on scroll */}
-      <div
-        className={cn(
-          "absolute bottom-0 left-0 right-0 h-px transition-opacity duration-700",
-          scrolled ? "opacity-100" : "opacity-0"
+      <AnimatePresence>
+        {scrolled && (
+          <motion.div
+            className="absolute bottom-0 left-0 right-0 h-[0.5px] opacity-80"
+            initial={{ opacity: 0, scaleX: 0 }}
+            animate={{ opacity: 1, scaleX: 1 }}
+            exit={{ opacity: 0, scaleX: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            aria-hidden="true"
+          >
+            <div className="section-divider h-full w-full" />
+          </motion.div>
         )}
-        aria-hidden="true"
-      >
-        <div className="section-divider h-full w-full" />
-      </div>
+      </AnimatePresence>
 
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 lg:px-8">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 lg:px-8">
         {/* Logo */}
         <Link
           href="/"
@@ -68,7 +74,7 @@ export function Header() {
               : "opacity-0 -translate-x-6"
           )}
         >
-          <Logo size="sm" />
+          <Logo size="md" animate={mounted} />
         </Link>
 
         {/* Nav links */}
@@ -106,7 +112,7 @@ export function Header() {
           )}
           style={{ transitionDelay: mounted ? "550ms" : "0ms" }}
         >
-          <Button asChild size="sm" className="group rounded-full px-5 gap-1.5 shadow-lg shadow-primary/15 transition-all duration-300 hover:shadow-xl hover:shadow-primary/25 hover:-translate-y-0.5">
+          <Button asChild size="sm" className="group rounded-full px-5 gap-1.5 shadow-lg shadow-primary/15 transition-all duration-300 hover:shadow-xl hover:shadow-primary/25 hover:-translate-y-0.5 hover:gap-2.5">
             <Link href="/adressandring">
               Starta din flytt
               <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
@@ -114,7 +120,7 @@ export function Header() {
           </Button>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile menu button */}
         <button
           className={cn(
             "flex h-10 w-10 items-center justify-center rounded-lg text-foreground transition-all duration-500 ease-out hover:bg-primary/10 md:hidden",
@@ -145,15 +151,18 @@ export function Header() {
           </SheetHeader>
           <Separator />
           <nav className="flex flex-col gap-1 px-2 py-4" aria-label="Mobilnavigering">
-            {navLinks.map((link) => (
-              <a
+            {navLinks.map((link, i) => (
+              <motion.a
                 key={link.href}
                 href={link.href}
                 className="rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground"
                 onClick={() => setSheetOpen(false)}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 + i * 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
               >
                 {link.label}
-              </a>
+              </motion.a>
             ))}
           </nav>
           <Separator />

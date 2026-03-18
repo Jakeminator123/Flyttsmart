@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useEffect } from "react";
+import { getSharedAidaSessionId } from "@/lib/aida/client-session";
 
 // ─── Types ─────────────────────────────────────────────
 
@@ -60,17 +61,7 @@ async function signPayload(body: string, secret: string): Promise<string> {
 // ─── Session ID helper ─────────────────────────────────
 
 function getSessionId(): string {
-  if (typeof window === "undefined") return "";
-  const KEY = "openclaw_session_id";
-  try {
-    const existing = sessionStorage.getItem(KEY);
-    if (existing) return existing;
-    const id = crypto.randomUUID();
-    sessionStorage.setItem(KEY, id);
-    return id;
-  } catch {
-    return crypto.randomUUID();
-  }
+  return getSharedAidaSessionId();
 }
 
 // ─── Webhook secret (injected at build time) ───────────

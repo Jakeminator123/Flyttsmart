@@ -1,14 +1,21 @@
-import type { Metadata } from "next"
 import { LegalPageLayout, LegalSection } from "@/components/legal-page-layout"
+import { createPageMetadata } from "@/lib/site-config"
 
-export const metadata: Metadata = {
+export const metadata = createPageMetadata({
   title: "Integritetspolicy – Flytt.io",
-  description: "Integritetspolicy för Flytt.io – så hanterar vi dina personuppgifter.",
-}
+  description:
+    "Integritetspolicy för Flytt.io och hur personuppgifter behandlas vid flyttanmälan, guidefunktioner och erbjudanden.",
+  path: "/integritetspolicy",
+  keywords: ["integritetspolicy", "GDPR", "personuppgifter"],
+})
 
 export default function IntegritetspolicyPage() {
   return (
-    <LegalPageLayout badge="Integritet" title="Integritetspolicy för Flytt.io">
+    <LegalPageLayout
+      badge="Integritet"
+      title="Integritetspolicy för Flytt.io"
+      lastUpdated="12 mars 2026"
+    >
       <p>
         Din integritet är viktig för oss. I denna integritetspolicy förklarar vi hur Flytt.io behandlar personuppgifter när du använder vår tjänst.
       </p>

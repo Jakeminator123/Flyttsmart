@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  getAllowedModelPrefixes,
   getOpenClawAgentId,
   getOpenClawChatModel,
   getOpenClawGatewayBaseUrl,
+  isModelAllowed,
+  isModelPolicyEnforced,
+  getModelForIntent,
   getOpenClawTokens,
 } from "@/lib/openclaw/server-config";
 
@@ -16,9 +20,24 @@ export async function GET(req: NextRequest) {
   const gatewayUrl = getOpenClawGatewayBaseUrl();
   const agentId = getOpenClawAgentId();
   const model = getOpenClawChatModel(agentId);
-  const testTalEnabled = (process.env.TEST_TAL ?? "").toLowerCase() === "y";
-  const mergeOcDid =
-    (process.env.NEXT_PUBLIC_MERGE_OC_DID ?? "").toLowerCase() === "y";
+  const modelByIntent = {
+    simple: getModelForIntent("simple"),
+    general: getModelForIntent("general"),
+    comparison: getModelForIntent("comparison"),
+  };
+  const modelPolicyEnforced = isModelPolicyEnforced();
+  const allowedModelPrefixes = getAllowedModelPrefixes();
+  const rawPrimaryModel = (process.env.OPENCLAW_CHAT_MODEL ?? "").trim();
+  const rawSimpleModel = (process.env.OPENCLAW_CHAT_MODEL_SIMPLE ?? "").trim();
+  const controlUiDeviceAuthDisabled =
+    ["1", "true", "y", "yes"].includes(
+      (process.env.OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH ?? "").trim().toLowerCase(),
+    );
+  const scbEnabled =
+    (process.env.SCB_ENABLED ?? "").toLowerCase() === "y" ||
+    (process.env.SCB_ENABLED ?? "").toLowerCase() === "true";
+  const scbYear = process.env.SCB_YEAR ?? "2024";
+  const scbTableId = process.env.SCB_TABLE_ID ?? "TAB638";
   const didBridgeEnabled =
     process.env.NEXT_PUBLIC_DID_BRIDGE_ENABLED === "true";
   const {
@@ -33,13 +52,21 @@ export async function GET(req: NextRequest) {
     gatewayUrl,
     agentId,
     model,
+    modelByIntent,
+    modelPolicy: {
+      enforced: modelPolicyEnforced,
+      allowedPrefixes: allowedModelPrefixes,
+      rawPrimaryModel: rawPrimaryModel || "(default)",
+      rawSimpleModel: rawSimpleModel || "(default)",
+    },
     hasGatewayToken: Boolean(gatewayToken),
     hasHooksToken: Boolean(hooksToken),
     hasAccessToken: Boolean(accessToken),
     hasWebhookSecret: Boolean(webhookSecret),
     hasBypassSecret: Boolean(bypassSecret),
-    testTalEnabled,
-    mergeOcDid,
+    scbEnabled,
+    scbYear,
+    scbTableId,
     didBridgeEnabled,
   };
 
@@ -53,6 +80,21 @@ export async function GET(req: NextRequest) {
     warnings.push("OPENCLAW_ACCESS_TOKEN (eller fallback-token) saknas.");
   if (!webhookSecret)
     warnings.push("OPENCLAW_WEBHOOK_SECRET saknas, signaturkontroll ar avstangd.");
+  if (rawPrimaryModel && !isModelAllowed(rawPrimaryModel)) {
+    warnings.push(
+      `OPENCLAW_CHAT_MODEL='${rawPrimaryModel}' bryter modellpolicyn. Tillatna prefix: ${allowedModelPrefixes.join(", ")} (enforce=${modelPolicyEnforced})`,
+    );
+  }
+  if (rawSimpleModel && !isModelAllowed(rawSimpleModel)) {
+    warnings.push(
+      `OPENCLAW_CHAT_MODEL_SIMPLE='${rawSimpleModel}' bryter modellpolicyn. Tillatna prefix: ${allowedModelPrefixes.join(", ")} (enforce=${modelPolicyEnforced})`,
+    );
+  }
+  if (controlUiDeviceAuthDisabled) {
+    warnings.push(
+      "OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH=true ar osakert och bor vara avstangt i produktion.",
+    );
+  }
 
   const includeMasked =
     req.nextUrl.searchParams.get("debug") === "1" ||

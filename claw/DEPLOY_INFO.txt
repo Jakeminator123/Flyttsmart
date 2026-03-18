@@ -52,8 +52,19 @@ Render environment variables (required):
 
 Render environment variables (optional but recommended):
 - OPENCLAW_GATEWAY_BIND=lan
+- OPENCLAW_MODEL_DEFAULT=openai/gpt-5.1-codex
 - OPENCLAW_MODEL_PRIMARY=openai/gpt-5.1-codex
-- OPENCLAW_MODEL_FALLBACK=openai/gpt-5.3-codex
+- OPENCLAW_MODEL_FALLBACK=openai/gpt-5.1-codex
+- OPENCLAW_MODEL_LOCK_ENABLED=false
+- OPENCLAW_MODEL_POLICY_ENFORCE=false
+- OPENCLAW_ALLOWED_MODEL_PREFIXES=openai/
+- OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH=false
+- OPENCLAW_ALLOW_INSECURE_CONTROLUI=false
+
+Provider note:
+- This stack is OpenAI-only (no JuiceFactory/qwen provider path).
+- If a disallowed provider model is configured and OPENCLAW_MODEL_POLICY_ENFORCE=true, entrypoint forces fallback.
+- If OPENCLAW_MODEL_POLICY_ENFORCE=false (default), readiness/health reports warnings but does not hard-block.
 
 Notes:
 - Do not manually set PORT unless you have a specific reason.
@@ -61,7 +72,7 @@ Notes:
   PORT -> OPENCLAW_GATEWAY_PORT -> 18789
 
 
-4) Vercel Environment Variables (flyttsmart project)
+4) Vercel Environment Variables (flyttanu project)
 ----------------------------------------------------
 Required OpenClaw vars:
 - OPENCLAW_GATEWAY_URL=https://openclaw-aida.onrender.com
@@ -74,6 +85,8 @@ Recommended OpenClaw vars:
 - OPENCLAW_HOOKS_TOKEN=<secret>
 - OPENCLAW_ACCESS_TOKEN=<secret>
 - OPENCLAW_WEBHOOK_SECRET=<secret>   (for form mirror signature verification)
+- OPENCLAW_CHAT_MODEL=openai/gpt-5.1-codex
+- OPENCLAW_CHAT_MODEL_SIMPLE=openai/gpt-4.1-mini
 
 Other app-critical vars:
 - TURSO_DATABASE_URL
@@ -86,8 +99,6 @@ D-ID related vars:
 - NEXT_PUBLIC_DID_CLIENT_KEY=<D-ID client key from Studio Embed>
 - NEXT_PUBLIC_DID_AGENT_ID=<D-ID agent ID, e.g. v2_agt_THZNQGpC>
 - DID_BRIDGE_SECRET=<optional>
-- TEST_TAL=y or n
-- NEXT_PUBLIC_MERGE_OC_DID=y or n (when y, hides text chat, DID avatar is primary)
 
 
 5) Known Behavior (Important)
@@ -99,16 +110,10 @@ D-ID related vars:
   Channels are only for integrations like Telegram/Discord/WhatsApp.
 
 
-6) TEST_TAL Behavior
---------------------
-- TEST_TAL=y:
-  /api/did/chat field_blur events can return shouldSpeak=true and trigger browser speech.
-- TEST_TAL=n:
-  field blur speech path is disabled.
-
-Quick verification:
-- GET /api/openclaw/health?debug=1
-  Expect config.testTalEnabled true/false based on TEST_TAL.
+6) D-ID Field Sync Behavior
+---------------------------
+- `/api/did/chat` field_blur events only sync context.
+- Field blur should never trigger spoken echo in production.
 
 
 7) Smoke Test Checklist
@@ -120,7 +125,7 @@ Render checks:
    - [gateway] listening on ws://0.0.0.0:10000
 
 Vercel checks:
-1) GET https://flyttsmart.vercel.app/api/openclaw/health?debug=1
+1) GET https://flyttanu.vercel.app/api/openclaw/health?debug=1
    Expect:
    - gatewayUrl = https://openclaw-aida.onrender.com
    - agentId = aida-flyttagent
@@ -169,9 +174,32 @@ Fix:
 - Avoid exposing NEXT_PUBLIC_* secrets (client-visible).
 
 
-10) Operational Notes
+10) D-ID + OpenClaw Integration (updated 2026-02-24)
+-----------------------------------------------------
+The D-ID avatar "AIda" (agent v2_agt_THZNQGpC) uses OpenClaw as its brain
+via a client-side relay pattern with @d-id/client-sdk.
+
+Architecture:
+  User voice -> Web Speech API (sv-SE) -> /api/did/chat -> OpenClaw
+  OpenClaw response -> agentManager.speak() -> D-ID avatar speaks
+
+Key widget: components/did-openclaw-bridge-widget.tsx
+  - Uses @d-id/client-sdk (not the old embed script)
+  - Web Speech API for Swedish STT (bypasses D-ID's broken STT)
+  - speak() mode: avatar says text without going through D-ID's LLM
+  - Text input as fallback for browsers without Web Speech API
+
+D-ID agent config:
+  - llm.provider = "openai" (fallback, not actively used)
+  - llm.model = "gpt-4.1-nano"
+  - presenter.voice = "sv-SE-SofieNeural"
+
+See docs/DID-OPENCLAW-INTEGRATION.md for full documentation.
+
+
+11) Operational Notes
 ---------------------
 - Redeploy Render after changing entrypoint/config defaults.
 - Redeploy Vercel after changing build-time NEXT_PUBLIC_* vars.
 - If local and cloud behavior differ, verify linked Vercel project first:
-  this setup must target project "flyttsmart" (not legacy project names).
+  this setup must target project "flyttanu" (not legacy project names).

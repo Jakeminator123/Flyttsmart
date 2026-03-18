@@ -165,7 +165,6 @@ function Band({
 
   const vec = new THREE.Vector3();
   const ang = new THREE.Vector3();
-  const dir = new THREE.Vector3();
   const quat = new THREE.Quaternion();
   const euler = new THREE.Euler();
   const dragPlane = useRef(new THREE.Plane());
@@ -400,27 +399,30 @@ function Band({
             ref={cardVisual}
             scale={5}
             position={[0, 0, -0.05]}
-            onPointerOver={() => hover(true)}
-            onPointerOut={() => hover(false)}
-            onPointerUp={() => stopDragging()}
-            onPointerCancel={() => stopDragging()}
-            onLostPointerCapture={() => stopDragging()}
-            onPointerDown={(e: any) => {
-              e.stopPropagation();
-              e.target.setPointerCapture(e.pointerId);
-              activePointerId.current = e.pointerId;
-              activeCaptureTarget.current = e.target;
-              vec.copy(card.current.translation());
-              e.camera.getWorldDirection(cameraDirection.current);
-              dragPlane.current.setFromNormalAndCoplanarPoint(cameraDirection.current, vec);
-              drag(new THREE.Vector3().copy(e.point).sub(vec));
-            }}
           >
-            <mesh position={[0, 0, 0]}>
-              <boxGeometry args={[0.92, 1.22, 0.22]} />
+            <mesh
+              position={[0, 0, 0.03]}
+              onPointerOver={() => hover(true)}
+              onPointerOut={() => hover(false)}
+              onPointerUp={() => stopDragging()}
+              onPointerCancel={() => stopDragging()}
+              onLostPointerCapture={() => stopDragging()}
+              onPointerDown={(e: any) => {
+                if (!card.current) return;
+                e.stopPropagation();
+                e.target.setPointerCapture(e.pointerId);
+                activePointerId.current = e.pointerId;
+                activeCaptureTarget.current = e.target;
+                vec.copy(card.current.translation());
+                e.camera.getWorldDirection(cameraDirection.current);
+                dragPlane.current.setFromNormalAndCoplanarPoint(cameraDirection.current, vec);
+                drag(new THREE.Vector3().copy(e.point).sub(vec));
+              }}
+            >
+              <planeGeometry args={[0.8, 1.08]} />
               <meshBasicMaterial
                 transparent
-                opacity={0}
+                opacity={0.001}
                 depthWrite={false}
                 side={THREE.DoubleSide}
               />

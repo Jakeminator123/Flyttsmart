@@ -155,11 +155,11 @@ export function LandingFormStart({
           </span>
         </div>
         <h3 className="mt-4 text-xl font-semibold text-foreground">
-          Fyll i det viktigaste direkt
+          Starta med dina uppgifter
         </h3>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-          Börja med riktiga uppgifter redan här. Aida och formuläret delar
-          samma startdata, så namn, personnummer och kontakt följer med vidare.
+          Fyll i det du redan vet. Uppgifterna följer med när du går vidare i
+          formuläret, så du slipper börja om.
         </p>
       </div>
 
@@ -180,7 +180,7 @@ export function LandingFormStart({
         <div className="grid gap-3 xl:grid-cols-2">
           <div className="rounded-2xl border border-border/60 bg-card/70 px-4 py-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Hittade uppgifter
+              Klart hittills
             </p>
             <div className="mt-3 flex min-h-16 flex-wrap gap-2">
               {foundLabels.length > 0 ? (
@@ -194,8 +194,8 @@ export function LandingFormStart({
                 ))
               ) : (
                 <span className="text-xs leading-relaxed text-muted-foreground">
-                  Inga uppgifter ännu, men Aida kan fylla på via chatten till
-                  vänster.
+                  Dina uppgifter dyker upp här när du fyller i dem eller när
+                  Aida tolkar din text.
                 </span>
               )}
             </div>
@@ -203,7 +203,7 @@ export function LandingFormStart({
 
           <div className="rounded-2xl border border-border/60 bg-card/70 px-4 py-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Viktigt kvar för SKV
+              Nästa steg i formuläret
             </p>
             <div className="mt-3 flex min-h-16 flex-wrap gap-2">
               {missingLabels.length > 0 ? (
@@ -218,7 +218,7 @@ export function LandingFormStart({
               ) : (
                 <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300">
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  Startkraven ser redan bra ut.
+                  Starten ser redan bra ut.
                 </span>
               )}
             </div>
@@ -229,12 +229,11 @@ export function LandingFormStart({
       <div className="mt-auto border-t border-border/50 bg-card/65 px-5 py-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            Fortsätt sedan med ny adress, inflyttningsdatum och bekräftelse i
-            nästa steg.
+            Du kompletterar adress, datum och bekräftelse i nästa steg.
           </p>
           <Button asChild className="rounded-full px-6">
             <Link href="/adressandring">
-              Till formuläret
+              Fortsätt till formuläret
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>

@@ -5,7 +5,6 @@ import { Lock, FileCheck, Fingerprint } from "lucide-react"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { TextReveal } from "@/components/text-reveal"
-import { AnimatedCounter } from "@/components/animated-counter"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30, filter: "blur(4px)" },
@@ -25,18 +24,33 @@ const stagger = {
 const trustSignals = [
   {
     icon: Fingerprint,
-    title: "Säker inloggning med BankID",
-    description: "Identifiera dig tryggt med Mobilt BankID – samma säkerhet som din bank.",
+    title: "BankID när det behövs",
+    description: "Identifiering sker först när det är dags att bekräfta uppgifter och gå vidare.",
   },
   {
     icon: Lock,
-    title: "Krypterad data",
-    description: "Dina personuppgifter skyddas med modern kryptering och hanteras enligt GDPR.",
+    title: "Krypterad hantering",
+    description: "Personuppgifter hanteras varsamt och skyddas med modern teknisk säkerhet.",
   },
   {
     icon: FileCheck,
     title: "Tydliga villkor",
-    description: "100% gratis. Inga dolda kostnader. Alla erbjudanden är frivilliga.",
+    description: "Tjänsten är gratis att använda och eventuella erbjudanden är alltid frivilliga.",
+  },
+]
+
+const trustPillars = [
+  {
+    title: "Gratis att använda",
+    description: "Du kan komma igång utan avgifter eller bindning.",
+  },
+  {
+    title: "Tydlig process",
+    description: "Du ser vad som är klart och vad som återstår i nästa steg.",
+  },
+  {
+    title: "Privat tjänst",
+    description: "Flytt.io guidar dig vidare på ett lugnare och tydligare sätt.",
   },
 ]
 
@@ -76,7 +90,7 @@ export function TrustSection() {
             transition={{ duration: 0.5 }}
           >
             <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 px-4 py-1 text-sm font-medium text-primary">
-              Tryggt val
+              Trygg hantering
             </Badge>
           </motion.div>
           <TextReveal
@@ -85,7 +99,7 @@ export function TrustSection() {
             lively
             className="mt-5 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl"
           >
-            Säkerheten du förtjänar
+            Tydligt, tryggt och utan överdrifter
           </TextReveal>
           <motion.p
             className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-muted-foreground"
@@ -94,32 +108,29 @@ export function TrustSection() {
             viewport={{ once: true }}
             transition={{ delay: 0.4, duration: 0.8 }}
           >
-            Används av tusentals flyttare varje månad. Dina uppgifter hanteras tryggt och säkert.
+            Flytt.io fokuserar på det viktiga: tydlig identifiering, trygg
+            hantering av uppgifter och villkor som är enkla att förstå.
           </motion.p>
         </div>
 
-        {/* Stats row */}
+        {/* Trust row */}
         <motion.div
-          className="mx-auto mt-10 flex max-w-2xl items-center justify-center gap-6 sm:gap-12"
+          className="mx-auto mt-10 grid max-w-5xl gap-3 md:grid-cols-3"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-60px" }}
-          variants={fadeUp}
+          variants={stagger}
         >
-          <div className="text-center">
-            <AnimatedCounter target={12000} suffix="+" className="font-heading text-3xl font-bold text-primary lg:text-4xl" />
-            <p className="mt-1 text-sm text-muted-foreground">Flyttanmälningar</p>
-          </div>
-          <div className="hidden h-12 w-px bg-border sm:block" />
-          <div className="text-center">
-            <AnimatedCounter target={99} suffix="%" className="font-heading text-3xl font-bold text-primary lg:text-4xl" />
-            <p className="mt-1 text-sm text-muted-foreground">Nöjdhet</p>
-          </div>
-          <div className="hidden h-12 w-px bg-border sm:block" />
-          <div className="text-center">
-            <AnimatedCounter target={2} suffix=" min" className="font-heading text-3xl font-bold text-primary lg:text-4xl" duration={1} />
-            <p className="mt-1 text-sm text-muted-foreground">Genomsnitt</p>
-          </div>
+          {trustPillars.map((pillar) => (
+            <motion.div key={pillar.title} variants={fadeUp}>
+              <div className="rounded-2xl border border-border/60 bg-card/78 px-5 py-5 text-left shadow-sm">
+                <p className="text-sm font-semibold text-foreground">{pillar.title}</p>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {pillar.description}
+                </p>
+              </div>
+            </motion.div>
+          ))}
         </motion.div>
 
         {/* Trust cards */}

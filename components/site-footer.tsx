@@ -6,7 +6,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { ScrollReveal } from "@/components/scroll-reveal"
 import { Logo } from "@/components/logo"
 import { ManageCookiesButton } from "@/components/manage-cookies-button"
-import { Mail, MapPin, ArrowUpRight } from "lucide-react"
+import { Mail, ArrowUpRight } from "lucide-react"
 
 export function SiteFooter() {
   return (
@@ -31,8 +31,8 @@ export function SiteFooter() {
                 <Logo size="md" />
               </Link>
               <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
-                Flytt.io gör din flyttanmälan enkel och gratis. Vi hjälper dig
-                med allt från Skatteverket till el och bredband på nya adressen.
+                Flytt.io hjälper dig komma igång med flyttanmälan, samla viktiga
+                uppgifter och fortsätta vidare i lugnare tempo.
               </p>
               <div className="mt-6 flex flex-col gap-3">
                 <TooltipProvider>
@@ -47,10 +47,6 @@ export function SiteFooter() {
                     <TooltipContent>Skicka oss ett mejl</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  Stockholm, Sverige
-                </div>
               </div>
             </div>
 

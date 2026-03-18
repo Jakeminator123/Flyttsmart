@@ -29,9 +29,9 @@ const fadeUp = {
 }
 
 const trustItems = [
-  { icon: Fingerprint, label: "BankID och trygg identifiering" },
-  { icon: Shield, label: "Skatteverket och GDPR i samma flöde" },
-  { icon: Sparkles, label: "AI-hjälp nu, checklista efter flytten" },
+  { icon: Sparkles, label: "Börja med det du vet" },
+  { icon: Fingerprint, label: "BankID när det behövs" },
+  { icon: Shield, label: "Tydliga villkor och frivilliga val" },
 ]
 
 function MovingBox({
@@ -135,37 +135,31 @@ export function HeroSection() {
                 variant="outline"
                 className="rounded-full border-primary/15 bg-background/85 px-4 py-1.5 text-sm font-medium text-foreground shadow-sm"
               >
-                Flytt.io förenklar flytten innan, under och efter registreringen
+                Privat tjänst som hjälper dig att komma igång med flyttanmälan
               </Badge>
             </motion.div>
 
-            <div className="mt-7 max-w-4xl">
-              <div className="flex flex-wrap items-end">
+            <h1 className="mt-7 max-w-4xl">
+              <span className="block">
                 <TextReveal
-                  as="h1"
+                  as="span"
                   splitBy="word"
                   delay={0.18}
                   staggerDelay={0.06}
-                  className="hero-title text-5xl font-bold leading-[1.02] tracking-tight text-foreground text-balance sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
+                  className="hero-title inline-block text-5xl font-bold leading-[1.02] tracking-tight text-foreground text-balance sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
                 >
-                  Flytta med mindre stress
+                  Kom igång med flytten
                 </TextReveal>
-                <span
-                  aria-hidden="true"
-                  className="logo-red-dot hero-title ml-1 text-5xl font-bold leading-[1.02] sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
-                >
-                  .
-                </span>
-              </div>
-              <div className="mt-2 flex flex-wrap items-end">
+              </span>
+              <span className="mt-2 flex flex-wrap items-end">
                 <TextReveal
-                  as="h1"
+                  as="span"
                   splitBy="word"
                   delay={0.4}
                   staggerDelay={0.06}
-                  className="hero-title text-5xl font-bold leading-[1.02] tracking-tight text-gradient-hero text-balance sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
+                  className="hero-title inline-block text-5xl font-bold leading-[1.02] tracking-tight text-gradient-hero text-balance sm:text-6xl lg:text-7xl xl:text-[5.25rem]"
                 >
-                  Klar snabbare med BankID
+                  utan onödig friktion
                 </TextReveal>
                 <span
                   aria-hidden="true"
@@ -173,16 +167,16 @@ export function HeroSection() {
                 >
                   .
                 </span>
-              </div>
-            </div>
+              </span>
+            </h1>
 
             <motion.p
               variants={fadeUp}
               className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg lg:text-xl"
             >
-              Skriv in det du vet, få hjälp att fylla i resten och gå vidare med
-              en trygg flyttanmälan. När flytten är registrerad tar checklista,
-              påminnelser och smarta erbjudanden vid.
+              Samla det viktigaste först, fyll på i lugn takt och gå vidare till
+              flyttanmälan med bättre översikt. Flytt.io hjälper dig från första
+              uppgift till nästa steg.
             </motion.p>
 
             <div className="w-full">
@@ -213,6 +207,14 @@ export function HeroSection() {
               </Button>
             </motion.div>
 
+            <motion.p
+              variants={fadeUp}
+              className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground"
+            >
+              Flytt.io är en privat tjänst som hjälper dig förbereda och
+              genomföra flyttanmälan på ett tydligare sätt.
+            </motion.p>
+
             <div className="mt-5 grid gap-3 sm:mt-6 sm:grid-cols-3">
               {trustItems.map((item, i) => (
                 <MovingBox
@@ -238,14 +240,6 @@ export function HeroSection() {
               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
             >
               <div className="relative overflow-visible">
-                <div className="mb-4 max-w-xs lg:ml-auto lg:text-right">
-                  <Badge
-                    variant="outline"
-                    className="rounded-full border-primary/15 bg-background/85 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm"
-                  >
-                    Flyttkortet hänger kvar som visuell detalj
-                  </Badge>
-                </div>
                 <div className="absolute inset-x-8 -top-10 bottom-8 rounded-[3rem] bg-ring/10 blur-3xl sm:inset-x-12 lg:-left-14 lg:right-4 lg:top-0 lg:bottom-16 xl:-left-24" />
                 <motion.div
                   initial={{ y: -88, opacity: 0.55 }}

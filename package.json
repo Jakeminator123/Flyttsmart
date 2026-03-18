@@ -99,5 +99,8 @@
     "tw-animate-css": "1.3.3",
     "typescript": "^5",
     "typescript-eslint": "^8.56.1"
+  },
+  "volta": {
+    "node": "22.22.0"
   }
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import {
   Accordion,
   AccordionContent,
@@ -61,6 +62,12 @@ const faqStructuredData = createFaqStructuredData(
 )
 
 export function FaqSection() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   return (
     <section
       id="faq"
@@ -116,31 +123,54 @@ export function FaqSection() {
           viewport={{ once: true, margin: "-40px" }}
           variants={stagger}
         >
-          <Accordion type="single" collapsible className="space-y-3">
-            {faqs.map((faq, i) => (
-              <motion.div key={i} variants={fadeUp}>
-                <AccordionItem
-                  value={`item-${i}`}
-                  className="gradient-border moving-box rounded-xl border border-border/50 bg-card/92 px-6 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-primary/8 data-[state=open]:shadow-xl data-[state=open]:shadow-primary/12"
-                >
-                  <AccordionTrigger className="py-5 text-left font-heading font-semibold text-card-foreground hover:no-underline hover:text-primary transition-colors data-[state=open]:text-primary gap-4">
-                    <span className="flex items-center gap-3">
-                      {faq.question}
+          {mounted ? (
+            <Accordion type="single" collapsible className="space-y-3">
+              {faqs.map((faq, i) => (
+                <motion.div key={faq.question} variants={fadeUp}>
+                  <AccordionItem
+                    value={`item-${i}`}
+                    className="gradient-border moving-box rounded-xl border border-border/50 bg-card/92 px-6 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-primary/8 data-[state=open]:shadow-xl data-[state=open]:shadow-primary/12"
+                  >
+                    <AccordionTrigger className="gap-4 py-5 text-left font-heading font-semibold text-card-foreground transition-colors hover:text-primary hover:no-underline data-[state=open]:text-primary">
+                      <span className="flex items-center gap-3">
+                        {faq.question}
+                        <Badge variant="secondary" className="hidden shrink-0 text-xs sm:inline-flex">
+                          {faq.tag}
+                        </Badge>
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-5">
+                      <div className="mb-4 h-px w-full bg-linear-to-r from-primary/15 via-border to-transparent" />
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {faq.answer}
+                      </p>
+                    </AccordionContent>
+                  </AccordionItem>
+                </motion.div>
+              ))}
+            </Accordion>
+          ) : (
+            <div className="space-y-3">
+              {faqs.map((faq) => (
+                <motion.div key={faq.question} variants={fadeUp}>
+                  <div className="rounded-xl border border-border/50 bg-card/92 px-6 py-5 backdrop-blur-sm">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-heading font-semibold text-card-foreground">
+                        {faq.question}
+                      </h3>
                       <Badge variant="secondary" className="hidden shrink-0 text-xs sm:inline-flex">
                         {faq.tag}
                       </Badge>
-                    </span>
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-5">
-                    <div className="mb-4 h-px w-full bg-linear-to-r from-primary/15 via-border to-transparent" />
+                    </div>
+                    <div className="my-4 h-px w-full bg-linear-to-r from-primary/15 via-border to-transparent" />
                     <p className="text-sm leading-relaxed text-muted-foreground">
                       {faq.answer}
                     </p>
-                  </AccordionContent>
-                </AccordionItem>
-              </motion.div>
-            ))}
-          </Accordion>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </motion.div>
       </div>
     </section>

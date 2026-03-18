@@ -25,12 +25,12 @@ const DID_CLIENT_KEY = process.env.NEXT_PUBLIC_DID_CLIENT_KEY ?? ""
 const DID_AGENT_ID = process.env.NEXT_PUBLIC_DID_AGENT_ID ?? ""
 const DID_BRIDGE_ENABLED = process.env.NEXT_PUBLIC_DID_BRIDGE_ENABLED === "true"
 const AIDA_FALLBACK_VIDEO_SRC = "/media/videos/aida-intro.mp4"
-const AIDA_AUTO_GREETING = "Hej, jag hjälper gärna till med flytten."
+const AIDA_AUTO_GREETING = "Hej, jag hjälper dig gärna att komma igång med flytten."
 
 const QUICK_EXAMPLES = [
-  "19900101-1234",
-  "Vi flyttar 1 juni till Malmö",
-  "Ny adress blir Storgatan 12 i Göteborg",
+  "Jag flyttar den 1 juni",
+  "Min nya adress blir Storgatan 12 i Göteborg",
+  "Hjälp mig komma igång med flyttanmälan",
 ]
 
 type ConnectionState = "idle" | "connecting" | "connected" | "error" | "unavailable"
@@ -123,7 +123,7 @@ export function EmbeddedLandingAida() {
       id: "welcome",
       role: "assistant",
       content:
-        "Hej, jag är Aida. Skriv personnummer eller det du vet om flytten, så plockar jag ut det som går och guidar dig vidare.",
+        "Hej, jag är Aida. Berätta det du redan vet om flytten, så hjälper jag dig att samla det viktigaste och ta nästa steg.",
     },
   ])
 
@@ -166,7 +166,7 @@ export function EmbeddedLandingAida() {
           ? "Textläge"
           : connectionState === "unavailable"
             ? "Textläge"
-            : "Viloläge"
+            : "Textläge"
 
   const stateDotClass =
     connectionState === "connected"
@@ -511,11 +511,11 @@ export function EmbeddedLandingAida() {
   }, [])
 
   return (
-    <div className="mt-8 w-full rounded-[36px] border border-border/70 bg-card/90 p-3 shadow-2xl shadow-primary/10 backdrop-blur sm:p-4 lg:p-5">
+    <div className="mt-8 w-full rounded-[36px] border border-border/70 bg-card/92 p-3 shadow-[0_32px_80px_-40px_rgba(26,26,46,0.38)] backdrop-blur sm:p-4 lg:p-5">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.95fr)]">
         <div className="flex min-w-0 flex-col overflow-hidden rounded-[30px] border border-border/60 bg-background/78">
           <div className="overflow-hidden border-b border-border/50 bg-linear-to-b from-slate-950 via-slate-900 to-slate-950">
-            <div className="relative h-[220px] bg-black sm:h-[250px] xl:h-[300px]">
+            <div className="relative h-[200px] bg-black sm:h-[220px] xl:h-[260px]">
               <video
                 ref={(el) => {
                   panelVideoRef.current = el
@@ -545,7 +545,7 @@ export function EmbeddedLandingAida() {
                   video.muted = true
                   void video.play().catch(() => {})
                 }}
-                className="h-full w-full object-contain object-top"
+                className="h-full w-full object-cover object-top"
               />
               {!avatarReady && (
                 <div className="pointer-events-none absolute left-4 top-4">
@@ -566,8 +566,8 @@ export function EmbeddedLandingAida() {
                 </div>
                 <p className="max-w-xl text-xs leading-relaxed text-white/75">
                   {connectionState === "error"
-                    ? "Liveströmmen är inte tillgänglig just nu. Aida fungerar i textläge."
-                    : "D-ID ger Aida närvaro i hero-ytan. Om liveströmmen inte hinner upp direkt visar vi hennes videobas medan OpenClaw fortsätter driva förståelsen och svaren."}
+                    ? "Röstläget är inte tillgängligt just nu. Aida fungerar fortfarande i text."
+                    : "Du kan skriva direkt till Aida redan nu. När röstläget finns tillgängligt kan du aktivera det här."}
                 </p>
               </div>
               {didAvailable ? (
@@ -584,7 +584,7 @@ export function EmbeddedLandingAida() {
                 </Button>
               ) : (
                 <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/75">
-                  D-ID är inte aktivt just nu. Aida fungerar fortfarande i textläge.
+                  Röstläget är inte aktivt just nu. Aida fungerar fortfarande i text.
                 </div>
               )}
             </div>
@@ -592,10 +592,10 @@ export function EmbeddedLandingAida() {
 
           <div className="flex min-h-[440px] flex-1 flex-col bg-background/82">
             <div className="border-b border-border/50 bg-linear-to-r from-primary/10 via-primary/5 to-transparent px-4 py-4">
-              <p className="text-sm font-semibold text-foreground">Prata med Aida</p>
+              <p className="text-sm font-semibold text-foreground">Beskriv din flytt</p>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Skriv personnummer eller fri text. Det du berättar här kan samtidigt
-                fylla på formulärstarten till höger.
+                Skriv det du vet, till exempel datum, ny adress eller vilka
+                uppgifter du vill ha hjälp med.
               </p>
             </div>
 
@@ -669,12 +669,12 @@ export function EmbeddedLandingAida() {
                 <Textarea
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
-                  placeholder='Skriv t.ex. "19900101-1234" eller "Vi flyttar 1 juni till Malmö"'
+                  placeholder='Skriv till exempel: "Jag flyttar 1 juni till Malmö"'
                   className="min-h-24 rounded-2xl border-border/70 bg-background/85 px-4 py-3 text-base"
                   disabled={thinking}
                 />
 
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center gap-2">
                     {sttSupported && (
                       <Button
@@ -689,21 +689,21 @@ export function EmbeddedLandingAida() {
                       </Button>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Aida kan läsa det du redan vet och lotsa dig vidare steg för steg.
+                      Aida plockar ut relevanta uppgifter och förbereder nästa steg åt dig.
                     </p>
                   </div>
 
                   <Button
                     type="submit"
                     disabled={!input.trim() || thinking}
-                    className="rounded-xl md:min-w-44"
+                    className="rounded-xl lg:min-w-44"
                   >
                     {thinking ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                       <Sparkles className="mr-2 h-4 w-4" />
                     )}
-                    Skicka till Aida
+                    Skicka
                   </Button>
                 </div>
               </form>

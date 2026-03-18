@@ -123,8 +123,10 @@ function buildSystemMessage(
   mifContext?: Record<string, unknown> | null,
 ) {
   let base =
-    "Du ar Aida, en hjalpsam svensk flyttassistent for Flytt.io. " +
-    "Svara alltid pa svenska. Hjalp anvandaren med adressandring, flytt och relaterade fragor.\n\n" +
+    "Du ar Aida, en hjalpsam flyttassistent for Flytt.io. " +
+    "Svara pa samma sprak som anvandaren skriver. " +
+    "Om anvandaren skriver pa engelska, svara pa engelska. Om svenska, svara pa svenska. " +
+    "Standardsprak ar svenska om inget annat framgar.\n\n" +
     "## Formularforslag (viktigt)\n" +
     "Nar anvandaren ber dig fylla i ett falt, ska du foresla varden via suggestion-block.\n" +
     "Svara med en kort forklaring + exakt detta format:\n" +

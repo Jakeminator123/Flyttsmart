@@ -41,6 +41,7 @@ import { Logo } from "@/components/logo";
 import { AdressandringStepOneFields } from "@/components/forms/adressandring-step-one-fields";
 import type { ChecklistItem } from "@/components/checklist-view";
 import { OpenClawChatWidget } from "@/components/openclaw-chat-widget";
+import { DidOpenClawBridgeWidget } from "@/components/did-openclaw-bridge-widget";
 import { useOpenClawMirror } from "@/hooks/use-openclaw-mirror";
 import { useAutofill } from "@/hooks/use-autofill";
 import {
@@ -1074,15 +1075,20 @@ export default function AdressandringPage() {
         </Card>
       </main>
 
-      {/* OpenClaw chat widget */}
-      <OpenClawChatWidget
-        formType="adressandring"
-        formData={form as unknown as Record<string, string | boolean | number>}
-        currentStep={currentStep}
-        onSuggestion={(field, value) => {
-          queueSuggestion(field as keyof AdressandringFormData, value, "openclaw");
-        }}
-      />
+      {/* D-ID voice+video agent (primary when MERGE_OC_DID is on) */}
+      <DidOpenClawBridgeWidget />
+
+      {/* OpenClaw text chat (hidden when D-ID bridge takes over) */}
+      {process.env.NEXT_PUBLIC_MERGE_OC_DID !== "y" && (
+        <OpenClawChatWidget
+          formType="adressandring"
+          formData={form as unknown as Record<string, string | boolean | number>}
+          currentStep={currentStep}
+          onSuggestion={(field, value) => {
+            queueSuggestion(field as keyof AdressandringFormData, value, "openclaw");
+          }}
+        />
+      )}
     </div>
   );
 }

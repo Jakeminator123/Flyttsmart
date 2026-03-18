@@ -315,10 +315,7 @@ export function EmbeddedLandingAida() {
 
     const warmup = () => {
       autoConnectRequestedRef.current = true
-      void (async () => {
-        await initAgent()
-        await connectStream()
-      })()
+      void initAgent()
     }
 
     const timeoutId = window.setTimeout(warmup, 120)
@@ -326,7 +323,7 @@ export function EmbeddedLandingAida() {
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [connectStream, didAvailable, initAgent])
+  }, [didAvailable, initAgent])
 
   useEffect(() => {
     if (

@@ -82,6 +82,7 @@ function MovingBox({
         const r = el.getBoundingClientRect()
         const nx = (e.clientX - r.left) / r.width - 0.5
         const ny = (e.clientY - r.top) / r.height - 0.5
+        el.style.willChange = "transform"
         el.style.transform =
           `perspective(800px) rotateX(${ny * -intensity}deg) rotateY(${nx * intensity}deg) translateY(-4px)`
       })
@@ -92,7 +93,10 @@ function MovingBox({
   const onLeave = useCallback(() => {
     if (!canTrack.current) return
     cancelAnimationFrame(raf.current)
-    if (ref.current) ref.current.style.transform = ""
+    if (ref.current) {
+      ref.current.style.transform = ""
+      ref.current.style.willChange = "auto"
+    }
   }, [])
 
   return (

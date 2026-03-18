@@ -125,6 +125,7 @@ const QUICK_PROMPTS = [
 ];
 
 const AIDA_PLACEHOLDER_SRC = "/media/images/aida-placeholder.svg";
+const AIDA_FALLBACK_VIDEO_SRC = "/media/videos/aida-intro.mp4";
 const AIDA_CONNECT_CTA_DELAY_MS = 8000;
 const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 
@@ -220,11 +221,13 @@ export function DidOpenClawBridgeWidget() {
   const lastFieldValuesRef = useRef<Map<string, string>>(new Map());
   const lastFieldTimesRef = useRef<Map<string, number>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const sttLangRef = useRef("sv-SE");
   const didStreamCtx = useDIDStream();
 
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [open, setOpen] = useState(false);
   const [listening, setListening] = useState(false);
+  const [sttLang, setSttLang] = useState<"sv-SE" | "en-US">("sv-SE");
   const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -279,6 +282,10 @@ export function DidOpenClawBridgeWidget() {
   }, []);
 
   useEffect(() => {
+    sttLangRef.current = sttLang;
+  }, [sttLang]);
+
+  useEffect(() => {
     const syncMiniMif = () => setMiniMifContext(readMiniMifContext());
     syncMiniMif();
     window.addEventListener(MINI_MIF_EVENT, syncMiniMif as EventListener);
@@ -319,16 +326,27 @@ export function DidOpenClawBridgeWidget() {
     connectInFlightRef.current = true;
     setConnectionState("connecting");
 
-    try {
-      await agentRef.current.connect();
-      setConnectionState("connected");
-      resetIdleTimer();
-    } catch (err) {
-      console.error("[DID SDK] connect error:", err);
-      setConnectionState("error");
-    } finally {
-      connectInFlightRef.current = false;
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        await agentRef.current.connect();
+        setConnectionState("connected");
+        resetIdleTimer();
+        connectInFlightRef.current = false;
+        return;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const isMaxSessions = msg.includes("Max user sessions");
+        if (isMaxSessions && attempt < MAX_RETRIES - 1) {
+          console.warn(`[DID SDK] max sessions hit, retrying in ${(attempt + 1) * 3}s...`);
+          await new Promise((r) => setTimeout(r, (attempt + 1) * 3000));
+          continue;
+        }
+        console.error("[DID SDK] connect error:", err);
+        setConnectionState("error");
+      }
     }
+    connectInFlightRef.current = false;
   }, [connectionState, resetIdleTimer]);
 
   const initAgent = useCallback(async () => {
@@ -404,13 +422,7 @@ export function DidOpenClawBridgeWidget() {
     if (!DID_BRIDGE_ENABLED || !DID_CLIENT_KEY || !DID_AGENT_ID) return;
 
     const warmup = () => {
-      void (async () => {
-        await initAgent();
-        if (!autoConnectRequestedRef.current && agentRef.current) {
-          autoConnectRequestedRef.current = true;
-          void connectStream();
-        }
-      })();
+      void initAgent();
     };
 
     const idleWindow = window as Window & {
@@ -434,7 +446,7 @@ export function DidOpenClawBridgeWidget() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [connectStream, initAgent]);
+  }, [initAgent]);
 
   useEffect(() => {
     return () => { void disconnectAgent(); };
@@ -549,6 +561,9 @@ export function DidOpenClawBridgeWidget() {
     }
   }, [thinking, connectionState, connectStream, resetIdleTimer]);
 
+  const sttSilenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sttAccumulatedRef = useRef("");
+
   const startListening = useCallback(() => {
     const SpeechRec = getSpeechRecognition();
     if (!SpeechRec) return;
@@ -556,23 +571,42 @@ export function DidOpenClawBridgeWidget() {
     if (recognitionRef.current) {
       recognitionRef.current.abort();
     }
+    sttAccumulatedRef.current = "";
+    if (sttSilenceTimerRef.current) clearTimeout(sttSilenceTimerRef.current);
 
     const recognition = new SpeechRec();
-    recognition.lang = "sv-SE";
-    recognition.continuous = false;
+    recognition.lang = sttLangRef.current;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => setListening(true);
 
     recognition.onresult = (event: any) => {
-      const result = event.results[event.results.length - 1];
-      const text = result[0].transcript;
-      setInterimTranscript(text);
-
-      if (result.isFinal && text.trim()) {
-        void handleSendMessage(text.trim());
+      let finalText = "";
+      let interimText = "";
+      for (let i = 0; i < event.results.length; i++) {
+        const r = event.results[i];
+        if (r.isFinal) {
+          finalText += r[0].transcript;
+        } else {
+          interimText += r[0].transcript;
+        }
       }
+
+      if (finalText) {
+        sttAccumulatedRef.current = finalText;
+      }
+      setInterimTranscript(finalText + interimText);
+
+      if (sttSilenceTimerRef.current) clearTimeout(sttSilenceTimerRef.current);
+      sttSilenceTimerRef.current = setTimeout(() => {
+        const toSend = sttAccumulatedRef.current.trim() || (finalText + interimText).trim();
+        if (toSend) {
+          recognition.abort();
+          void handleSendMessage(toSend);
+        }
+      }, 1800);
     };
 
     recognition.onerror = (event: any) => {
@@ -593,10 +627,16 @@ export function DidOpenClawBridgeWidget() {
   }, [handleSendMessage]);
 
   const stopListening = useCallback(() => {
+    if (sttSilenceTimerRef.current) clearTimeout(sttSilenceTimerRef.current);
+    const pending = sttAccumulatedRef.current.trim();
     recognitionRef.current?.abort();
+    sttAccumulatedRef.current = "";
     setListening(false);
     setInterimTranscript("");
-  }, []);
+    if (pending) {
+      void handleSendMessage(pending);
+    }
+  }, [handleSendMessage]);
 
   const handleSendEmail = useCallback(async (msgId: string, emailReq: EmailRequestBlock) => {
     const toAddress = emailOverrideTo.trim() || emailReq.to;
@@ -667,7 +707,8 @@ export function DidOpenClawBridgeWidget() {
   const handleClose = useCallback(() => {
     setOpen(false);
     stopListening();
-  }, [stopListening]);
+    void disconnectAgent();
+  }, [stopListening, disconnectAgent]);
 
   const handleTextSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -801,24 +842,21 @@ export function DidOpenClawBridgeWidget() {
           aria-label="Öppna Aida guide"
         >
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-border/50 bg-[#0c1425]">
-            {avatarReady ? (
-              <video
-                ref={badgeVideoRef}
-                autoPlay
-                playsInline
-                poster={AIDA_PLACEHOLDER_SRC}
-                muted={connectionState !== "connected"}
-                onLoadedMetadata={(e) => {
-                  if (connectionState === "connected" || srcObjectRef.current) {
-                    setAvatarReady(true);
-                  }
-                  void (e.currentTarget as HTMLVideoElement).play().catch(() => {});
-                }}
-                className="h-full w-full object-cover object-top"
-              />
-            ) : (
-              <AidaPortrait className="h-full w-full" imageClassName="object-cover object-top" />
-            )}
+            <video
+              ref={badgeVideoRef}
+              autoPlay
+              playsInline
+              loop
+              muted
+              src={srcObjectRef.current ? undefined : AIDA_FALLBACK_VIDEO_SRC}
+              onLoadedMetadata={(e) => {
+                if (connectionState === "connected" || srcObjectRef.current) {
+                  setAvatarReady(true);
+                }
+                void (e.currentTarget as HTMLVideoElement).play().catch(() => {});
+              }}
+              className="h-full w-full object-cover object-top"
+            />
           </div>
           <div className="min-w-0 text-left">
             <p className="text-[12px] font-semibold text-foreground leading-tight">Aida guide</p>
@@ -850,22 +888,33 @@ export function DidOpenClawBridgeWidget() {
             {stateLabel}
           </span>
         </div>
-        <button
-          onClick={handleClose}
-          className="rounded-xl p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
-          aria-label="Stäng"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setSttLang((l) => l === "sv-SE" ? "en-US" : "sv-SE")}
+            className="rounded-lg px-2 py-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+            aria-label="Byt språk"
+            title={sttLang === "sv-SE" ? "Switch to English" : "Byt till svenska"}
+          >
+            {sttLang === "sv-SE" ? "SV" : "EN"}
+          </button>
+          <button
+            onClick={handleClose}
+            className="rounded-xl p-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+            aria-label="Stäng"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
       </div>
 
-      <div className="relative h-[220px] shrink-0 bg-black sm:h-[260px]">
+      <div className="relative h-[220px] shrink-0 bg-[#0c1425] sm:h-[260px]">
         <video
           ref={panelVideoRef}
           autoPlay
           playsInline
-          poster={AIDA_PLACEHOLDER_SRC}
+          loop
           muted={connectionState !== "connected"}
+          src={srcObjectRef.current ? undefined : AIDA_FALLBACK_VIDEO_SRC}
           onLoadedMetadata={(e) => {
             if (connectionState === "connected" || srcObjectRef.current) {
               setAvatarReady(true);
@@ -876,12 +925,7 @@ export function DidOpenClawBridgeWidget() {
         />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-black/40 to-transparent" />
         {connectionState !== "connected" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-linear-to-b from-gray-800/90 to-gray-900/95 text-center text-white/90">
-            <AidaPortrait
-              alt=""
-              className="h-16 w-16 rounded-2xl border border-white/10 bg-white/10 backdrop-blur"
-              imageClassName="object-cover object-top"
-            />
+          <div className="absolute inset-0 flex flex-col items-center justify-end pb-4 gap-2 bg-linear-to-t from-[#0c1425]/90 via-transparent to-transparent text-center text-white/90">
             <div className="flex items-center gap-2">
               <span className={cn("h-2 w-2 rounded-full", stateDotClass)} />
               <span className="text-xs font-medium">

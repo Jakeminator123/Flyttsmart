@@ -204,7 +204,6 @@ html.lenis, html.lenis body {
 
 .lively-word {
   animation: word-breathe-20s 20s ease-in-out infinite;
-  will-change: transform;
 }
 
 @keyframes person-drift-20s {
@@ -240,13 +239,11 @@ html.lenis, html.lenis body {
 .person-image-drift {
   animation: person-drift-20s 20s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   transform-origin: center;
-  will-change: transform;
 }
 
 .person-image-drift-alt {
   animation: person-drift-alt-20s 20s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   transform-origin: center;
-  will-change: transform;
 }
 
 @keyframes hero-wordmark-drift {
@@ -274,7 +271,6 @@ html.lenis, html.lenis body {
 .hero-title {
   font-family: var(--font-heading), "Playfair Display", "DM Sans", system-ui, sans-serif;
   letter-spacing: -0.03em;
-  will-change: transform;
   text-shadow: 0 1px 1px oklch(0 0 0 / 0.08);
 }
 
@@ -340,8 +336,9 @@ html.lenis, html.lenis body {
   content: '';
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.5;
+  filter: blur(40px);
+  opacity: 0.4;
+  contain: strict;
 }
 
 .hero-mesh::before {
@@ -369,10 +366,11 @@ html.lenis, html.lenis body {
   width: 40%;
   height: 40%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgb(126 232 162 / 0.18) 0%, transparent 70%);
-  filter: blur(60px);
+  background: radial-gradient(circle, rgb(126 232 162 / 0.14) 0%, transparent 70%);
+  filter: blur(35px);
   animation: mesh-move-3 22s ease-in-out infinite;
   pointer-events: none;
+  contain: strict;
 }
 
 /* ────────────────────────────────────────
@@ -382,27 +380,30 @@ html.lenis, html.lenis body {
   position: absolute;
   border-radius: 50%;
   background: radial-gradient(circle, rgb(26 26 46 / 0.14) 0%, transparent 70%);
-  filter: blur(60px);
+  filter: blur(35px);
   animation: mesh-move-1 30s ease-in-out infinite;
   pointer-events: none;
+  contain: strict;
 }
 
 .section-orb-2 {
   position: absolute;
   border-radius: 50%;
   background: radial-gradient(circle, rgb(35 89 113 / 0.14) 0%, transparent 70%);
-  filter: blur(60px);
+  filter: blur(35px);
   animation: mesh-move-2 35s ease-in-out infinite;
   pointer-events: none;
+  contain: strict;
 }
 
 .section-orb-accent {
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(circle, rgb(126 232 162 / 0.14) 0%, transparent 70%);
-  filter: blur(50px);
+  background: radial-gradient(circle, rgb(126 232 162 / 0.12) 0%, transparent 70%);
+  filter: blur(30px);
   animation: mesh-move-3 28s ease-in-out infinite;
   pointer-events: none;
+  contain: strict;
 }
 
 .dark .section-orb-1 {
@@ -582,6 +583,7 @@ html.lenis, html.lenis body {
   background-repeat: repeat;
   background-size: 256px 256px;
   opacity: 0.6;
+  contain: strict;
 }
 
 /* ────────────────────────────────────────
@@ -709,7 +711,7 @@ html.lenis, html.lenis body {
 .moving-box {
   position: relative;
   transform-style: preserve-3d;
-  will-change: transform;
+  will-change: auto;
   transform: perspective(800px) rotateX(0deg) rotateY(0deg) translateY(0);
   transition:
     transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
@@ -717,6 +719,7 @@ html.lenis, html.lenis body {
 }
 
 .moving-box:hover {
+  will-change: transform;
   box-shadow:
     0 24px 48px -18px rgba(152, 130, 104, 0.18),
     0 8px 18px -8px rgba(152, 130, 104, 0.08);
@@ -957,7 +960,6 @@ html.lenis, html.lenis body {
 .aida-flip-card {
   position: relative;
   transform-style: preserve-3d;
-  will-change: transform;
 }
 
 .aida-flip-face {

@@ -148,6 +148,7 @@ export function EmbeddedLandingAida() {
   }, [])
 
   useEffect(() => {
+    if (messages.length <= 1 && !interimTranscript && !thinking) return
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, interimTranscript, thinking])
 

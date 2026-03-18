@@ -416,6 +416,15 @@ function Band({
               drag(new THREE.Vector3().copy(e.point).sub(vec));
             }}
           >
+            <mesh position={[0, 0, 0]}>
+              <boxGeometry args={[0.92, 1.22, 0.22]} />
+              <meshBasicMaterial
+                transparent
+                opacity={0}
+                depthWrite={false}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
             <FallbackCard isMobile={isMobile} frontTex={customCardTexture} backTex={resolvedBackTex} />
           </group>
         </RigidBody>

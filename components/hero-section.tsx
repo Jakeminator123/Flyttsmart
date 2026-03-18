@@ -148,7 +148,7 @@ export function HeroSection() {
       <div className="relative mx-auto max-w-7xl px-4 pt-24 pb-16 sm:pt-28 lg:px-8 lg:pt-28 lg:pb-20">
         <div className="flex flex-col gap-10 lg:gap-12">
           <motion.div
-            className="relative z-20 flex w-full min-w-0 flex-col items-start lg:max-w-[60%] xl:max-w-[56%]"
+            className="pointer-events-none relative z-20 flex w-full min-w-0 flex-col items-start lg:max-w-[60%] xl:max-w-[56%]"
             initial="hidden"
             animate="visible"
             variants={{ visible: { transition: { staggerChildren: 0.12 } } }}
@@ -202,13 +202,13 @@ export function HeroSection() {
               uppgift till nästa steg.
             </motion.p>
 
-            <div className="w-full">
+            <div className="pointer-events-auto w-full">
               <EmbeddedLandingAida />
             </div>
 
             <motion.div
               variants={fadeUp}
-              className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center"
+              className="pointer-events-auto mt-5 flex flex-col gap-3 sm:flex-row sm:items-center"
             >
               <Button
                 asChild
